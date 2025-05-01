@@ -6,7 +6,7 @@ fn main() {
         slint_build::CompilerConfiguration::new()
             .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer)
             .with_sdf_fonts(true)
-            .with_scale_factor(2.0),
+            .with_scale_factor(1.0),
     )
     .unwrap();
 }
