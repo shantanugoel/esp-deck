@@ -6,6 +6,7 @@ export component MainWindow inherits Window {
     in-out property <string> fact: "";
     callback update-fact();
     in-out property <string> current_time: "00:00";
+    in-out property <string> wifi_symbol: "📶";
     VerticalLayout {
         padding: 5px;
         spacing: 5px;
@@ -13,9 +14,8 @@ export component MainWindow inherits Window {
             alignment: end;
             height: 30px;
             spacing: 10px;
-            Image {
-                width: 24px;
-                height: 24px;
+            Text {
+                text: root.wifi_symbol;
                 vertical-alignment: center;
             }
 
@@ -27,6 +27,7 @@ export component MainWindow inherits Window {
         }
 
         GridLayout {
+            spacing: 5px;
             Row {
                 Button {
                     text: "Button 1";
