@@ -1,7 +1,7 @@
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
-    hal::peripherals::Peripherals,
+    hal::modem::Modem,
     nvs::EspDefaultNvsPartition,
     timer::EspTaskTimerService,
     wifi::{AsyncWifi, EspWifi},
@@ -17,13 +17,13 @@ pub struct Wifi {
 
 impl Wifi {
     pub async fn init(
-        peripherals: Peripherals,
+        modem: Modem,
         sys_loop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         timer_service: EspTaskTimerService,
     ) -> Result<Self> {
         let wifi_driver = AsyncWifi::wrap(
-            EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
+            EspWifi::new(modem, sys_loop.clone(), Some(nvs))?,
             sys_loop,
             timer_service,
         )?;
