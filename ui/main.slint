@@ -1,104 +1,219 @@
-import { Button } from "std-widgets.slint";
+import { StyledButton } from "./styled_button.slint";
 
 export component MainWindow inherits Window {
+    // --- Theme Colors ---
+    property <color> color-background: #1e1e1e;       // Dark background
+    property <color> color-text: #eeeeee;              // Light text
+    property <color> color-text-muted: #aaaaaa;        // Muted text (e.g., time)
+    property <color> color-accent: #007acc;           // Accent color (e.g., button hover/focus)
+    property <color> color-button: #333333;            // Button background
+    property <color> color-button-text: #eeeeee;       // Button text
+    property <length> button-border-radius: 8px;
+    property <length> button-min-height: 50px;
     width: 800px;
     height: 480px;
+    background: color-background; // Apply main background color
+
     in-out property <string> fact: "";
     callback update-fact();
     in-out property <string> current_time: "00:00";
     in-out property <string> wifi_symbol: "🛜❌";
     VerticalLayout {
-        padding: 5px;
-        spacing: 5px;
+        padding: 15px;
+        spacing: 10px;
+
+        // --- Header ---
         HorizontalLayout {
             alignment: end;
             height: 30px;
-            spacing: 10px;
+            spacing: 15px;
+
+            // Wifi Symbol
             Text {
                 text: root.wifi_symbol;
                 vertical-alignment: center;
+                color: root.color-text;
             }
 
+            // Time display
             Text {
                 text: root.current_time;
                 vertical-alignment: center;
                 horizontal-alignment: right;
+                color: root.color-text-muted;
             }
         }
 
+        // --- Button Grid ---
         GridLayout {
-            spacing: 5px;
+            spacing: 10px;
             Row {
-                Button {
+                StyledButton {
                     text: "Button 1";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 2";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 3";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 4";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
             }
 
             Row {
-                Button {
+                StyledButton {
                     text: "Button 5";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 6";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 7";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 8";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
             }
 
             Row {
-                Button {
+                StyledButton {
                     text: "Button 9";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 10";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 11";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 12";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
             }
 
             Row {
-                Button {
+                StyledButton {
                     text: "Button 13";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 14";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 15";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
 
-                Button {
+                StyledButton {
                     text: "Button 16";
+                    button-min-height: root.button-min-height;
+                    base-background: root.color-button;
+                    text-color: root.color-button-text;
+                    border-radius: root.button-border-radius;
+                    hover-background: color-accent;
+                    pressed-background: color-accent;
                 }
             }
         }
-    }
+    } // End VerticalLayout
 }
