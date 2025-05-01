@@ -1,0 +1,32 @@
+[package]
+name = "esp-deck"
+version = "0.1.0"
+authors = ["Shantanu Goel <shantanu.goel@gmail.com>"]
+edition = "2021"
+resolver = "2"
+
+[[bin]]
+name = "esp-deck"
+harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
+
+[profile.release]
+opt-level = "s"
+
+[profile.dev]
+debug = true    # Symbols are nice and they don't increase the size on Flash
+opt-level = "z"
+
+[features]
+default = []
+
+experimental = ["esp-idf-svc/experimental"]
+
+[dependencies]
+log = { version = "0.4", default-features = false }
+esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
+embedded-svc = {version = "0.28", default-features = false }
+anyhow = "1"
+toml-cfg = "0.2"
+
+[build-dependencies]
+embuild = "0.33"
