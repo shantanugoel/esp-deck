@@ -1,25 +1,103 @@
-import { AboutSlint, VerticalBox, Button, ProgressIndicator } from "std-widgets.slint";
+import { Button } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
+    width: 800px;
+    height: 480px;
     in-out property <string> fact: "";
     callback update-fact();
-    VerticalBox {
-        Text {
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            text: fact;
-            wrap: word-wrap;
-        }
+    in-out property <string> current_time: "00:00";
+    VerticalLayout {
+        padding: 5px;
+        spacing: 5px;
+        HorizontalLayout {
+            alignment: end;
+            height: 30px;
+            spacing: 10px;
+            Image {
+                width: 24px;
+                height: 24px;
+                vertical-alignment: center;
+            }
 
-        Button {
-            text: "Click me to see next fact!";
-            clicked => {
-                root.update-fact();
+            Text {
+                text: root.current_time;
+                vertical-alignment: center;
+                horizontal-alignment: right;
             }
         }
 
-        ProgressIndicator {
-            indeterminate: true;
+        GridLayout {
+            Row {
+                Button {
+                    text: "Button 1";
+                }
+
+                Button {
+                    text: "Button 2";
+                }
+
+                Button {
+                    text: "Button 3";
+                }
+
+                Button {
+                    text: "Button 4";
+                }
+            }
+
+            Row {
+                Button {
+                    text: "Button 5";
+                }
+
+                Button {
+                    text: "Button 6";
+                }
+
+                Button {
+                    text: "Button 7";
+                }
+
+                Button {
+                    text: "Button 8";
+                }
+            }
+
+            Row {
+                Button {
+                    text: "Button 9";
+                }
+
+                Button {
+                    text: "Button 10";
+                }
+
+                Button {
+                    text: "Button 11";
+                }
+
+                Button {
+                    text: "Button 12";
+                }
+            }
+
+            Row {
+                Button {
+                    text: "Button 13";
+                }
+
+                Button {
+                    text: "Button 14";
+                }
+
+                Button {
+                    text: "Button 15";
+                }
+
+                Button {
+                    text: "Button 16";
+                }
+            }
         }
     }
 }
