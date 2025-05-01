@@ -1,0 +1,34 @@
+export component StyledButton inherits TouchArea {
+    // Properties passed from the outside
+    in property <string> text: "";
+    in property <color> base-background: #333333;
+    in property <color> hover-background: #444444;
+    in property <color> pressed-background: #555555;
+    in property <color> text-color: #eeeeee;
+    in property <length> border-radius: 8px;
+    in property <length> button-min-height: 50px;
+
+    // Internal state for background color
+    out property <color> current-background: {
+        // Logic to change color based on state
+        if (self.pressed) {
+            pressed-background
+        } else if (self.has-hover) {
+            hover-background
+        } else {
+            base-background
+        }
+    }
+    height: button-min-height;
+    Rectangle {
+        background: current-background; // Use the stateful background
+        border-radius: root.border-radius;
+        border-width: 0px;
+        Text {
+            text: root.text;
+            color: root.text-color;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}
