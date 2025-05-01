@@ -6,7 +6,6 @@ export component StyledButton inherits TouchArea {
     in property <color> pressed-background: #555555;
     in property <color> text-color: #eeeeee;
     in property <length> border-radius: 8px;
-    in property <length> button-min-height: 50px;
 
     // Internal state for background color
     out property <color> current-background: {
@@ -19,7 +18,6 @@ export component StyledButton inherits TouchArea {
             base-background
         }
     }
-    height: button-min-height;
     Rectangle {
         background: current-background; // Use the stateful background
         border-radius: root.border-radius;
