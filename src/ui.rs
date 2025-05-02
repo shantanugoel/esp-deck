@@ -52,6 +52,7 @@ fn handle_events(
 ) {
     log::info!("Handling events");
     let window = window.upgrade().unwrap();
+    window.set_list_items(status_list_items.into());
     if let Ok(event) = rx.try_recv() {
         match event {
             AppEvent::WifiUpdate(status) => match status {

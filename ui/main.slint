@@ -50,14 +50,13 @@ export component MainWindow inherits Window {
         }
 
         // --- Main Content Container ---
-        VerticalLayout {
+        if !root.show-list-view: VerticalLayout {
             // This container stretches vertically
             vertical-stretch: 1;
             horizontal-stretch: 1;
 
             // View 1: Button Grid
             GridLayout {
-                visible: !root.show-list-view;
                 width: 100%;
                 height: 100%;
                 spacing: 10px;
@@ -214,10 +213,13 @@ export component MainWindow inherits Window {
                     }
                 }
             }
+        }
 
             // View 2: List View
+        if root.show-list-view: VerticalLayout {
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
             ScrollView {
-                visible: root.show-list-view;
                 width: 100%;
                 height: 100%;
                 VerticalLayout {
@@ -225,13 +227,15 @@ export component MainWindow inherits Window {
                     padding: 10px;
                     for item[idx] in root.list-items: Text {
                         text: "{idx+1}: {item}";
+                        horizontal-alignment: left;
                         color: root.color-text;
                         wrap: word-wrap;
                     }
                     if root.list-items.length == 0: Text {
-                        text: "(List is empty)";
+                        text: "No updates yet!";
                         color: root.color-text-muted;
                         horizontal-alignment: center;
+                        vertical-alignment: center;
                     }
                 }
             }
