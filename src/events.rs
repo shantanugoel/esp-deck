@@ -11,6 +11,14 @@ pub enum WifiStatus {
 }
 
 #[derive(Debug, Clone)]
+pub enum TimeStatus {
+    Initializing,
+    Synced,
+    Error(String),
+}
+
+#[derive(Debug, Clone)]
 pub enum AppEvent {
     WifiUpdate(WifiStatus),
+    TimeUpdate(TimeStatus),
 }

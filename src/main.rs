@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
         block_on(wifi_driver.connect(APP_CONFIG.wifi_ssid, APP_CONFIG.wifi_password)).unwrap();
 
         // Set up NTP now that wifi is connected
-        let _ = block_on(time::init()).unwrap();
+        let _ = block_on(time::init(tx.clone())).unwrap();
         log::info!("NTP set up");
 
         // Keep the thread alive to preserve resources initialized in this block from being dropped

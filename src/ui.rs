@@ -6,7 +6,7 @@ use std::{sync::mpsc::Receiver, time::Duration};
 
 use crate::{
     bsp::slint_platform,
-    events::{AppEvent, WifiStatus},
+    events::{AppEvent, TimeStatus, WifiStatus},
 };
 
 slint::include_modules!();
@@ -68,8 +68,7 @@ fn handle_events(
         // Process a new event if one is available
         if let Ok(event) = rx.try_recv() {
             // let mut list_updated = false; // Flag removed
-
-            match event {
+            let text = match event {
                 AppEvent::WifiUpdate(status) => {
                     let text = match status {
                         WifiStatus::Initializing => SharedString::from("WiFi: Initializing..."),
@@ -85,14 +84,26 @@ fn handle_events(
                         }
                         WifiStatus::Error(e) => SharedString::from(&format!("WiFi: Error: {}", e)),
                     };
+                    Some(text)
+                }
+                AppEvent::TimeUpdate(status) => {
+                    let text = match status {
+                        TimeStatus::Initializing => SharedString::from("Time: Initializing..."),
+                        TimeStatus::Synced => SharedString::from("Time: Synced"),
+                        TimeStatus::Error(e) => SharedString::from(&format!("Time: Error: {}", e)),
+                    };
+                    Some(text)
+                }
+                _ => None,
+            };
 
-                    log::info!("{}", text);
-                    window.set_status_text(text.clone());
-                    status_list_items.push(text);
-                    // Update list model immediately after modifying the source Vec
-                    let model = (&status_list_items[..]).into();
-                    window.set_list_items(model);
-                } // Add other AppEvent types here if needed
+            if let Some(text) = text {
+                log::info!("{}", text);
+                window.set_status_text(text.clone());
+                status_list_items.push(text);
+                // Update list model immediately after modifying the source Vec
+                let model = (&status_list_items[..]).into();
+                window.set_list_items(model);
             }
         }
     }
@@ -102,12 +113,13 @@ fn update_time(window: &Weak<MainWindow>, tz_offset: f32) {
     let time: DateTime<Utc> = std::time::SystemTime::now().into();
     let seconds_offset = tz_offset * 3600.0;
     let fixed_offset = FixedOffset::east_opt(seconds_offset as i32).unwrap();
-    let time_str = time
-        .with_timezone(&fixed_offset)
-        .format("%H:%M")
-        .to_string();
-    window
-        .upgrade()
-        .unwrap()
-        .set_current_time(SharedString::from(time_str));
+    let time_str = SharedString::from(
+        time.with_timezone(&fixed_offset)
+            .format("%H:%M")
+            .to_string(),
+    );
+    let window = window.upgrade().unwrap();
+    if window.get_current_time() != time_str {
+        window.set_current_time(time_str);
+    }
 }
