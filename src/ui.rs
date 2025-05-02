@@ -50,14 +50,11 @@ fn handle_events(
     rx: &Receiver<AppEvent>,
     status_list_items: &mut Vec<SharedString>,
 ) {
-    // Don't log on every tick unless debugging, can be noisy
-    // log::info!("Handling events");
-
     // Only proceed if the window still exists
     if let Some(window) = window.upgrade() {
         // Process a new event if one is available
         if let Ok(event) = rx.try_recv() {
-            let mut list_updated = false; // Flag to track if we need to update the UI list
+            // let mut list_updated = false; // Flag removed
 
             match event {
                 AppEvent::WifiUpdate(status) => {
@@ -66,32 +63,24 @@ fn handle_events(
                         WifiStatus::Scanning => SharedString::from("WiFi: Scanning..."),
                         WifiStatus::Connecting => SharedString::from("WiFi: Connecting..."),
                         WifiStatus::Connected(ip) => {
-                            // Also update the symbol when connected
                             window.set_wifi_symbol(SharedString::from("🛜"));
                             SharedString::from(&format!("WiFi: Connected to {}", ip))
                         }
                         WifiStatus::Disconnected => {
-                            // Update symbol when disconnected
-                            window.set_wifi_symbol(SharedString::from("🛜❌")); // Assuming this is your disconnected symbol
+                            window.set_wifi_symbol(SharedString::from("🛜❌"));
                             SharedString::from("WiFi: Disconnected")
                         }
                         WifiStatus::Error(e) => SharedString::from(&format!("WiFi: Error: {}", e)),
                     };
 
-                    log::info!("{}", text); // Log the event text
-                    window.set_status_text(text.clone()); // Update the status bar text
-                    status_list_items.push(text); // Add to our local history
-                    list_updated = true; // Mark that the list changed
+                    log::info!("{}", text);
+                    window.set_status_text(text.clone());
+                    status_list_items.push(text);
+                    // Update list model immediately after modifying the source Vec
+                    let model = (&status_list_items[..]).into();
+                    window.set_list_items(model);
                 } // Add other AppEvent types here if needed
             }
-
-            // If we added an item, update the Slint model
-            if list_updated {
-                // Create a ModelRc from a slice of the current Vec
-                let model = (&status_list_items[..]).into();
-                window.set_list_items(model);
-            }
         }
-        // Removed: Incorrect/inefficient set_list_items call was here
     }
 }
