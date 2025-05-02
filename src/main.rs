@@ -1,4 +1,4 @@
-use esp_deck::{bsp::wifi::Wifi, ui::Window};
+use esp_deck::{bsp::wifi::Wifi, events::AppEvent, ui::Window};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     hal::{
@@ -8,7 +8,10 @@ use esp_idf_svc::{
     nvs::EspDefaultNvsPartition,
     timer::EspTaskTimerService,
 };
-use std::thread;
+use std::{
+    sync::mpsc::{self, Receiver, Sender},
+    thread,
+};
 
 #[toml_cfg::toml_config]
 struct AppConfig {
@@ -33,6 +36,8 @@ fn main() -> anyhow::Result<()> {
     let timer_service = EspTaskTimerService::new()?;
     let nvs = EspDefaultNvsPartition::take()?;
 
+    let (tx, rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
+
     // This sets the configuration for the next threads that are spawned
     // I"m using it mainly to set the stack size to 4096
     ThreadSpawnConfiguration {
@@ -43,8 +48,14 @@ fn main() -> anyhow::Result<()> {
     .unwrap();
     let mut threads = Vec::new();
     threads.push(thread::spawn(move || {
-        let mut wifi_driver =
-            block_on(Wifi::init(peripherals.modem, sys_loop, nvs, timer_service)).unwrap();
+        let mut wifi_driver = block_on(Wifi::init(
+            peripherals.modem,
+            sys_loop,
+            nvs,
+            timer_service,
+            tx.clone(),
+        ))
+        .unwrap();
 
         block_on(wifi_driver.connect(APP_CONFIG.wifi_ssid, APP_CONFIG.wifi_password)).unwrap();
     }));
@@ -58,7 +69,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c);
+    let _ = Window::init(touch_i2c, rx);
 
     for thread in threads {
         thread.join().unwrap();

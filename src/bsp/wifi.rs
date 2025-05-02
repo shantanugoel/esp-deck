@@ -9,10 +9,13 @@ use esp_idf_svc::{
 
 use log::info;
 
+use crate::events::{AppEvent, WifiStatus};
 use anyhow::{anyhow, Result};
+use std::sync::mpsc::Sender;
 
 pub struct Wifi {
     wifi_driver: AsyncWifi<EspWifi<'static>>,
+    tx: Sender<AppEvent>,
 }
 
 impl Wifi {
@@ -21,17 +24,20 @@ impl Wifi {
         sys_loop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         timer_service: EspTaskTimerService,
+        tx: Sender<AppEvent>,
     ) -> Result<Self> {
         let wifi_driver = AsyncWifi::wrap(
             EspWifi::new(modem, sys_loop.clone(), Some(nvs))?,
             sys_loop,
             timer_service,
         )?;
+        tx.send(AppEvent::WifiUpdate(WifiStatus::Initializing))?;
 
-        Ok(Self { wifi_driver })
+        Ok(Self { wifi_driver, tx })
     }
 
     pub async fn connect(&mut self, ssid: &str, password: &str) -> Result<()> {
+        self.tx.send(AppEvent::WifiUpdate(WifiStatus::Connecting))?;
         let wifi_config: Configuration = Configuration::Client(ClientConfiguration {
             ssid: ssid.try_into().map_err(|_| anyhow!("Invalid SSID"))?,
             bssid: None,
@@ -50,7 +56,17 @@ impl Wifi {
         self.wifi_driver.connect().await?;
         info!("Connected to WiFi");
 
-        self.wifi_driver.wait_netif_up().await?;
+        match self.wifi_driver.wait_netif_up().await {
+            Ok(_) => {
+                self.tx.send(AppEvent::WifiUpdate(WifiStatus::Connected(
+                    self.wifi_driver.wifi().sta_netif().get_ip_info()?.ip,
+                )))?;
+            }
+            Err(e) => {
+                self.tx
+                    .send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))?;
+            }
+        }
         info!("WiFi interface is up");
 
         loop {

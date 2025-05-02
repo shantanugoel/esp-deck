@@ -1,0 +1,16 @@
+use std::net::Ipv4Addr;
+
+#[derive(Debug, Clone)]
+pub enum WifiStatus {
+    Initializing,
+    Scanning,
+    Connecting,
+    Connected(Ipv4Addr),
+    Disconnected,
+    Error(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum AppEvent {
+    WifiUpdate(WifiStatus),
+}
