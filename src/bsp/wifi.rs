@@ -53,6 +53,12 @@ impl Wifi {
         self.wifi_driver.wait_netif_up().await?;
         info!("WiFi interface is up");
 
-        Ok(())
+        loop {
+            // Infinite loop to keep the thread alive
+            // May add monitoring here later
+            // This wastes thread stack, but it's ok. We may combine this thread
+            // with other inits later to optimize
+            std::thread::sleep(std::time::Duration::from_secs(100));
+        }
     }
 }
