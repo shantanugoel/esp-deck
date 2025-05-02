@@ -225,8 +225,10 @@ export component MainWindow inherits Window {
                 VerticalLayout {
                     spacing: 5px;
                     padding: 10px;
-                    for item[idx] in root.list-items: Text {
-                        text: item;
+                    // Iterate forwards, but access items in reverse using calculated index
+                    for idx in root.list-items.length: Text {
+                        property <int> reverse-idx: root.list-items.length - 1 - idx;
+                        text: root.list-items[reverse-idx]; // Access item by reverse index
                         horizontal-alignment: left;
                         color: root.color-text;
                         wrap: word-wrap;
