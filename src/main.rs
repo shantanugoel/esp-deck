@@ -1,7 +1,10 @@
 use esp_deck::{bsp::wifi::Wifi, ui::Window};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
-    hal::{prelude::*, task::block_on},
+    hal::{
+        prelude::*,
+        task::{block_on, thread::ThreadSpawnConfiguration},
+    },
     nvs::EspDefaultNvsPartition,
     timer::EspTaskTimerService,
 };
@@ -30,6 +33,14 @@ fn main() -> anyhow::Result<()> {
     let timer_service = EspTaskTimerService::new()?;
     let nvs = EspDefaultNvsPartition::take()?;
 
+    // This sets the configuration for the next threads that are spawned
+    // I"m using it mainly to set the stack size to 4096
+    ThreadSpawnConfiguration {
+        stack_size: 4096,
+        ..Default::default()
+    }
+    .set()
+    .unwrap();
     let mut threads = Vec::new();
     threads.push(thread::spawn(move || {
         let mut wifi_driver =
@@ -37,6 +48,8 @@ fn main() -> anyhow::Result<()> {
 
         block_on(wifi_driver.connect(APP_CONFIG.wifi_ssid, APP_CONFIG.wifi_password)).unwrap();
     }));
+    // Set back to default to not influence other threads
+    ThreadSpawnConfiguration::default().set().unwrap();
 
     let touch_i2c = esp_idf_svc::hal::i2c::I2cDriver::new(
         peripherals.i2c0,
