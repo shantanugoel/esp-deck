@@ -9,7 +9,7 @@ use esp_idf_svc::{
 
 use log::info;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 pub struct Wifi {
     wifi_driver: AsyncWifi<EspWifi<'static>>,
@@ -36,7 +36,9 @@ impl Wifi {
             ssid: ssid.try_into().map_err(|_| anyhow!("Invalid SSID"))?,
             bssid: None,
             auth_method: AuthMethod::WPA2Personal,
-            password: password.try_into().map_err(|_| anyhow!("Invalid password"))?,
+            password: password
+                .try_into()
+                .map_err(|_| anyhow!("Invalid password"))?,
             channel: None,
             ..Default::default()
         });
