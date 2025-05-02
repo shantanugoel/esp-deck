@@ -21,11 +21,12 @@ impl Window {
 
         let weak_window = window.as_weak();
         let timer = slint::Timer::default();
+        let mut status_list_items: Vec<SharedString> = Vec::new();
         timer.start(
             slint::TimerMode::Repeated,
             Duration::from_millis(500),
             move || {
-                handle_events(&weak_window, &rx);
+                handle_events(&weak_window, &rx, &mut status_list_items);
             },
         );
 
@@ -44,35 +45,51 @@ fn install_test_callback(window: &MainWindow) {
     });
 }
 
-fn handle_events(window: &Weak<MainWindow>, rx: &Receiver<AppEvent>) {
+fn handle_events(
+    window: &Weak<MainWindow>,
+    rx: &Receiver<AppEvent>,
+    status_list_items: &mut Vec<SharedString>,
+) {
     log::info!("Handling events");
     let window = window.upgrade().unwrap();
     if let Ok(event) = rx.try_recv() {
         match event {
             AppEvent::WifiUpdate(status) => match status {
                 WifiStatus::Initializing => {
-                    window.set_status_text(SharedString::from("Initializing..."));
+                    let text = SharedString::from("WiFi: Initializing...");
+                    window.set_status_text(text.clone());
+                    status_list_items.push(text);
                     log::info!("Initializing...");
                 }
                 WifiStatus::Scanning => {
-                    window.set_status_text(SharedString::from("Scanning..."));
+                    let text = SharedString::from("WiFi: Scanning...");
+                    window.set_status_text(text.clone());
+                    status_list_items.push(text);
                     log::info!("Scanning...");
                 }
                 WifiStatus::Connecting => {
-                    window.set_status_text(SharedString::from("Connecting..."));
+                    let text = SharedString::from("WiFi: Connecting...");
+                    window.set_status_text(text.clone());
+                    status_list_items.push(text);
                     log::info!("Connecting...");
                 }
                 WifiStatus::Connected(ip) => {
-                    window.set_status_text(SharedString::from(&format!("Connected to {}", ip)));
+                    let text = SharedString::from(&format!("WiFi: Connected to {}", ip));
+                    window.set_status_text(text.clone());
                     window.set_wifi_symbol(SharedString::from("🛜"));
+                    status_list_items.push(text);
                     log::info!("Connected to {}", ip);
                 }
                 WifiStatus::Disconnected => {
-                    window.set_status_text(SharedString::from("Disconnected"));
+                    let text = SharedString::from("WiFi: Disconnected");
+                    window.set_status_text(text.clone());
+                    status_list_items.push(text);
                     log::info!("Disconnected");
                 }
                 WifiStatus::Error(e) => {
-                    window.set_status_text(SharedString::from(&format!("Error: {}", e)));
+                    let text = SharedString::from(&format!("WiFi: Error: {}", e));
+                    window.set_status_text(text.clone());
+                    status_list_items.push(text);
                     log::info!("Error: {}", e);
                 }
             },

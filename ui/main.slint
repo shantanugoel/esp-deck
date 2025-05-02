@@ -1,4 +1,5 @@
 import { StyledButton } from "./styled_button.slint";
+import { ScrollView } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     // --- Theme Colors ---
@@ -16,6 +17,8 @@ export component MainWindow inherits Window {
 
     // --- State Properties ---
     in-out property <string> status_text: "Ready"; // Added status text property
+    property <bool> show-list-view: false; // State to toggle views
+    in property <[string]> list-items: []; // Data for the list view
     in-out property <string> fact: "";
     callback update-fact();
     in-out property <string> current_time: "00:00";
@@ -46,161 +49,190 @@ export component MainWindow inherits Window {
             }
         }
 
-        // --- Button Grid ---
-        GridLayout {
-            spacing: 10px;
-            vertical-stretch: 1; // Allow grid to expand vertically
-            horizontal-stretch: 1; // Allow grid to expand horizontally
+        // --- Main Content Container ---
+        VerticalLayout {
+            // This container stretches vertically
+            vertical-stretch: 1;
+            horizontal-stretch: 1;
 
-            Row {
-                StyledButton {
-                    text: "Button 1";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
+            // View 1: Button Grid
+            GridLayout {
+                visible: !root.show-list-view;
+                width: 100%;
+                height: 100%;
+                spacing: 10px;
+                 // --- Rows with buttons --- (remain the same)
+                 Row {
+                    StyledButton {
+                        text: "Button 1";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 2";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 3";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 4";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
                 }
 
-                StyledButton {
-                    text: "Button 2";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
+                Row {
+                    StyledButton {
+                        text: "Button 5";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 6";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 7";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 8";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
                 }
 
-                StyledButton {
-                    text: "Button 3";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
+                Row {
+                    StyledButton {
+                        text: "Button 9";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 10";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 11";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 12";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
                 }
 
-                StyledButton {
-                    text: "Button 4";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
+                Row {
+                    StyledButton {
+                        text: "Button 13";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 14";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 15";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
+
+                    StyledButton {
+                        text: "Button 16";
+                        base-background: root.color-button;
+                        text-color: root.color-button-text;
+                        border-radius: root.button-border-radius;
+                        hover-background: color-accent;
+                        pressed-background: color-accent;
+                    }
                 }
             }
 
-            Row {
-                StyledButton {
-                    text: "Button 5";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 6";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 7";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 8";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-            }
-
-            Row {
-                StyledButton {
-                    text: "Button 9";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 10";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 11";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 12";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-            }
-
-            Row {
-                StyledButton {
-                    text: "Button 13";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 14";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 15";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
-                }
-
-                StyledButton {
-                    text: "Button 16";
-                    base-background: root.color-button;
-                    text-color: root.color-button-text;
-                    border-radius: root.button-border-radius;
-                    hover-background: color-accent;
-                    pressed-background: color-accent;
+            // View 2: List View
+            ScrollView {
+                visible: root.show-list-view;
+                width: 100%;
+                height: 100%;
+                VerticalLayout {
+                    spacing: 5px;
+                    padding: 10px;
+                    for item[idx] in root.list-items: Text {
+                        text: "{idx+1}: {item}";
+                        color: root.color-text;
+                        wrap: word-wrap;
+                    }
+                    if root.list-items.length == 0: Text {
+                        text: "(List is empty)";
+                        color: root.color-text-muted;
+                        horizontal-alignment: center;
+                    }
                 }
             }
         }
@@ -208,39 +240,43 @@ export component MainWindow inherits Window {
         // --- Status Bar ---
         Rectangle {
             height: 25px;
+            width: 100%; // Ensure it takes full width
             background: root.color-statusbar-bg;
-
-
-            // Page Icons Container (aligned right)
+            // Page Icons Container (aligned right, separate from TouchArea)
             HorizontalLayout {
-                // vertical-alignment: center; // Align the layout vertically
-                padding-left: 10px;
-                padding-right: 10px;
                 spacing: 15px;
+                padding-right: 10px;
+                padding-left: 10px;
                 Text {
+                    width: 20px;
                     text: "◀";
-                    color: root.color-text-muted;
-                    vertical-alignment: center;
                     horizontal-alignment: left;
-                    width: 25px;
-                }
-            // Status Text (aligned left)
-            Text {
-                    vertical-alignment: center; // Use alignment property
-                text: root.status_text;
-                    color: root.color-text-muted;
-                    horizontal-alignment: center;
-                }
-                // Align text inside
-                Text {
-                    text: "▶";
-                    color: root.color-text-muted;
                     vertical-alignment: center;
-                    horizontal-alignment: right;
-                    width: 25px;
+                    color: root.color-text-muted;
                 }
-                // Align text inside
+
+                TouchArea {
+                // Position over the text area, allow some extra space
+                    clicked => {
+                        root.show-list-view = !root.show-list-view;
+                    }
+                    Text { // Status Text inside TouchArea
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        padding: 5px;
+                        text: root.status_text;
+                        color: root.color-text-muted;
+                    }
+                }
+
+                Text {
+                    width: 20px;
+                    text: "▶";
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                    color: root.color-text-muted;
+                }
             }
         }
     }
-} // End VerticalLayou
+}
