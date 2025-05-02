@@ -226,10 +226,11 @@ export component MainWindow inherits Window {
                     spacing: 5px;
                     padding: 10px;
                     for item[idx] in root.list-items: Text {
-                        text: "{idx+1}: {item}";
+                        text: idx + 1 + ":" + item;
                         horizontal-alignment: left;
                         color: root.color-text;
                         wrap: word-wrap;
+                        height: 20px;
                     }
                     if root.list-items.length == 0: Text {
                         text: "No updates yet!";
