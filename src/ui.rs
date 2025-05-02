@@ -94,7 +94,6 @@ fn handle_events(
                     };
                     Some(text)
                 }
-                _ => None,
             };
 
             if let Some(text) = text {
