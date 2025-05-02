@@ -37,3 +37,11 @@ slint-build = { version = "1.11", features=["sdf-fonts"] }
 
 [[package.metadata.esp-idf-sys.extra_components]]
 bindings_header = "bindings.h"
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/tinyusb", version = "^0.18.0~2" }
+bindings_header = "tusb_bindings.h"
+bindings_module = "tinyusb"
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/esp_tinyusb", version = "^1.7.4" }
+bindings_header = "tusb_bindings.h"
+bindings_module = "esptinyusb"

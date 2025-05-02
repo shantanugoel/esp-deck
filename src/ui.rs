@@ -43,6 +43,21 @@ impl Window {
             move || update_time(&weak_window_time_updates, tz_offset),
         );
 
+        window.on_button_pressed(move |button_id: i32| {
+            log::info!("Button {} pressed in UI!", button_id);
+            match button_id {
+                1 => {
+                    crate::keyboard::Keyboard::send_key(0x39);
+                }
+                2 => {
+                    crate::keyboard::Keyboard::send_key(0x82);
+                }
+                _ => {
+                    crate::keyboard::Keyboard::send_key(0x04);
+                }
+            }
+        });
+
         window
             .run()
             .map_err(|e| anyhow::anyhow!("Failed to run main window: {}", e))?;

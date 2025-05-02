@@ -1,6 +1,7 @@
 use esp_deck::{
     bsp::{time, wifi::Wifi},
     events::AppEvent,
+    keyboard::Keyboard,
     ui::Window,
 };
 use esp_idf_svc::{
@@ -73,6 +74,10 @@ fn main() -> anyhow::Result<()> {
         loop {
             std::thread::sleep(std::time::Duration::from_secs(100));
         }
+    }));
+
+    threads.push(thread::spawn(move || {
+        let _keyboard = Keyboard::new();
     }));
     // Set back to default to not influence other threads
     ThreadSpawnConfiguration::default().set().unwrap();
