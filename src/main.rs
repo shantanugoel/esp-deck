@@ -1,4 +1,8 @@
-use esp_deck::{bsp::wifi::Wifi, events::AppEvent, ui::Window};
+use esp_deck::{
+    bsp::{time, wifi::Wifi},
+    events::AppEvent,
+    ui::Window,
+};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     hal::{
@@ -19,6 +23,8 @@ struct AppConfig {
     wifi_ssid: &'static str,
     #[default("")]
     wifi_password: &'static str,
+    #[default(5.5)]
+    tz_offset: f32,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -58,6 +64,15 @@ fn main() -> anyhow::Result<()> {
         .unwrap();
 
         block_on(wifi_driver.connect(APP_CONFIG.wifi_ssid, APP_CONFIG.wifi_password)).unwrap();
+
+        // Set up NTP now that wifi is connected
+        let _ = block_on(time::init()).unwrap();
+        log::info!("NTP set up");
+
+        // Keep the thread alive to preserve resources initialized in this block from being dropped
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(100));
+        }
     }));
     // Set back to default to not influence other threads
     ThreadSpawnConfiguration::default().set().unwrap();
@@ -69,7 +84,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, rx);
+    let _ = Window::init(touch_i2c, rx, APP_CONFIG.tz_offset);
 
     for thread in threads {
         thread.join().unwrap();

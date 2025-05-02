@@ -69,12 +69,6 @@ impl Wifi {
         }
         info!("WiFi interface is up");
 
-        loop {
-            // Infinite loop to keep the thread alive
-            // May add monitoring here later
-            // This wastes thread stack, but it's ok. We may combine this thread
-            // with other inits later to optimize
-            std::thread::sleep(std::time::Duration::from_secs(100));
-        }
+        Ok(())
     }
 }

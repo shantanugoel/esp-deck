@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::{DateTime, FixedOffset, Utc};
 use esp_idf_svc::hal::i2c::I2cDriver;
 use slint::{SharedString, Weak};
 use std::{sync::mpsc::Receiver, time::Duration};
@@ -12,22 +13,34 @@ slint::include_modules!();
 pub struct Window;
 
 impl Window {
-    pub fn init(touch_i2c: I2cDriver<'static>, rx: Receiver<AppEvent>) -> Result<()> {
+    pub fn init(
+        touch_i2c: I2cDriver<'static>,
+        rx: Receiver<AppEvent>,
+        tz_offset: f32,
+    ) -> Result<()> {
         slint_platform::init(touch_i2c);
         let window = MainWindow::new()
             .map_err(|e| anyhow::anyhow!("Failed to create main window: {}", e))?;
 
         install_test_callback(&window);
 
-        let weak_window = window.as_weak();
-        let timer = slint::Timer::default();
+        let weak_window_status_updates = window.as_weak();
+        let timer_status_updates = slint::Timer::default();
         let mut status_list_items: Vec<SharedString> = Vec::new();
-        timer.start(
+        timer_status_updates.start(
             slint::TimerMode::Repeated,
             Duration::from_millis(500),
             move || {
-                handle_events(&weak_window, &rx, &mut status_list_items);
+                handle_events(&weak_window_status_updates, &rx, &mut status_list_items);
             },
+        );
+
+        let weak_window_time_updates = window.as_weak();
+        let timer_time_updates = slint::Timer::default();
+        timer_time_updates.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(2000),
+            move || update_time(&weak_window_time_updates, tz_offset),
         );
 
         window
@@ -83,4 +96,18 @@ fn handle_events(
             }
         }
     }
+}
+
+fn update_time(window: &Weak<MainWindow>, tz_offset: f32) {
+    let time: DateTime<Utc> = std::time::SystemTime::now().into();
+    let seconds_offset = tz_offset * 3600.0;
+    let fixed_offset = FixedOffset::east_opt(seconds_offset as i32).unwrap();
+    let time_str = time
+        .with_timezone(&fixed_offset)
+        .format("%H:%M")
+        .to_string();
+    window
+        .upgrade()
+        .unwrap()
+        .set_current_time(SharedString::from(time_str));
 }

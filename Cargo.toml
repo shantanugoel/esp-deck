@@ -29,6 +29,7 @@ slint = { version = "1.11", default-features = false, features = ["compat-1-2", 
 gt911 = "0.3"
 anyhow = "1"
 toml-cfg = "0.2"
+chrono = {version = "0.4", default-features = false, features = ["std"]}
 
 [build-dependencies]
 embuild = "0.33"
