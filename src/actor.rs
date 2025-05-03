@@ -24,7 +24,6 @@ impl Actor {
 
     pub fn run(&self) {
         log::info!("Starting Actor");
-        let mut current_kbd_report = KeyboardReport::default();
         let mut current_mouse_report = MouseReport::default();
 
         loop {
@@ -36,18 +35,24 @@ impl Actor {
                         for action in action_sequence {
                             log::debug!("Actor executing action: {:?}", action);
                             match action {
-                                HidAction::KeyPress(modifier, keycode) => {
-                                    current_kbd_report.modifier = modifier;
-                                    current_kbd_report.keys[0] = keycode;
-                                    let _ = self.usb_hid_tx.send(AppEvent::UsbHidCommand(
-                                        SendKeyboard(current_kbd_report),
-                                    ));
+                                HidAction::KeyPress(modifier_bits, keycode) => {
+                                    let mut report = KeyboardReport::default();
+                                    report.modifier = modifier_bits;
+                                    if keycode != 0 {
+                                        report.keys[0] = keycode;
+                                    }
+                                    log::debug!("Actor sending KeyboardReport: modifier={:#04x}, keys=[{:#04x}, {:#04x}, ...])",
+                                        report.modifier, report.keys[0], report.keys[1]);
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendKeyboard(report)));
                                 }
                                 HidAction::KeyRelease => {
-                                    current_kbd_report = KeyboardReport::default();
-                                    let _ = self.usb_hid_tx.send(AppEvent::UsbHidCommand(
-                                        SendKeyboard(current_kbd_report),
-                                    ));
+                                    let report = KeyboardReport::default();
+                                    log::debug!("Actor sending KeyRelease (empty report)");
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendKeyboard(report)));
                                 }
                                 HidAction::MouseMove(dx, dy) => {
                                     let report = MouseReport {

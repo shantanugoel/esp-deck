@@ -62,13 +62,13 @@ impl Mapper {
 
         // === Keyboard Examples ===
 
-        // Button 1: Simple Key 'a'
+        // Button 1: Simple Key 'A' (Shift + KeyA)
         config.insert(
             "1".to_string(),
             vec![
                 ConfigAction::KeyPress {
-                    key: "a".to_string(),
-                    modifier: Some("LShift".to_string()),
+                    key: "KeyA".to_string(),
+                    modifier: Some("ShiftLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
                 ConfigAction::KeyRelease,
@@ -80,8 +80,8 @@ impl Mapper {
             "2".to_string(),
             vec![
                 ConfigAction::KeyPress {
-                    key: "c".to_string(),
-                    modifier: Some("LCtrl".to_string()),
+                    key: "KeyC".to_string(),
+                    modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
                 ConfigAction::KeyRelease,
@@ -94,15 +94,15 @@ impl Mapper {
             vec![
                 // H
                 ConfigAction::KeyPress {
-                    key: "h".to_string(),
-                    modifier: Some("LShift".to_string()),
+                    key: "KeyH".to_string(),
+                    modifier: Some("ShiftLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
                 ConfigAction::KeyRelease,
                 ConfigAction::Delay { ms: 5 },
                 // e
                 ConfigAction::KeyPress {
-                    key: "e".to_string(),
+                    key: "KeyE".to_string(),
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -110,7 +110,7 @@ impl Mapper {
                 ConfigAction::Delay { ms: 5 },
                 // l
                 ConfigAction::KeyPress {
-                    key: "l".to_string(),
+                    key: "KeyL".to_string(),
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -118,7 +118,7 @@ impl Mapper {
                 ConfigAction::Delay { ms: 5 },
                 // l
                 ConfigAction::KeyPress {
-                    key: "l".to_string(),
+                    key: "KeyL".to_string(),
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -126,7 +126,7 @@ impl Mapper {
                 ConfigAction::Delay { ms: 5 },
                 // o
                 ConfigAction::KeyPress {
-                    key: "o".to_string(),
+                    key: "KeyO".to_string(),
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -244,7 +244,7 @@ impl Mapper {
             vec![
                 ConfigAction::KeyPress {
                     key: "Tab".to_string(),
-                    modifier: Some("LAlt".to_string()),
+                    modifier: Some("AltLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
                 ConfigAction::KeyRelease, // Release both Alt and Tab
@@ -257,23 +257,35 @@ impl Mapper {
             vec![
                 // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "LCtrl".to_string(),
+                    key: "ControlLeft".to_string(),
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
-                // Press Alt (while Ctrl is held)
+                // Press Alt (Ctrl still held)
                 ConfigAction::KeyPress {
-                    key: "LAlt".to_string(),
-                    modifier: Some("LCtrl".to_string()),
+                    key: "AltLeft".to_string(),
+                    modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
-                // Press Delete (while Ctrl+Alt is held)
+                // Press Delete (Ctrl+Alt still held)
                 ConfigAction::KeyPress {
                     key: "Delete".to_string(),
-                    modifier: Some("LCtrl LAlt".to_string()),
-                }, // Note: Keycode crate might need explicit multi-mod handling if direct string doesn't work
+                    modifier: Some("ControlLeft AltLeft".to_string()),
+                }, // Note: Multi-modifier needs testing
                 ConfigAction::Delay { ms: 10 },
-                // Release all
+                // Release Delete (Ctrl+Alt remain)
+                ConfigAction::KeyPress {
+                    key: "AltLeft".to_string(),
+                    modifier: Some("ControlLeft".to_string()),
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Release Alt (Ctrl remains)
+                ConfigAction::KeyPress {
+                    key: "ControlLeft".to_string(),
+                    modifier: None,
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Release Ctrl
                 ConfigAction::KeyRelease,
             ],
         );
@@ -282,21 +294,49 @@ impl Mapper {
         config.insert(
             "15".to_string(),
             vec![
-                // Ctrl+C (Copy)
+                // --- Copy ---
+                // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "c".to_string(),
-                    modifier: Some("LCtrl".to_string()),
+                    key: "ControlLeft".to_string(),
+                    modifier: None,
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Press C (Ctrl Held)
+                ConfigAction::KeyPress {
+                    key: "KeyC".to_string(),
+                    modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
+                // Release C (Ctrl Held)
+                ConfigAction::KeyPress {
+                    key: "ControlLeft".to_string(),
+                    modifier: None,
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Release Ctrl
                 ConfigAction::KeyRelease,
-                // Wait
+                // --- Wait ---
                 ConfigAction::Delay { ms: 100 },
-                // Ctrl+V (Paste)
+                // --- Paste ---
+                // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "v".to_string(),
-                    modifier: Some("LCtrl".to_string()),
+                    key: "ControlLeft".to_string(),
+                    modifier: None,
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Press V (Ctrl Held)
+                ConfigAction::KeyPress {
+                    key: "KeyV".to_string(),
+                    modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
+                // Release V (Ctrl Held)
+                ConfigAction::KeyPress {
+                    key: "ControlLeft".to_string(),
+                    modifier: None,
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Release Ctrl
                 ConfigAction::KeyRelease,
             ],
         );
@@ -307,23 +347,35 @@ impl Mapper {
             vec![
                 // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "LCtrl".to_string(),
+                    key: "ControlLeft".to_string(),
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
-                // Press Shift (while Ctrl is held)
+                // Press Shift (Ctrl Held)
                 ConfigAction::KeyPress {
-                    key: "LShift".to_string(),
-                    modifier: Some("LCtrl".to_string()),
+                    key: "ShiftLeft".to_string(),
+                    modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
-                // Press Esc (while Ctrl+Shift is held)
+                // Press Esc (Ctrl+Shift Held)
                 ConfigAction::KeyPress {
                     key: "Escape".to_string(),
-                    modifier: Some("LCtrl LShift".to_string()),
-                }, // Needs multi-mod check
+                    modifier: Some("ControlLeft ShiftLeft".to_string()),
+                }, // Note: Multi-modifier needs testing
                 ConfigAction::Delay { ms: 10 },
-                // Release all
+                // Release Esc (Ctrl+Shift Held)
+                ConfigAction::KeyPress {
+                    key: "ShiftLeft".to_string(),
+                    modifier: Some("ControlLeft".to_string()),
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Release Shift (Ctrl Held)
+                ConfigAction::KeyPress {
+                    key: "ControlLeft".to_string(),
+                    modifier: None,
+                },
+                ConfigAction::Delay { ms: 5 },
+                // Release Ctrl
                 ConfigAction::KeyRelease,
             ],
         );
@@ -340,10 +392,15 @@ impl Mapper {
         config
     }
 
-    /// Translates a configuration key string (e.g., "A", "LShift") to USB HID keycode/modifier.
+    /// Translates a configuration key string (e.g., "a", "LCtrl") and optional modifier string.
     /// Returns (modifier_bitmask, key_code).
-    /// Uses KeyMappingCode::from_str and KeyMap::from(KeyMappingCode).
+    /// key_code will be 0 if the key_name itself represents a modifier.
     fn translate_key(key_name: &str, mod_name: Option<&str>) -> (u8, u8) {
+        log::debug!(
+            "translate_key called: key_name=\"{}\", mod_name={:?}",
+            key_name,
+            mod_name
+        );
         // 1. Parse key string to KeyMappingCode
         let key_code_enum = match KeyMappingCode::from_str(key_name) {
             Ok(kc) => kc,
@@ -354,45 +411,50 @@ impl Mapper {
         };
         // 2. Convert KeyMappingCode to KeyMap
         let key_map = KeyMap::from(key_code_enum);
-        // 3. Get USB keycode
+        // 3. Get potential USB keycode
         let key_code = key_map.usb as u8;
 
-        let modifier_bitmask = match mod_name {
-            Some(m_name) => {
-                // 1. Parse modifier string to KeyMappingCode
-                match KeyMappingCode::from_str(m_name) {
-                    Ok(mod_code_enum) => {
-                        // 2. Convert KeyMappingCode to KeyMap
-                        let mod_map = KeyMap::from(mod_code_enum);
-                        // 3. Check if it's a modifier and get bitmask
-                        match mod_map {
-                            KeyMap {
-                                usb: 0xE0..=0xE7, ..
-                            } => 1 << (mod_map.usb - 0xE0),
-                            _ => {
-                                log::warn!(
-                                    "Key specified as modifier is not a standard modifier: {}",
-                                    m_name
-                                );
-                                0
-                            }
+        // 4. Determine modifier bitmask based on mod_name (if any)
+        let mut final_modifier_bitmask = match mod_name {
+            Some(m_name) => match KeyMappingCode::from_str(m_name) {
+                Ok(mod_code_enum) => {
+                    let mod_map = KeyMap::from(mod_code_enum);
+                    match mod_map {
+                        KeyMap {
+                            usb: 0xE0..=0xE7, ..
+                        } => 1 << (mod_map.usb - 0xE0),
+                        _ => {
+                            log::warn!(
+                                "Key specified as modifier is not a standard modifier: {}",
+                                m_name
+                            );
+                            0
                         }
                     }
-                    Err(_) => {
-                        log::warn!("Invalid modifier name string: {}", m_name);
-                        0
-                    }
                 }
-            }
+                Err(_) => {
+                    log::warn!("Invalid modifier name string: {}", m_name);
+                    0
+                }
+            },
             None => 0,
         };
 
-        // Ensure the key itself isn't a modifier if no explicit modifier was given
-        if modifier_bitmask == 0 && (0xE0..=0xE7).contains(&key_code) {
-            return (0, key_code);
+        // 5. Check if the main key_name itself is a modifier
+        if (0xE0..=0xE7).contains(&key_code) {
+            // It IS a modifier. Add its bit to the mask.
+            final_modifier_bitmask |= 1 << (key_code - 0xE0);
+            // Return the mask and 0 for the keycode (modifiers don't go in keys array)
+            return (final_modifier_bitmask, 0);
         }
 
-        (modifier_bitmask, key_code)
+        // 6. If we got here, the key_name was NOT a modifier.
+        log::debug!(
+            "translate_key returning: modifier={:#04x}, keycode={:#04x}",
+            final_modifier_bitmask,
+            key_code
+        );
+        (final_modifier_bitmask, key_code)
     }
 
     /// Retrieves the sequence of primitive HidActions for a given button ID.
@@ -414,12 +476,14 @@ impl Mapper {
         for action in config_actions {
             match action {
                 ConfigAction::KeyPress { key, modifier } => {
+                    // Use the improved translate_key
                     let (mod_bits, key_code) = Self::translate_key(&key, modifier.as_deref());
-                    if key_code != 0 {
-                        // Only add if key is valid
+                    // Add action if either modifier or keycode is non-zero
+                    if mod_bits != 0 || key_code != 0 {
                         hid_actions.push(HidAction::KeyPress(mod_bits, key_code));
                     } else {
-                        log::warn!("Invalid key name in config: {}", key);
+                        // This case should now be less likely due to improved translate_key logging
+                        log::warn!("KeyPress action resulted in no effective output for key: {}, modifier: {:?}", key, modifier);
                     }
                 }
                 ConfigAction::KeyRelease => hid_actions.push(HidAction::KeyRelease),
@@ -441,7 +505,6 @@ impl Mapper {
                     hid_actions.push(HidAction::Delay(Duration::from_millis(ms)))
                 }
                 ConfigAction::Sequence(sub_sequence) => {
-                    // Recursively translate nested sequences (macros)
                     hid_actions.extend(self.translate_sequence(sub_sequence));
                 }
             }
