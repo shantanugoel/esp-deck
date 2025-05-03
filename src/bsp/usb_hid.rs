@@ -7,23 +7,12 @@ use esp_idf_svc::sys::tinyusb::{hid_report_type_t, tud_mounted};
 use std::ffi::{c_char, CString};
 use std::ptr;
 
-const CONFIG_DESC: [u8; 34] = [
-    9, 2, 34, 0, 1, 1, 0, 160, 50, 9, 4, 0, 0, 1, 3, 0, 0, 4, 9, 33, 17, 1, 0, 1, 34, 146, 0, 7, 5,
-    129, 3, 16, 0, 10,
-];
-const REPORT_DESC: [u8; 146] = [
-    5, 1, 9, 6, 161, 1, 133, 1, 5, 7, 25, 224, 41, 231, 21, 0, 37, 1, 149, 8, 117, 1, 129, 2, 149,
-    1, 117, 8, 129, 1, 5, 8, 25, 1, 41, 5, 149, 5, 117, 1, 145, 2, 149, 1, 117, 3, 145, 1, 5, 7,
-    25, 0, 42, 255, 0, 21, 0, 38, 255, 0, 149, 6, 117, 8, 129, 0, 192, 5, 1, 9, 2, 161, 1, 133, 2,
-    9, 1, 161, 0, 5, 9, 25, 1, 41, 5, 21, 0, 37, 1, 149, 5, 117, 1, 129, 2, 149, 1, 117, 3, 129, 1,
-    5, 1, 9, 48, 9, 49, 21, 129, 37, 127, 149, 2, 117, 8, 129, 6, 9, 56, 21, 129, 37, 127, 149, 1,
-    117, 8, 129, 6, 5, 12, 10, 56, 2, 21, 129, 37, 127, 149, 1, 117, 8, 129, 6, 192, 192,
-];
+use crate::bsp::hid_desc::{TUSB_DESC_CONFIGURATION, TUSB_DESC_DEVICE, TUSB_DESC_HID_REPORT};
 
 #[allow(unused_variables)]
 #[no_mangle]
 extern "C" fn tud_hid_descriptor_report_cb(instance: u8) -> *const u8 {
-    return REPORT_DESC.as_ptr();
+    return TUSB_DESC_HID_REPORT.as_ptr();
 }
 
 #[allow(unused_variables)]
@@ -51,28 +40,22 @@ extern "C" fn tud_hid_set_report_cb(
 
 #[allow(dead_code)]
 fn get_hid_string_descriptor() -> (*mut *const c_char, usize) {
-    // Create a vector of CString objects
     let strings = vec![
         CString::new(String::from_utf8(vec![0x09, 0x04]).unwrap()).unwrap(),
-        CString::new("TinyUSB").unwrap(),
-        CString::new("TinyUSB Device").unwrap(),
-        CString::new("123456").unwrap(),
-        CString::new("Example HID interface").unwrap(),
+        CString::new("Shaan Labs Inc.").unwrap(),
+        CString::new("ESP DECK").unwrap(),
+        CString::new("42069").unwrap(),
+        CString::new("ESP DECK HID Interface").unwrap(),
     ];
 
-    // Create a vector of raw pointers to the C strings
     let mut raw_pointers: Vec<*const c_char> = strings.iter().map(|c_str| c_str.as_ptr()).collect();
-
-    // Get a raw pointer to the beginning of the raw pointers array
     let raw_ptr = raw_pointers.as_mut_ptr();
-
-    // Return the raw pointer and its length to be used in C or other operations
     (raw_ptr, raw_pointers.len())
 }
 
-pub struct Keyboard;
+pub struct UsbHid;
 
-impl Keyboard {
+impl UsbHid {
     #[allow(unused_unsafe)]
     pub fn new() -> Self {
         let (string_descriptor, string_descriptor_count) = get_hid_string_descriptor();
@@ -84,13 +67,13 @@ impl Keyboard {
             vbus_monitor_io: 0,
             __bindgen_anon_1: unsafe {
                 tinyusb_config_t__bindgen_ty_1 {
-                    device_descriptor: ptr::null_mut(),
+                    device_descriptor: ptr::from_ref(&TUSB_DESC_DEVICE),
                 }
             },
             __bindgen_anon_2: unsafe {
                 tinyusb_config_t__bindgen_ty_2 {
                     __bindgen_anon_1: tinyusb_config_t__bindgen_ty_2__bindgen_ty_1 {
-                        configuration_descriptor: CONFIG_DESC.as_ptr(),
+                        configuration_descriptor: TUSB_DESC_CONFIGURATION.as_ptr(),
                     },
                 }
             },

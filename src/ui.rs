@@ -47,13 +47,13 @@ impl Window {
             log::info!("Button {} pressed in UI!", button_id);
             match button_id {
                 1 => {
-                    crate::keyboard::Keyboard::send_key(0x39);
+                    // crate::keyboard::Keyboard::send_key(0x39);
                 }
                 2 => {
-                    crate::keyboard::Keyboard::send_key(0x82);
+                    // crate::keyboard::Keyboard::send_key(0x82);
                 }
                 _ => {
-                    crate::keyboard::Keyboard::send_key(0x04);
+                    // crate::keyboard::Keyboard::send_key(0x04);
                 }
             }
         });
@@ -108,6 +108,10 @@ fn handle_events(
                         TimeStatus::Error(e) => SharedString::from(&format!("Time: Error: {}", e)),
                     };
                     Some(text)
+                }
+                _ => {
+                    log::info!("Unknown event: {:?}", event);
+                    None
                 }
             };
 

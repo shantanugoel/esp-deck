@@ -1,7 +1,6 @@
 use esp_deck::{
-    bsp::{time, wifi::Wifi},
+    bsp::{time, usb_hid::UsbHid, wifi::Wifi},
     events::AppEvent,
-    keyboard::Keyboard,
     ui::Window,
 };
 use esp_idf_svc::{
@@ -77,7 +76,7 @@ fn main() -> anyhow::Result<()> {
     }));
 
     threads.push(thread::spawn(move || {
-        let _keyboard = Keyboard::new();
+        let _usb_hid = UsbHid::new();
     }));
     // Set back to default to not influence other threads
     ThreadSpawnConfiguration::default().set().unwrap();
