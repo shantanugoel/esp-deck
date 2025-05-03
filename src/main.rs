@@ -2,6 +2,7 @@ use esp_deck::{
     actor::Actor,
     bsp::{time, wifi::Wifi},
     events::AppEvent,
+    mapper::Mapper,
     ui::Window,
     usb_hid_client::UsbHidClient,
 };
@@ -81,10 +82,14 @@ fn main() -> anyhow::Result<()> {
         }
     }));
 
+    // Create the mapper instance
+    let mapper = Mapper::new();
+
     // Spawn Actor thread
     let actor_usb_hid_tx = usb_hid_tx.clone(); // Clone sender for actor
+    let actor_mapper = mapper; // Move mapper into the closure
     threads.push(thread::spawn(move || {
-        let actor = Actor::new(actor_rx, actor_usb_hid_tx);
+        let actor = Actor::new(actor_rx, actor_usb_hid_tx, actor_mapper);
         actor.run();
     }));
 

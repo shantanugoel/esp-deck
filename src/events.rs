@@ -1,5 +1,6 @@
 use crate::bsp::hid_desc::{ConsumerReport, KeyboardReport, MouseReport};
 use std::net::Ipv4Addr;
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub enum WifiStatus {
@@ -39,4 +40,18 @@ pub enum AppEvent {
     UsbUpdate(UsbStatus),
     UsbHidCommand(UsbHidCommand),
     ButtonPressed(i32),
+}
+
+// Represents a single primitive HID action or delay
+#[derive(Debug, Clone)]
+pub enum HidAction {
+    KeyPress(u8, u8),   // modifier, keycode
+    KeyRelease,         // Releases all keys/modifiers
+    MouseMove(i8, i8),  // dx, dy
+    MousePress(u8),     // buttons bitmask
+    MouseRelease,       // Releases all buttons
+    MouseWheel(i8),     // wheel movement
+    ConsumerPress(u16), // usage_id
+    ConsumerRelease,    // Releases consumer control
+    Delay(Duration),    // Pause execution
 }

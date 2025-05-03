@@ -1,118 +1,112 @@
 use crate::bsp::hid_desc::{ConsumerReport, KeyboardReport, MouseReport};
 use crate::events::{
-    AppEvent,
+    AppEvent, HidAction,
     UsbHidCommand::{SendConsumer, SendKeyboard, SendMouse},
 };
-use keycode::{KeyMap, KeyMappingId};
+use crate::mapper::Mapper;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
 
 pub struct Actor {
     actor_rx: Receiver<AppEvent>,
     usb_hid_tx: Sender<AppEvent>,
+    mapper: Mapper,
 }
 
 impl Actor {
-    pub fn new(actor_rx: Receiver<AppEvent>, usb_hid_tx: Sender<AppEvent>) -> Self {
+    pub fn new(actor_rx: Receiver<AppEvent>, usb_hid_tx: Sender<AppEvent>, mapper: Mapper) -> Self {
         Self {
             actor_rx,
             usb_hid_tx,
+            mapper,
         }
     }
 
     pub fn run(&self) {
         log::info!("Starting Actor");
+        let mut current_kbd_report = KeyboardReport::default();
+        let mut current_mouse_report = MouseReport::default();
+
         loop {
             match self.actor_rx.recv() {
                 Ok(app_event) => {
                     if let AppEvent::ButtonPressed(button_id) = app_event {
                         log::info!("Actor received ButtonPressed: {}", button_id);
-                        match button_id {
-                            1 => {
-                                // Send Caps Lock press
-                                let mut report = KeyboardReport {
-                                    keys: [
-                                        KeyMap::from(KeyMappingId::CapsLock).usb as u8,
-                                        0,
-                                        0,
-                                        0,
-                                        0,
-                                        0,
-                                    ], // Keycode for Caps Lock
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendKeyboard(report)));
-                                std::thread::sleep(std::time::Duration::from_millis(10));
-                                // Send key release
-                                report = KeyboardReport {
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendKeyboard(report)));
-                            }
-                            2 => {
-                                // Make a square with mouse moves
-                                let mut report = MouseReport {
-                                    x: 0,
-                                    y: 10,
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendMouse(report)));
-                                std::thread::sleep(std::time::Duration::from_millis(500));
-                                // Send move back (or stop)
-                                report = MouseReport {
-                                    x: 10,
-                                    y: 0,
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendMouse(report)));
-                                std::thread::sleep(std::time::Duration::from_millis(500));
-                                // Send move back (or stop)
-                                report = MouseReport {
-                                    x: 0,
-                                    y: -10,
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendMouse(report)));
-                                std::thread::sleep(std::time::Duration::from_millis(500));
-                                // Send move back (or stop)
-                                report = MouseReport {
-                                    x: -10,
-                                    y: 0,
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendMouse(report)));
-                                std::thread::sleep(std::time::Duration::from_millis(500));
-                            }
-                            _ => {
-                                // Send Volume command (was Mute 0xe2, then generic Volume 0xe0)
-                                // Keeping 0xe0 for now based on previous edits, but ideally this should be VolumeUp/Down
-                                // or use the absolute value logic we discussed.
-                                let mut report = ConsumerReport {
-                                    usage: 0xe0,
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendConsumer(report)));
-                                std::thread::sleep(std::time::Duration::from_millis(10));
-                                // Send release
-                                report = ConsumerReport {
-                                    ..Default::default()
-                                };
-                                let _ = self
-                                    .usb_hid_tx
-                                    .send(AppEvent::UsbHidCommand(SendConsumer(report)));
+                        let action_sequence = self.mapper.get_action_sequence(button_id);
+                        for action in action_sequence {
+                            log::debug!("Actor executing action: {:?}", action);
+                            match action {
+                                HidAction::KeyPress(modifier, keycode) => {
+                                    current_kbd_report.modifier = modifier;
+                                    current_kbd_report.keys[0] = keycode;
+                                    let _ = self.usb_hid_tx.send(AppEvent::UsbHidCommand(
+                                        SendKeyboard(current_kbd_report),
+                                    ));
+                                }
+                                HidAction::KeyRelease => {
+                                    current_kbd_report = KeyboardReport::default();
+                                    let _ = self.usb_hid_tx.send(AppEvent::UsbHidCommand(
+                                        SendKeyboard(current_kbd_report),
+                                    ));
+                                }
+                                HidAction::MouseMove(dx, dy) => {
+                                    let report = MouseReport {
+                                        x: dx,
+                                        y: dy,
+                                        ..Default::default()
+                                    };
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendMouse(report)));
+                                    let stop_report = MouseReport {
+                                        ..Default::default()
+                                    };
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendMouse(stop_report)));
+                                }
+                                HidAction::MousePress(buttons) => {
+                                    current_mouse_report.buttons = buttons;
+                                    let _ = self.usb_hid_tx.send(AppEvent::UsbHidCommand(
+                                        SendMouse(current_mouse_report),
+                                    ));
+                                }
+                                HidAction::MouseRelease => {
+                                    current_mouse_report = MouseReport::default();
+                                    let _ = self.usb_hid_tx.send(AppEvent::UsbHidCommand(
+                                        SendMouse(current_mouse_report),
+                                    ));
+                                }
+                                HidAction::MouseWheel(amount) => {
+                                    let report = MouseReport {
+                                        wheel: amount,
+                                        ..Default::default()
+                                    };
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendMouse(report)));
+                                    let stop_report = MouseReport {
+                                        ..Default::default()
+                                    };
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendMouse(stop_report)));
+                                }
+                                HidAction::ConsumerPress(usage_id) => {
+                                    let report = ConsumerReport { usage: usage_id };
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendConsumer(report)));
+                                }
+                                HidAction::ConsumerRelease => {
+                                    let report = ConsumerReport { usage: 0 };
+                                    let _ = self
+                                        .usb_hid_tx
+                                        .send(AppEvent::UsbHidCommand(SendConsumer(report)));
+                                }
+                                HidAction::Delay(duration) => {
+                                    thread::sleep(duration);
+                                }
                             }
                         }
                     } else {
@@ -121,7 +115,7 @@ impl Actor {
                 }
                 Err(e) => {
                     log::error!("Actor failed to receive event: {}. Exiting.", e);
-                    break; // Exit loop on channel error
+                    break;
                 }
             }
         }
