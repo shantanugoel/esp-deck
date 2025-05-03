@@ -414,29 +414,37 @@ impl Mapper {
         // 3. Get potential USB keycode
         let key_code = key_map.usb as u8;
 
-        // 4. Determine modifier bitmask based on mod_name (if any)
+        // 4. Determine modifier bitmask by parsing mod_name (potentially multiple, space-separated)
         let mut final_modifier_bitmask = match mod_name {
-            Some(m_name) => match KeyMappingCode::from_str(m_name) {
-                Ok(mod_code_enum) => {
-                    let mod_map = KeyMap::from(mod_code_enum);
-                    match mod_map {
-                        KeyMap {
-                            usb: 0xE0..=0xE7, ..
-                        } => 1 << (mod_map.usb - 0xE0),
-                        _ => {
+            Some(m_names) => {
+                let mut combined_mask = 0u8;
+                for m_name in m_names.split_whitespace() {
+                    // Split by whitespace
+                    match KeyMappingCode::from_str(m_name) {
+                        Ok(mod_code_enum) => {
+                            let mod_map = KeyMap::from(mod_code_enum);
+                            match mod_map {
+                                KeyMap {
+                                    usb: 0xE0..=0xE7, ..
+                                } => {
+                                    combined_mask |= 1 << (mod_map.usb - 0xE0); // OR the bits together
+                                }
+                                _ => {
+                                    log::warn!("Part '{}' in modifier string '{}' is not a standard modifier key.", m_name, m_names);
+                                }
+                            }
+                        }
+                        Err(_) => {
                             log::warn!(
-                                "Key specified as modifier is not a standard modifier: {}",
-                                m_name
+                                "Invalid modifier name part '{}' in string '{}'",
+                                m_name,
+                                m_names
                             );
-                            0
                         }
                     }
                 }
-                Err(_) => {
-                    log::warn!("Invalid modifier name string: {}", m_name);
-                    0
-                }
-            },
+                combined_mask // Return the combined mask
+            }
             None => 0,
         };
 
