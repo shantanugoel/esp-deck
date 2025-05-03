@@ -38,4 +38,5 @@ pub enum AppEvent {
     TimeUpdate(TimeStatus),
     UsbUpdate(UsbStatus),
     UsbHidCommand(UsbHidCommand),
+    ButtonPressed(i32),
 }

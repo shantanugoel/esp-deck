@@ -1,3 +1,4 @@
+pub mod actor;
 pub mod bsp;
 pub mod events;
 pub mod ui;

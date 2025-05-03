@@ -1,4 +1,5 @@
 use esp_deck::{
+    actor::Actor,
     bsp::{time, wifi::Wifi},
     events::AppEvent,
     ui::Window,
@@ -44,6 +45,10 @@ fn main() -> anyhow::Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
 
     let (tx, rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
+    // Channel for UI -> Actor communication
+    let (actor_tx, actor_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
+    // Channel for Actor -> UsbHidClient communication
+    let (usb_hid_tx, usb_hid_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
 
     // This sets the configuration for the next threads that are spawned
     // I"m using it mainly to set the stack size to 4096
@@ -76,7 +81,13 @@ fn main() -> anyhow::Result<()> {
         }
     }));
 
-    let (usb_hid_tx, usb_hid_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
+    // Spawn Actor thread
+    let actor_usb_hid_tx = usb_hid_tx.clone(); // Clone sender for actor
+    threads.push(thread::spawn(move || {
+        let actor = Actor::new(actor_rx, actor_usb_hid_tx);
+        actor.run();
+    }));
+
     threads.push(thread::spawn(move || {
         UsbHidClient::run(usb_hid_rx).unwrap();
     }));
@@ -90,7 +101,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, rx, usb_hid_tx, APP_CONFIG.tz_offset);
+    let _ = Window::init(touch_i2c, rx, actor_tx, APP_CONFIG.tz_offset);
 
     for thread in threads {
         thread.join().unwrap();

@@ -8,14 +8,8 @@ use std::{
 };
 
 use crate::{
-    bsp::{
-        hid_desc::{ConsumerReport, KeyboardReport, MouseReport},
-        slint_platform,
-    },
-    events::{
-        AppEvent, TimeStatus, UsbHidCommand::SendConsumer, UsbHidCommand::SendKeyboard,
-        UsbHidCommand::SendMouse, WifiStatus,
-    },
+    bsp::slint_platform,
+    events::{AppEvent, TimeStatus, WifiStatus},
 };
 
 slint::include_modules!();
@@ -25,7 +19,7 @@ impl Window {
     pub fn init(
         touch_i2c: I2cDriver<'static>,
         rx: Receiver<AppEvent>,
-        usb_hid_tx: Sender<AppEvent>,
+        actor_tx: Sender<AppEvent>,
         tz_offset: f32,
     ) -> Result<()> {
         slint_platform::init(touch_i2c);
@@ -53,58 +47,10 @@ impl Window {
             move || update_time(&weak_window_time_updates, tz_offset),
         );
 
+        let button_actor_tx = actor_tx.clone();
         window.on_button_pressed(move |button_id: i32| {
-            log::info!("Button {} pressed in UI!", button_id);
-            match button_id {
-                1 => {
-                    let mut report = KeyboardReport {
-                        keys: [0x39, 0, 0, 0, 0, 0],
-                        ..Default::default()
-                    };
-                    usb_hid_tx
-                        .send(AppEvent::UsbHidCommand(SendKeyboard(report)))
-                        .unwrap();
-                    report = KeyboardReport {
-                        ..Default::default()
-                    };
-                    usb_hid_tx
-                        .send(AppEvent::UsbHidCommand(SendKeyboard(report)))
-                        .unwrap();
-                }
-                2 => {
-                    let mut report = MouseReport {
-                        x: 10,
-                        y: 10,
-                        ..Default::default()
-                    };
-                    usb_hid_tx
-                        .send(AppEvent::UsbHidCommand(SendMouse(report)))
-                        .unwrap();
-                    report = MouseReport {
-                        x: -10,
-                        y: -10,
-                        ..Default::default()
-                    };
-                    usb_hid_tx
-                        .send(AppEvent::UsbHidCommand(SendMouse(report)))
-                        .unwrap();
-                }
-                _ => {
-                    let mut report = ConsumerReport {
-                        usage: 0xe2,
-                        ..Default::default()
-                    };
-                    usb_hid_tx
-                        .send(AppEvent::UsbHidCommand(SendConsumer(report)))
-                        .unwrap();
-                    report = ConsumerReport {
-                        ..Default::default()
-                    };
-                    usb_hid_tx
-                        .send(AppEvent::UsbHidCommand(SendConsumer(report)))
-                        .unwrap();
-                }
-            }
+            log::info!("Button {} pressed in UI! Sending to Actor.", button_id);
+            let _ = button_actor_tx.send(AppEvent::ButtonPressed(button_id));
         });
 
         window
