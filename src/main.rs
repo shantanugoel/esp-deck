@@ -1,7 +1,8 @@
 use esp_deck::{
-    bsp::{time, usb_hid::UsbHid, wifi::Wifi},
+    bsp::{time, wifi::Wifi},
     events::AppEvent,
     ui::Window,
+    usb_hid_client::UsbHidClient,
 };
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
@@ -75,8 +76,9 @@ fn main() -> anyhow::Result<()> {
         }
     }));
 
+    let (usb_hid_tx, usb_hid_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
     threads.push(thread::spawn(move || {
-        let _usb_hid = UsbHid::new();
+        UsbHidClient::run(usb_hid_rx).unwrap();
     }));
     // Set back to default to not influence other threads
     ThreadSpawnConfiguration::default().set().unwrap();
@@ -88,7 +90,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, rx, APP_CONFIG.tz_offset);
+    let _ = Window::init(touch_i2c, rx, usb_hid_tx, APP_CONFIG.tz_offset);
 
     for thread in threads {
         thread.join().unwrap();

@@ -37,5 +37,5 @@ pub enum AppEvent {
     WifiUpdate(WifiStatus),
     TimeUpdate(TimeStatus),
     UsbUpdate(UsbStatus),
-    UsCommand(UsbHidCommand),
+    UsbHidCommand(UsbHidCommand),
 }

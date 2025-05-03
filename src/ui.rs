@@ -2,11 +2,20 @@ use anyhow::Result;
 use chrono::{DateTime, FixedOffset, Utc};
 use esp_idf_svc::hal::i2c::I2cDriver;
 use slint::{SharedString, Weak};
-use std::{sync::mpsc::Receiver, time::Duration};
+use std::{
+    sync::mpsc::{Receiver, Sender},
+    time::Duration,
+};
 
 use crate::{
-    bsp::slint_platform,
-    events::{AppEvent, TimeStatus, WifiStatus},
+    bsp::{
+        hid_desc::{ConsumerReport, KeyboardReport, MouseReport},
+        slint_platform,
+    },
+    events::{
+        AppEvent, TimeStatus, UsbHidCommand::SendConsumer, UsbHidCommand::SendKeyboard,
+        UsbHidCommand::SendMouse, WifiStatus,
+    },
 };
 
 slint::include_modules!();
@@ -16,6 +25,7 @@ impl Window {
     pub fn init(
         touch_i2c: I2cDriver<'static>,
         rx: Receiver<AppEvent>,
+        usb_hid_tx: Sender<AppEvent>,
         tz_offset: f32,
     ) -> Result<()> {
         slint_platform::init(touch_i2c);
@@ -47,13 +57,52 @@ impl Window {
             log::info!("Button {} pressed in UI!", button_id);
             match button_id {
                 1 => {
-                    // crate::keyboard::Keyboard::send_key(0x39);
+                    let mut report = KeyboardReport {
+                        keys: [0x39, 0, 0, 0, 0, 0],
+                        ..Default::default()
+                    };
+                    usb_hid_tx
+                        .send(AppEvent::UsbHidCommand(SendKeyboard(report)))
+                        .unwrap();
+                    report = KeyboardReport {
+                        ..Default::default()
+                    };
+                    usb_hid_tx
+                        .send(AppEvent::UsbHidCommand(SendKeyboard(report)))
+                        .unwrap();
                 }
                 2 => {
-                    // crate::keyboard::Keyboard::send_key(0x82);
+                    let mut report = MouseReport {
+                        x: 10,
+                        y: 10,
+                        ..Default::default()
+                    };
+                    usb_hid_tx
+                        .send(AppEvent::UsbHidCommand(SendMouse(report)))
+                        .unwrap();
+                    report = MouseReport {
+                        x: -10,
+                        y: -10,
+                        ..Default::default()
+                    };
+                    usb_hid_tx
+                        .send(AppEvent::UsbHidCommand(SendMouse(report)))
+                        .unwrap();
                 }
                 _ => {
-                    // crate::keyboard::Keyboard::send_key(0x04);
+                    let mut report = ConsumerReport {
+                        usage: 0xe2,
+                        ..Default::default()
+                    };
+                    usb_hid_tx
+                        .send(AppEvent::UsbHidCommand(SendConsumer(report)))
+                        .unwrap();
+                    report = ConsumerReport {
+                        ..Default::default()
+                    };
+                    usb_hid_tx
+                        .send(AppEvent::UsbHidCommand(SendConsumer(report)))
+                        .unwrap();
                 }
             }
         });

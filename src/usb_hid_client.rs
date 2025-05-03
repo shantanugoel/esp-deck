@@ -1,7 +1,10 @@
 use crate::{
-    bsp::hid_desc::{
-        ConsumerReport, KeyboardReport, MouseReport, REPORT_ID_CONSUMER, REPORT_ID_KEYBOARD,
-        REPORT_ID_MOUSE,
+    bsp::{
+        hid_desc::{
+            ConsumerReport, KeyboardReport, MouseReport, REPORT_ID_CONSUMER, REPORT_ID_KEYBOARD,
+            REPORT_ID_MOUSE,
+        },
+        usb_hid::UsbHid,
     },
     events::{AppEvent, UsbHidCommand},
 };
@@ -9,78 +12,87 @@ use anyhow::Result;
 use esp_idf_svc::sys::{tud_hid_n_ready, tud_hid_n_report};
 use std::mem::size_of;
 use std::sync::mpsc::Receiver;
-pub fn run_usb_hid_client(command_rx: Receiver<AppEvent>) -> Result<()> {
-    log::info!("Starting USB HID client");
 
-    // The TinyUSB HID interface number. Since we configure only one HID
-    // interface in sdkconfig (even if composite), this should be 0.
-    const TUSB_HID_ITF: u8 = 0;
+pub struct UsbHidClient;
 
-    loop {
-        match command_rx.recv() {
-            Ok(app_event) => {
-                match app_event {
-                    AppEvent::UsCommand(cmd) => {
-                        // Check if the HID interface is ready
-                        let mut attempts = 0;
-                        let ready = loop {
-                            if unsafe { tud_hid_n_ready(TUSB_HID_ITF) } {
-                                break true;
-                            }
-                            if attempts > 10 {
+impl UsbHidClient {
+    pub fn run(command_rx: Receiver<AppEvent>) -> Result<()> {
+        log::info!("Starting USB HID client");
+
+        let _usb_hid = UsbHid::new();
+        // The TinyUSB HID interface number. Since we configure only one HID
+        // interface in sdkconfig (even if composite), this should be 0.
+        const TUSB_HID_ITF: u8 = 0;
+
+        loop {
+            match command_rx.recv() {
+                Ok(app_event) => {
+                    match app_event {
+                        AppEvent::UsbHidCommand(cmd) => {
+                            // Check if the HID interface is ready
+                            let mut attempts = 0;
+                            let ready = loop {
+                                if unsafe { tud_hid_n_ready(TUSB_HID_ITF) } {
+                                    break true;
+                                }
+                                if attempts > 10 {
+                                    log::error!("USB HID client: HID interface not ready after 10 attempts. Exiting");
+                                    break false;
+                                }
+                                attempts += 1;
+                                std::thread::sleep(std::time::Duration::from_millis(10));
+                            };
+
+                            if !ready {
                                 log::error!("USB HID client: HID interface not ready after 10 attempts. Exiting");
-                                break false;
+                                continue;
                             }
-                            attempts += 1;
-                            std::thread::sleep(std::time::Duration::from_millis(10));
-                        };
 
-                        if !ready {
-                            log::error!("USB HID client: HID interface not ready after 10 attempts. Exiting");
-                            continue;
+                            let report_sent = match cmd {
+                                UsbHidCommand::SendKeyboard(report) => send_hid_report(
+                                    TUSB_HID_ITF,
+                                    REPORT_ID_KEYBOARD,
+                                    &report,
+                                    size_of::<KeyboardReport>(),
+                                ),
+                                UsbHidCommand::SendMouse(report) => send_hid_report(
+                                    TUSB_HID_ITF,
+                                    REPORT_ID_MOUSE,
+                                    &report,
+                                    size_of::<MouseReport>(),
+                                ),
+                                UsbHidCommand::SendConsumer(report) => send_hid_report(
+                                    TUSB_HID_ITF,
+                                    REPORT_ID_CONSUMER,
+                                    &report,
+                                    size_of::<ConsumerReport>(),
+                                ),
+                            };
+                            if report_sent {
+                                log::info!(
+                                    "USB HID client: Report sent successfully for {:?}",
+                                    cmd
+                                );
+                            } else {
+                                log::error!("USB HID client: Failed to send report for {:?}", cmd);
+                            }
                         }
-
-                        let report_sent = match cmd {
-                            UsbHidCommand::SendKeyboard(report) => send_hid_report(
-                                TUSB_HID_ITF,
-                                REPORT_ID_KEYBOARD,
-                                &report,
-                                size_of::<KeyboardReport>(),
-                            ),
-                            UsbHidCommand::SendMouse(report) => send_hid_report(
-                                TUSB_HID_ITF,
-                                REPORT_ID_MOUSE,
-                                &report,
-                                size_of::<MouseReport>(),
-                            ),
-                            UsbHidCommand::SendConsumer(report) => send_hid_report(
-                                TUSB_HID_ITF,
-                                REPORT_ID_CONSUMER,
-                                &report,
-                                size_of::<ConsumerReport>(),
-                            ),
-                        };
-                        if report_sent {
-                            log::info!("USB HID client: Report sent successfully for {:?}", cmd);
-                        } else {
-                            log::error!("USB HID client: Failed to send report for {:?}", cmd);
+                        _ => {
+                            log::info!(
+                                "USB HID client: Received event but not implemented: {:?}",
+                                app_event
+                            );
                         }
-                    }
-                    _ => {
-                        log::info!(
-                            "USB HID client: Received event but not implemented: {:?}",
-                            app_event
-                        );
                     }
                 }
-            }
-            Err(_) => {
-                log::error!("USB HID client: Error receiving command. Exiting");
-                break;
+                Err(_) => {
+                    log::error!("USB HID client: Error receiving command. Exiting");
+                    break;
+                }
             }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 fn send_hid_report<T>(itf: u8, report_id: u8, report_data: &T, report_len: usize) -> bool {
