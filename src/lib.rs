@@ -1,5 +1,6 @@
 pub mod actor;
 pub mod bsp;
+pub mod config;
 pub mod events;
 pub mod mapper;
 pub mod ui;

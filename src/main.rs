@@ -1,11 +1,13 @@
 use esp_deck::{
     actor::Actor,
     bsp::{time, wifi::Wifi},
-    events::AppEvent,
+    config::DeviceConfiguration,
+    events::{AppEvent, WifiStatus},
     mapper::Mapper,
     ui::Window,
     usb_hid_client::UsbHidClient,
 };
+use esp_idf_svc::sys::{self as idf_sys, esp_vfs_littlefs_conf_t};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     hal::{
@@ -15,30 +17,112 @@ use esp_idf_svc::{
     nvs::EspDefaultNvsPartition,
     timer::EspTaskTimerService,
 };
+use std::ffi::CString;
 use std::{
+    io::{Read, Write},
     sync::mpsc::{self, Receiver, Sender},
     thread,
 };
 
-#[toml_cfg::toml_config]
-struct AppConfig {
-    #[default("")]
-    wifi_ssid: &'static str,
-    #[default("")]
-    wifi_password: &'static str,
-    #[default(5.5)]
-    tz_offset: f32,
+const TZ_OFFSET: f32 = 5.5;
+const CONFIG_PATH: &str = "/littlefs/device_config.json";
+const VFS_BASE_PATH: &str = "/littlefs";
+const PARTITION_LABEL: &str = "storage";
+
+/// Mounts the LittleFS partition using the underlying C API.
+fn init_vfs() -> anyhow::Result<()> {
+    log::info!("Initializing VFS and mounting LittleFS via sys API...");
+
+    let base_path = CString::new(VFS_BASE_PATH).unwrap();
+    let partition_label = CString::new(PARTITION_LABEL).unwrap();
+
+    // Rely entirely on Default, assuming it sets reasonable values or the C func handles it.
+    let conf = esp_vfs_littlefs_conf_t {
+        base_path: base_path.as_ptr(),
+        partition_label: partition_label.as_ptr(),
+        ..Default::default()
+    };
+
+    let ret = unsafe { idf_sys::esp_vfs_littlefs_register(&conf) };
+
+    // Use full path for esp! macro
+    esp_idf_svc::sys::esp!(ret)?;
+
+    log::info!("LittleFS mounted successfully at {}", VFS_BASE_PATH);
+    Ok(())
+}
+
+/// Loads the device configuration from LittleFS, or creates and saves a default config if not found/invalid.
+fn load_or_create_default_config() -> anyhow::Result<DeviceConfiguration> {
+    match std::fs::File::open(CONFIG_PATH) {
+        Ok(mut file) => {
+            log::info!("Reading configuration from {}", CONFIG_PATH);
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf)?;
+            match serde_json::from_slice(&buf) {
+                Ok(config) => {
+                    log::info!("Configuration loaded successfully.");
+                    Ok(config)
+                }
+                Err(e) => {
+                    log::error!("Failed to parse config file: {}. Using default config.", e);
+                    create_and_save_default_config()
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!(
+                "Config file not found ({}): {}. Creating default config.",
+                CONFIG_PATH,
+                e
+            );
+            create_and_save_default_config()
+        }
+    }
+}
+
+/// Creates a default configuration and saves it to the filesystem.
+fn create_and_save_default_config() -> anyhow::Result<DeviceConfiguration> {
+    let default_config = DeviceConfiguration::default_config();
+    log::info!("Creating default configuration file at {}", CONFIG_PATH);
+
+    let dir_path = std::path::Path::new(CONFIG_PATH).parent().unwrap();
+    if let Err(e) = std::fs::create_dir_all(dir_path) {
+        log::warn!(
+            "Failed to create directory {}: {} (continuing anyway)",
+            dir_path.display(),
+            e
+        );
+    }
+
+    match std::fs::File::create(CONFIG_PATH) {
+        Ok(mut file) => {
+            let json_data = serde_json::to_vec_pretty(&default_config)?;
+            file.write_all(&json_data)?;
+            log::info!("Default configuration saved successfully.");
+        }
+        Err(e) => {
+            log::error!("Failed to save default config file: {}", e);
+        }
+    }
+    Ok(default_config)
 }
 
 fn main() -> anyhow::Result<()> {
-    // It is necessary to call this function once. Otherwise some patches to the runtime
-    // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_svc::sys::link_patches();
-
-    // Bind the log crate to the ESP Logging facilities
     esp_idf_svc::log::EspLogger::initialize_default();
-
     log::info!("Booting up...");
+
+    // Attempt VFS init, but expect it to potentially fail silently for now
+    if let Err(e) = init_vfs() {
+        log::error!(
+            "Failed to initialize VFS: {}. File operations will likely fail.",
+            e
+        );
+    }
+
+    // Load configuration - This will likely fail if VFS isn't mounted
+    let config = load_or_create_default_config()?;
 
     let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
@@ -46,13 +130,9 @@ fn main() -> anyhow::Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
 
     let (tx, rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
-    // Channel for UI -> Actor communication
     let (actor_tx, actor_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
-    // Channel for Actor -> UsbHidClient communication
     let (usb_hid_tx, usb_hid_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
 
-    // This sets the configuration for the next threads that are spawned
-    // I"m using it mainly to set the stack size to 4096
     ThreadSpawnConfiguration {
         stack_size: 4096,
         ..Default::default()
@@ -60,34 +140,45 @@ fn main() -> anyhow::Result<()> {
     .set()
     .unwrap();
     let mut threads = Vec::new();
+
+    let wifi_settings = config.settings.wifi.clone();
+    let wifi_nvs = nvs;
+    let wifi_sys_loop = sys_loop;
+    let wifi_timer = timer_service.clone();
+    let wifi_tx = tx.clone();
+    let wifi_modem = peripherals.modem;
+
     threads.push(thread::spawn(move || {
         let mut wifi_driver = block_on(Wifi::init(
-            peripherals.modem,
-            sys_loop,
-            nvs,
-            timer_service,
-            tx.clone(),
+            wifi_settings,
+            wifi_modem,
+            wifi_sys_loop,
+            wifi_nvs,
+            wifi_timer,
+            wifi_tx,
         ))
         .unwrap();
 
-        block_on(wifi_driver.connect(APP_CONFIG.wifi_ssid, APP_CONFIG.wifi_password)).unwrap();
+        match block_on(wifi_driver.connect()) {
+            Ok(_) => {
+                let _ = block_on(time::init(tx.clone())).unwrap();
+                log::info!("NTP set up");
+            }
+            Err(e) => {
+                log::error!("Wi-Fi connection failed: {}", e);
+                tx.send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))
+                    .unwrap();
+            }
+        }
 
-        // Set up NTP now that wifi is connected
-        let _ = block_on(time::init(tx.clone())).unwrap();
-        log::info!("NTP set up");
-
-        // Keep the thread alive to preserve resources initialized in this block from being dropped
         loop {
             std::thread::sleep(std::time::Duration::from_secs(100));
         }
     }));
 
-    // Create the mapper instance
-    let mapper = Mapper::new();
-
-    // Spawn Actor thread
-    let actor_usb_hid_tx = usb_hid_tx.clone(); // Clone sender for actor
-    let actor_mapper = mapper; // Move mapper into the closure
+    let actor_mappings = config.mappings.clone();
+    let actor_mapper = Mapper::new(actor_mappings);
+    let actor_usb_hid_tx = usb_hid_tx.clone();
     threads.push(thread::spawn(move || {
         let actor = Actor::new(actor_rx, actor_usb_hid_tx, actor_mapper);
         actor.run();
@@ -96,7 +187,6 @@ fn main() -> anyhow::Result<()> {
     threads.push(thread::spawn(move || {
         UsbHidClient::run(usb_hid_rx).unwrap();
     }));
-    // Set back to default to not influence other threads
     ThreadSpawnConfiguration::default().set().unwrap();
 
     let touch_i2c = esp_idf_svc::hal::i2c::I2cDriver::new(
@@ -106,7 +196,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, rx, actor_tx, APP_CONFIG.tz_offset);
+    let _ = Window::init(touch_i2c, rx, actor_tx, TZ_OFFSET);
 
     for thread in threads {
         thread.join().unwrap();

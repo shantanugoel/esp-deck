@@ -3,7 +3,7 @@ use keycode::{KeyMap, KeyMappingCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::time::Duration; // Add serde for future file loading
+use std::time::Duration; // Add serde for future file loading // Make sure this path is correct
 
 // --- Configuration Structures ---
 // These structs define how the mapping is represented, potentially loaded from a file later.
@@ -36,8 +36,8 @@ pub enum ConfigAction {
     Sequence(Vec<ConfigAction>), // Represents a macro
 }
 
-// Using HashMap to map button IDs (as strings for flexibility, e.g., "button_1") to sequences
-type MappingConfiguration = HashMap<String, Vec<ConfigAction>>;
+// Define the type alias publicly here
+pub type MappingConfiguration = HashMap<String, Vec<ConfigAction>>;
 
 // --- Mapper Implementation ---
 
@@ -47,17 +47,16 @@ pub struct Mapper {
 }
 
 impl Mapper {
-    /// Creates a new Mapper instance with a default embedded configuration.
-    /// TODO: Implement loading from a file (e.g., TOML/JSON) via SPIFFS.
-    pub fn new() -> Self {
-        let default_config = Self::load_default_config();
-        Self {
-            config: default_config,
-        }
+    /// Creates a new Mapper instance with the provided configuration.
+    pub fn new(config: MappingConfiguration) -> Self {
+        // Remove internal call to load_default_config
+        // let default_config = Self::load_default_config();
+        Self { config }
     }
 
-    /// Loads a hardcoded default configuration.
-    fn load_default_config() -> MappingConfiguration {
+    /// Loads a hardcoded default configuration - Keep as helper, maybe make pub?
+    /// Or move this logic entirely into config.rs's DeviceConfiguration::default_config()
+    pub fn load_default_config() -> MappingConfiguration {
         let mut config = HashMap::new();
 
         // === Keyboard Examples ===

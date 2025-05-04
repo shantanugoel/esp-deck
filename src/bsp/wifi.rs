@@ -9,6 +9,7 @@ use esp_idf_svc::{
 
 use log::info;
 
+use crate::config::WifiSettings;
 use crate::events::{AppEvent, WifiStatus};
 use anyhow::{anyhow, Result};
 use std::sync::mpsc::Sender;
@@ -16,10 +17,12 @@ use std::sync::mpsc::Sender;
 pub struct Wifi {
     wifi_driver: AsyncWifi<EspWifi<'static>>,
     tx: Sender<AppEvent>,
+    wifi_settings: Option<WifiSettings>,
 }
 
 impl Wifi {
     pub async fn init(
+        wifi_settings: Option<WifiSettings>,
         modem: Modem,
         sys_loop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -33,18 +36,33 @@ impl Wifi {
         )?;
         tx.send(AppEvent::WifiUpdate(WifiStatus::Initializing))?;
 
-        Ok(Self { wifi_driver, tx })
+        Ok(Self {
+            wifi_driver,
+            tx,
+            wifi_settings,
+        })
     }
 
-    pub async fn connect(&mut self, ssid: &str, password: &str) -> Result<()> {
+    pub async fn connect(&mut self) -> Result<()> {
+        let settings = self
+            .wifi_settings
+            .as_ref()
+            .ok_or_else(|| anyhow!("No Wi-Fi credentials provided"))?;
+
         self.tx.send(AppEvent::WifiUpdate(WifiStatus::Connecting))?;
         let wifi_config: Configuration = Configuration::Client(ClientConfiguration {
-            ssid: ssid.try_into().map_err(|_| anyhow!("Invalid SSID"))?,
+            ssid: settings
+                .ssid
+                .as_str()
+                .try_into()
+                .map_err(|_| anyhow!("Invalid SSID in config"))?,
             bssid: None,
             auth_method: AuthMethod::WPA2Personal,
-            password: password
+            password: settings
+                .password
+                .as_str()
                 .try_into()
-                .map_err(|_| anyhow!("Invalid password"))?,
+                .map_err(|_| anyhow!("Invalid password in config"))?,
             channel: None,
             ..Default::default()
         });
@@ -70,5 +88,9 @@ impl Wifi {
         info!("WiFi interface is up");
 
         Ok(())
+    }
+
+    pub fn has_credentials(&self) -> bool {
+        self.wifi_settings.is_some()
     }
 }
