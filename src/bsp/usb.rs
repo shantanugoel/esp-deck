@@ -1,8 +1,7 @@
-use esp_idf_svc::sys::{hid_report_type_t, tud_mounted};
+use esp_idf_svc::sys::hid_report_type_t;
 use esp_idf_svc::sys::{
     tinyusb_config_t, tinyusb_config_t__bindgen_ty_1, tinyusb_config_t__bindgen_ty_2,
-    tinyusb_config_t__bindgen_ty_2__bindgen_ty_1, tinyusb_driver_install,
-    tud_hid_n_keyboard_report,
+    tinyusb_config_t__bindgen_ty_2__bindgen_ty_1, tinyusb_driver_install, tud_hid_n_report,
 };
 use std::ffi::{c_char, CString};
 use std::ptr;
@@ -39,7 +38,7 @@ extern "C" fn tud_hid_set_report_cb(
 }
 
 #[allow(dead_code)]
-fn get_hid_string_descriptor() -> (*mut *const c_char, usize) {
+fn get_string_descriptor() -> (*mut *const c_char, usize) {
     let strings = vec![
         CString::new(String::from_utf8(vec![0x09, 0x04]).unwrap()).unwrap(),
         CString::new("Shaan Labs Inc.").unwrap(),
@@ -58,7 +57,7 @@ pub struct UsbHid;
 impl UsbHid {
     #[allow(unused_unsafe)]
     pub fn new() -> Self {
-        let (string_descriptor, string_descriptor_count) = get_hid_string_descriptor();
+        let (string_descriptor, string_descriptor_count) = get_string_descriptor();
         let tusb_config = tinyusb_config_t {
             string_descriptor: string_descriptor,
             string_descriptor_count: string_descriptor_count as i32,
@@ -84,15 +83,10 @@ impl UsbHid {
         Self {}
     }
 
-    pub fn send_key(key: u8) {
+    pub fn send_hid_report<T>(itf: u8, report_id: u8, report_data: &T, report_len: usize) -> bool {
         unsafe {
-            if tud_mounted() {
-                tud_hid_n_keyboard_report(0, 1, 0, [key, 0, 0, 0, 0, 0].as_mut_ptr());
-                std::thread::sleep(std::time::Duration::from_millis(50));
-                tud_hid_n_keyboard_report(0, 1, 0, ptr::null_mut());
-            } else {
-                log::info!("USB not mounted while trying to send key {}", key);
-            }
+            let data_ptr = report_data as *const _ as *const core::ffi::c_void;
+            tud_hid_n_report(itf, report_id, data_ptr, report_len as u16)
         }
     }
 }

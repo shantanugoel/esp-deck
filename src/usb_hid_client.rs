@@ -9,7 +9,7 @@ use crate::{
     events::{AppEvent, UsbHidCommand},
 };
 use anyhow::Result;
-use esp_idf_svc::sys::{tud_hid_n_ready, tud_hid_n_report};
+use esp_idf_svc::sys::tud_hid_n_ready;
 use std::mem::size_of;
 use std::sync::mpsc::Receiver;
 
@@ -49,19 +49,19 @@ impl UsbHidClient {
                             }
 
                             let report_sent = match cmd {
-                                UsbHidCommand::SendKeyboard(report) => send_hid_report(
+                                UsbHidCommand::SendKeyboard(report) => UsbHid::send_hid_report(
                                     TUSB_HID_ITF,
                                     REPORT_ID_KEYBOARD,
                                     &report,
                                     size_of::<KeyboardReport>(),
                                 ),
-                                UsbHidCommand::SendMouse(report) => send_hid_report(
+                                UsbHidCommand::SendMouse(report) => UsbHid::send_hid_report(
                                     TUSB_HID_ITF,
                                     REPORT_ID_MOUSE,
                                     &report,
                                     size_of::<MouseReport>(),
                                 ),
-                                UsbHidCommand::SendConsumer(report) => send_hid_report(
+                                UsbHidCommand::SendConsumer(report) => UsbHid::send_hid_report(
                                     TUSB_HID_ITF,
                                     REPORT_ID_CONSUMER,
                                     &report,
@@ -92,12 +92,5 @@ impl UsbHidClient {
             }
         }
         Ok(())
-    }
-}
-
-fn send_hid_report<T>(itf: u8, report_id: u8, report_data: &T, report_len: usize) -> bool {
-    unsafe {
-        let data_ptr = report_data as *const _ as *const core::ffi::c_void;
-        tud_hid_n_report(itf, report_id, data_ptr, report_len as u16)
     }
 }
