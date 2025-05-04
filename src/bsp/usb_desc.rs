@@ -125,21 +125,32 @@ pub const TUSB_DESC_HID_REPORT: [u8; REPORT_DESCRIPTOR_LEN as usize] = [
 
 // !!! MUST BE >= LARGEST REPORT DATA SIZE + 1 (for Report ID prefix) !!!
 // Keyboard=8 bytes data -> min 9. Mouse=4 -> min 5. Consumer=2 -> min 3.
-// Max is 9, so 16 is a safe choice.
-const MAX_PACKET_SIZE: u16 = 16;
+// But we also need to account for bulk endpoints, so let's use 64 which is common for bulk endpoints
+const MAX_PACKET_SIZE: u16 = 64;
 // Polling interval for the HID Interrupt IN endpoint (in milliseconds)
 const ENDPOINT_POLL_MS: u8 = 10;
 // Configuration String Index (0 for none)
 const CONFIG_STRING_INDEX: u8 = 0;
 // Interface String Index (0 for none)
-const INTERFACE_STRING_INDEX: u8 = 0;
+const INTERFACE_STRING_INDEX_HID: u8 = 0;
+const INTERFACE_STRING_INDEX_VENDOR: u8 = 0;
+
 // Power attributes
 const USB_CONFIG_ATTR: u8 = 0xA0; // Bus powered + Remote Wakeup (0x80 = Bus powered only)
 const USB_MAX_POWER_MA: u8 = 100; // Max power in mA
 
 // --- Calculated Total Configuration Descriptor Size ---
-// Config (9) + Interface (9) + HID (9) + Endpoint (7) = 34 bytes
-const CONFIG_DESC_TOTAL_LEN: u16 = 34;
+// Config (9) + Interface (9) + HID (9) + Endpoint (7) + Vendor (9) + Vendor Endpoint  Out (7)  + Vendor Endpoint In (7) = 57 bytes
+const CONFIG_DESC_TOTAL_LEN: u16 = 57;
+
+// WebUSB and MS OS 2.0 constants
+pub const ITF_NUM_VENDOR: u8 = 1;
+pub const VENDOR_REQUEST_WEBUSB: u8 = 1;
+pub const VENDOR_REQUEST_MICROSOFT: u8 = 2;
+
+// Endpoint assignments. 0 is control, HID uses 1 IN
+const EP_VENDOR_OUT: u8 = 0x02;
+const EP_VENDOR_IN: u8 = 0x82;
 
 #[rustfmt::skip]
 pub const TUSB_DESC_CONFIGURATION: [u8; CONFIG_DESC_TOTAL_LEN as usize] = [
@@ -148,12 +159,13 @@ pub const TUSB_DESC_CONFIGURATION: [u8; CONFIG_DESC_TOTAL_LEN as usize] = [
     usb_constants::descriptor_type::CONFIGURATION, // bDescriptorType: CONFIGURATION (0x02)
     (CONFIG_DESC_TOTAL_LEN & 0xFF) as u8,       // wTotalLength (Low Byte): Total length (Config + Interface + HID + Endpoint)
     (CONFIG_DESC_TOTAL_LEN >> 8) as u8,         // wTotalLength (High Byte)
-    0x01,                                       // bNumInterfaces: 1 interface
+    0x02,                                       // bNumInterfaces: 2 interfaces (HID + Vendor)
     0x01,                                       // bConfigurationValue: Configuration value 1
     CONFIG_STRING_INDEX,                        // iConfiguration: Index of string descriptor (0 = None)
     USB_CONFIG_ATTR,                            // bmAttributes: (e.g., 0xA0 = Bus powered + Remote Wakeup)
     (USB_MAX_POWER_MA / 2) as u8,               // bMaxPower: Max power in 2mA units (e.g., 100mA -> 50)
 
+    // HID Interface: Interface 0
     // --- Interface Descriptor (9 bytes) ---
     0x09,                                       // bLength: Size of this descriptor (9 bytes)
     usb_constants::descriptor_type::INTERFACE,   // bDescriptorType: INTERFACE (0x04)
@@ -163,7 +175,7 @@ pub const TUSB_DESC_CONFIGURATION: [u8; CONFIG_DESC_TOTAL_LEN as usize] = [
     usb_constants::class_code::HID,             // bInterfaceClass: HID (0x03)
     0x00,                                       // bInterfaceSubClass: No Subclass (0x01 for Boot Interface)
     0x00,                                       // bInterfaceProtocol: None (0x01 for Keyboard, 0x02 for Mouse Boot Protocol)
-    INTERFACE_STRING_INDEX,                     // iInterface: Index of string descriptor (0 = None)
+    INTERFACE_STRING_INDEX_HID,                 // iInterface: Index of string descriptor (0 = None)
 
     // --- HID Class Descriptor (9 bytes) ---
     0x09,                                       // bLength: Size of this descriptor (9 bytes)
@@ -183,6 +195,37 @@ pub const TUSB_DESC_CONFIGURATION: [u8; CONFIG_DESC_TOTAL_LEN as usize] = [
     (MAX_PACKET_SIZE & 0xFF) as u8,             // wMaxPacketSize (Low Byte): Max packet size (e.g., 16 bytes)
     (MAX_PACKET_SIZE >> 8) as u8,               // wMaxPacketSize (High Byte)
     ENDPOINT_POLL_MS,                           // bInterval: Polling interval in ms for Interrupt Endpoint
+
+    // Vendor Interface: Interface 1
+    // --- Interface Descriptor (9 bytes) ---
+    0x09,                                       // bLength: Size of this descriptor (9 bytes)
+    usb_constants::descriptor_type::INTERFACE,   // bDescriptorType: INTERFACE (0x04)
+    ITF_NUM_VENDOR,                              // bInterfaceNumber: Interface Number 1
+    0x00,                                       // bAlternateSetting: Alternate Setting 0
+    0x02,                                       // bNumEndpoints: 2 endpoints for this interface (Out/In)
+    usb_constants::class_code::VENDOR_SPEC,          // bInterfaceClass: Vendor (0xEF)
+    0x00,                                       // bInterfaceSubClass: No Subclass (0x02 for Vendor Class)
+    0x00,                                       // bInterfaceProtocol: None (0x01 for Vendor Class)
+    INTERFACE_STRING_INDEX_VENDOR,              // iInterface: Index of string descriptor (0 = None)
+
+    // --- Endpoint Descriptor Out (7 bytes) ---
+    0x07,                                       // bLength: Size of this descriptor (7 bytes)
+    usb_constants::descriptor_type::ENDPOINT,   // bDescriptorType: ENDPOINT (0x05)
+    EP_VENDOR_OUT,                              // bEndpointAddress: Endpoint 2, OUT direction (MSB=0 for OUT)
+    usb_constants::endpoint_attribute::BULK,    // bmAttributes: Bulk transfer type (0x02)
+    (MAX_PACKET_SIZE & 0xFF) as u8,             // wMaxPacketSize (Low Byte): Max packet size (e.g., 16 bytes)
+    (MAX_PACKET_SIZE >> 8) as u8,               // wMaxPacketSize (High Byte)
+    0x00,                                       // bInterval: Ignored for Bulk endpoints
+
+    // --- Endpoint Descriptor In (7 bytes) ---
+    0x07,                                       // bLength: Size of this descriptor (7 bytes)
+    usb_constants::descriptor_type::ENDPOINT,   // bDescriptorType: ENDPOINT (0x05)
+    EP_VENDOR_IN,                              // bEndpointAddress: Endpoint 2, IN direction (MSB=1 for IN)
+    usb_constants::endpoint_attribute::BULK,    // bmAttributes: Bulk transfer type (0x02)
+    (MAX_PACKET_SIZE & 0xFF) as u8,             // wMaxPacketSize (Low Byte): Max packet size (e.g., 16 bytes)
+    (MAX_PACKET_SIZE >> 8) as u8,               // wMaxPacketSize (High Byte)
+    0x00,                                       // bInterval: Ignored for Bulk endpoints
+    
 ];
 
 // Device Descriptor
@@ -227,10 +270,12 @@ pub mod usb_constants {
         pub const HID: u8 = 0x21;
         pub const REPORT: u8 = 0x22;
         pub const PHYSICAL: u8 = 0x23;
+        pub const BOS: u8 = 0x0F;
+        pub const DEVICE_CAPABILITY: u8 = 0x10;
     }
     pub mod class_code {
         pub const HID: u8 = 0x03;
-        // Add others if needed
+        pub const VENDOR_SPEC: u8 = 0xFF;
     }
     pub mod endpoint_attribute {
         pub const CONTROL: u8 = 0x00;
@@ -238,9 +283,104 @@ pub mod usb_constants {
         pub const BULK: u8 = 0x02;
         pub const INTERRUPT: u8 = 0x03;
     }
+    pub mod capability_type {
+        pub const PLATFORM: u8 = 0x05;
+    }
 }
 
 // Check struct sizes at compile time (not necessary, but good practice)
 const _: () = assert!(std::mem::size_of::<KeyboardReport>() == 8);
 const _: () = assert!(std::mem::size_of::<MouseReport>() == 4);
 const _: () = assert!(std::mem::size_of::<ConsumerReport>() == 2);
+
+// --- Add BOS Descriptor ---
+// Correct BOS Calculation: BOS Header (5) + WebUSB Cap (24) + MS OS Cap (28) = 57
+const BOS_TOTAL_LEN: u16 = 5 + 24 + 28;
+
+#[rustfmt::skip]
+pub const TUSB_DESC_BOS: [u8; BOS_TOTAL_LEN as usize] = [
+    // BOS Descriptor
+    0x05, usb_constants::descriptor_type::BOS, (BOS_TOTAL_LEN & 0xFF) as u8, (BOS_TOTAL_LEN >> 8) as u8, 0x02, // bNumDeviceCaps = 2
+
+    // WebUSB Platform Capability Descriptor (Length = 24)
+    0x18, usb_constants::descriptor_type::DEVICE_CAPABILITY, usb_constants::capability_type::PLATFORM, 0x00,
+    0x38, 0xB6, 0x08, 0x34, 0xA9, 0x09, 0xA0, 0x47, 0x8B, 0xFD, 0xA0, 0x76, 0x88, 0x15, 0xB6, 0x65, // UUID
+    0x00, 0x01, // bcdVersion 1.00
+    VENDOR_REQUEST_WEBUSB, // bVendorCode
+    1, // iLandingPage (Using index 1 for URL descriptor, needs to be defined)
+
+    // Microsoft OS 2.0 Platform Capability Descriptor (Length = 28)
+    0x1C, usb_constants::descriptor_type::DEVICE_CAPABILITY, usb_constants::capability_type::PLATFORM, 0x00,
+    0xDF, 0x60, 0xDD, 0xD8, 0x89, 0x45, 0xC7, 0x4C, 0x9C, 0xD2, 0x65, 0x9D, 0x9E, 0x64, 0x8A, 0x9F, // UUID
+    0x00, 0x00, 0x03, 0x06, // dwWindowsVersion >= Win 8.1
+    // wDescriptorSetTotalLength = 168
+    (MS_OS_20_DESC_LEN & 0xFF) as u8, (MS_OS_20_DESC_LEN >> 8) as u8,
+    VENDOR_REQUEST_MICROSOFT, // bVendorCode
+    0x00 // bAltEnumCode
+];
+
+// === Microsoft OS 2.0 Descriptor Set ===
+// This is fetched by Windows via vendor specific request
+const MS_OS_20_DESC_LEN: u16 = 10 + 8 + 20 + 130; // CSet Header (10) + Function Subset (8) + Compatible ID (20) + Registry Property (130) = 168
+
+#[rustfmt::skip]
+pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
+  // Set header: length, type, windows version, total length
+  0x0A, 0x00, // wLength = 10
+  0x00, 0x00, // MS OS 2.0 descriptor set header
+  0x00, 0x00, 0x03, 0x06, // dwWindowsVersion >= Win 8.1
+  (MS_OS_20_DESC_LEN & 0xFF) as u8, (MS_OS_20_DESC_LEN >> 8) as u8, // wTotalLength = 168
+
+  // Function Subset header: length, type, first interface, reserved, subset length
+  0x08, 0x00, // wLength = 8
+  0x02, 0x00, // MS OS 2.0 function subset header
+  ITF_NUM_VENDOR, // bFirstInterface = Interface 1 (Vendor)
+  0x00,       // reserved
+  // wSubsetLength = Compatible ID (20) + Reg Property (130) = 150
+  (150 & 0xFF) as u8, (150 >> 8) as u8,
+
+  // Compatible ID Descriptor: length, type, compatible ID, sub compatible ID
+  0x14, 0x00, // wLength = 20
+  0x03, 0x00, // MS OS 2.0 compatible ID descriptor
+  b'W', b'I', b'N', b'U', b'S', b'B', 0x00, 0x00, // CompatibleID "WINUSB"
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // SubCompatibleID
+
+  // Registry Property Descriptor: length, type, property data type, property name length, property name, property data length, property data
+  // GUID_DEVINTERFACE_USB_DEVICE = {A5DCBF10-6530-11D2-901F-00C04FB951ED}
+  // Corrected wLength = 130 bytes (DataType(2) + NameLength(2) + Name(42) + DataLength(2) + Data(80))
+  0x82, 0x00, // wLength = 130 bytes
+  0x07, 0x00, // wPropertyDataType = 7 (REG_MULTI_SZ)
+  42, 0x00, // wPropertyNameLength = 42
+  // Property Name: DeviceInterfaceGUIDs
+  b'D', 0x00, b'e', 0x00, b'v', 0x00, b'i', 0x00, b'c', 0x00, b'e', 0x00, b'I', 0x00,
+  b'n', 0x00, b't', 0x00, b'e', 0x00, b'r', 0x00, b'f', 0x00, b'a', 0x00, b'c', 0x00,
+  b'e', 0x00, b'G', 0x00, b'U', 0x00, b'I', 0x00, b'D', 0x00, b's', 0x00, 0x00, 0x00, // Terminating NUL
+
+  0x50, 0x00, // wPropertyDataLength = 80 bytes
+  // PropertyData: "{A5DCBF10-6530-11D2-901F-00C04FB951ED}\0\0" (UTF16-LE)
+  b'{', 0x00, b'A', 0x00, b'5', 0x00, b'D', 0x00, b'C', 0x00, b'B', 0x00, b'F', 0x00,
+  b'1', 0x00, b'0', 0x00, b'-', 0x00, b'6', 0x00, b'5', 0x00, b'3', 0x00, b'0', 0x00,
+  b'-', 0x00, b'1', 0x00, b'1', 0x00, b'D', 0x00, b'2', 0x00, b'-', 0x00, b'9', 0x00,
+  b'0', 0x00, b'1', 0x00, b'F', 0x00, b'-', 0x00, b'0', 0x00, b'0', 0x00, b'C', 0x00,
+  b'0', 0x00, b'4', 0x00, b'F', 0x00, b'B', 0x00, b'9', 0x00, b'5', 0x00, b'1', 0x00,
+  b'E', 0x00, b'D', 0x00, b'}', 0x00, 0x00, 0x00, 0x00, 0x00 // Double NUL termination
+];
+
+// === URL Descriptor for WebUSB Landing Page ===
+const LANDING_PAGE_URL: &[u8] = b"espdeckcfg.shantanugoel.com"; // The actual URL string bytes
+const URL_DESC_LEN: usize = 3 + LANDING_PAGE_URL.len(); // 3 bytes header (len, type, scheme) + URL length
+
+#[rustfmt::skip]
+pub const TUSB_DESC_WEBUSB_URL: [u8; URL_DESC_LEN] = {
+    let mut desc = [0u8; URL_DESC_LEN];
+    desc[0] = URL_DESC_LEN as u8;                        // bLength
+    desc[1] = usb_constants::descriptor_type::STRING;    // bDescriptorType = 0x03 (String)
+    desc[2] = 1;                                         // bScheme = 1 (https)
+    // Copy URL bytes into the descriptor starting from index 3
+    let mut i = 3;
+    while i < URL_DESC_LEN {
+        desc[i] = LANDING_PAGE_URL[i - 3];
+        i += 1;
+    }
+    desc
+};
