@@ -1,4 +1,4 @@
-use crate::bsp::hid_desc::{ConsumerReport, KeyboardReport, MouseReport};
+use crate::bsp::usb_desc::{ConsumerReport, KeyboardReport, MouseReport};
 use std::net::Ipv4Addr;
 use std::time::Duration;
 

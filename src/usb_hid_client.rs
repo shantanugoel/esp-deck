@@ -1,6 +1,6 @@
 use crate::{
     bsp::{
-        hid_desc::{
+        usb_desc::{
             ConsumerReport, KeyboardReport, MouseReport, REPORT_ID_CONSUMER, REPORT_ID_KEYBOARD,
             REPORT_ID_MOUSE,
         },

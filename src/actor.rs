@@ -1,4 +1,4 @@
-use crate::bsp::hid_desc::{ConsumerReport, KeyboardReport, MouseReport};
+use crate::bsp::usb_desc::{ConsumerReport, KeyboardReport, MouseReport};
 use crate::events::{
     AppEvent, HidAction,
     UsbHidCommand::{SendConsumer, SendKeyboard, SendMouse},

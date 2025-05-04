@@ -7,7 +7,7 @@ use esp_idf_svc::sys::{
 use std::ffi::{c_char, CString};
 use std::ptr;
 
-use crate::bsp::hid_desc::{TUSB_DESC_CONFIGURATION, TUSB_DESC_DEVICE, TUSB_DESC_HID_REPORT};
+use crate::bsp::usb_desc::{TUSB_DESC_CONFIGURATION, TUSB_DESC_DEVICE, TUSB_DESC_HID_REPORT};
 
 #[allow(unused_variables)]
 #[no_mangle]
