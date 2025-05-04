@@ -259,6 +259,48 @@ pub const TUSB_DESC_DEVICE: tusb_desc_device_t = tusb_desc_device_t {
     bNumConfigurations: 0x01, // bNumConfigurations: Number of possible configurations (Usually 1)
 };
 
+// // Helper macro to extract the least significant byte (LSB) from a 16-bit value
+// macro_rules! lsb {
+//     ($val:expr) => {
+//         ($val & 0xFF) as u8
+//     };
+// }
+
+// // Helper macro to extract the most significant byte (MSB) from a 16-bit value
+// macro_rules! msb {
+//     ($val:expr) => {
+//         (($val >> 8) & 0xFF) as u8
+//     };
+// }
+
+// // Device Descriptor
+// const USB_VID: u16 = 0x5AA4;
+// const USB_PID: u16 = 0x60E1;
+// const USB_DEVICE_VERSION: u16 = 0x0100;
+
+// // Device descriptor (18 bytes)
+// pub const TUSB_DESC_DEVICE: [u8; 18] = [
+//     18,                                     // bLength: Size of this descriptor
+//     usb_constants::descriptor_type::DEVICE, // bDescriptorType: DEVICE
+//     lsb!(0x0200),
+//     msb!(0x0200), // bcdUSB: USB 2.00
+//     // Class/SubClass/Protocol: IAD used
+//     0xEF, // bDeviceClass: Miscellaneous
+//     0x02, // bDeviceSubClass: Common Class
+//     0x01, // bDeviceProtocol: Interface Association Descriptor
+//     64,   // bMaxPacketSize0: Max packet size for Endpoint 0
+//     lsb!(USB_VID),
+//     msb!(USB_VID), // idVendor
+//     lsb!(USB_PID),
+//     msb!(USB_PID), // idProduct
+//     lsb!(USB_DEVICE_VERSION),
+//     msb!(USB_DEVICE_VERSION), // bcdDevice
+//     1,                        // iManufacturer: Index of Manufacturer String Descriptor
+//     2,                        // iProduct: Index of Product String Descriptor
+//     3,                        // iSerialNumber: Index of Serial Number String Descriptor
+//     1,                        // bNumConfigurations: Number of possible configurations
+// ];
+
 // --- Helper structs for USB Constants ---
 pub mod usb_constants {
     pub mod descriptor_type {

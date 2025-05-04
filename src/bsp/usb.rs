@@ -1,8 +1,11 @@
-use esp_idf_svc::sys::hid_report_type_t;
 use esp_idf_svc::sys::{
-    tinyusb_config_t, tinyusb_config_t__bindgen_ty_1, tinyusb_config_t__bindgen_ty_2,
-    tinyusb_config_t__bindgen_ty_2__bindgen_ty_1, tinyusb_driver_install, tud_control_xfer,
-    tud_hid_n_report, tusb_control_request_t,
+    hid_report_type_t, tinyusb_config_t, tinyusb_config_t__bindgen_ty_1,
+    tinyusb_config_t__bindgen_ty_2, tinyusb_config_t__bindgen_ty_2__bindgen_ty_1,
+    tinyusb_driver_install, tusb_rhport_init, tusb_role_t_TUSB_ROLE_DEVICE,
+    tusb_speed_t_TUSB_SPEED_AUTO,
+};
+use esp_idf_svc::sys::{
+    tud_control_xfer, tud_hid_n_report, tusb_control_request_t, tusb_rhport_init_t,
 };
 use std::ffi::{c_char, CString};
 use std::ptr;
@@ -57,6 +60,20 @@ extern "C" fn tud_hid_set_report_cb(
         buffsize
     );
 }
+
+// #[allow(unused_variables)]
+// #[no_mangle]
+// extern "C" fn tud_descriptor_device_cb() -> *const u8 {
+//     log::info!("tud_descriptor_device_cb called");
+//     return TUSB_DESC_DEVICE.as_ptr();
+// }
+
+// #[allow(unused_variables)]
+// #[no_mangle]
+// extern "C" fn tud_descriptor_configuration_cb() -> *const u8 {
+//     log::info!("tud_descriptor_configuration_cb called");
+//     return TUSB_DESC_CONFIGURATION.as_ptr();
+// }
 
 #[allow(unused_variables)]
 #[no_mangle]
@@ -171,6 +188,16 @@ impl Usb {
         };
 
         unsafe { tinyusb_driver_install(&tusb_config) };
+
+        // let dev_init = tusb_rhport_init_t {
+        //     role: tusb_role_t_TUSB_ROLE_DEVICE,
+        //     speed: tusb_speed_t_TUSB_SPEED_AUTO,
+        //     ..Default::default()
+        // };
+
+        // unsafe {
+        //     tusb_rhport_init(0, &dev_init);
+        // }
 
         Self {}
     }
