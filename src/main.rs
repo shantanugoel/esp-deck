@@ -37,12 +37,14 @@ fn init_vfs() -> anyhow::Result<()> {
     let partition_label = CString::new(PARTITION_LABEL).unwrap();
 
     // Rely entirely on Default, assuming it sets reasonable values or the C func handles it.
-    let conf = esp_vfs_littlefs_conf_t {
+    let mut conf = esp_vfs_littlefs_conf_t {
         base_path: base_path.as_ptr(),
         partition_label: partition_label.as_ptr(),
         ..Default::default()
     };
 
+    conf.set_format_if_mount_failed(true as u8);
+    conf.set_dont_mount(false as u8);
     let ret = unsafe { idf_sys::esp_vfs_littlefs_register(&conf) };
 
     // Use full path for esp! macro
