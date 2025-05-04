@@ -23,7 +23,8 @@ experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
 log = { version = "0.4", default-features = false }
-esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
+# `experimental` is needed for littlefs. Using git version instead of 0.51.0 crate because of Bug #570 fix
+esp-idf-svc = { git = "https://github.com/esp-rs/esp-idf-svc.git", rev = "b457f89a7e1727c42acd5ddeaf98794d8e298c22", features = ["critical-section", "embassy-time-driver", "embassy-sync", "experimental"] }
 embedded-svc = {version = "0.28", default-features = false }
 slint = { version = "1.11", default-features = false, features = ["compat-1-2", "unsafe-single-threaded", "libm", "renderer-software"] }
 gt911 = "0.3"
@@ -47,3 +48,5 @@ bindings_module = "tinyusb"
 remote_component = { name = "espressif/esp_tinyusb", version = "^1.7.4" }
 bindings_header = "tusb_bindings.h"
 bindings_module = "esptinyusb"
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "joltwallet/littlefs", version = "^1.19.2" }
