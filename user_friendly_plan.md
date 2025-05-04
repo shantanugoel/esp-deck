@@ -7,6 +7,7 @@ This plan outlines the steps to replace the hardcoded configurations (key mappin
 *   **Configuration Format:** JSON (Human-readable, widely supported by web technologies).
 *   **Communication:** WebUSB (using TinyUSB stack).
 *   **Serialization:** `serde` and `serde_json` crates.
+*   **Rust Framework:** `esp-idf-svc` (providing safe wrappers).
 
 **Configuration File:** `/littlefs/device_config.json`
 
@@ -14,25 +15,32 @@ This plan outlines the steps to replace the hardcoded configurations (key mappin
 
 ## Phase 0: Prerequisites & Build System Configuration
 
-1.  **Enable LittleFS:**
-    *   Use `idf.py menuconfig` (or the VS Code extension equivalent).
-    *   Go to `Component config` -> `Wear Levelling`.
-    *   Enable `Enable Wear Levelling library`.
-    *   Go to `Component config` -> `Partition Table`.
-    *   Choose a partition table layout that includes a `storage` partition suitable for LittleFS (e.g., "Factory app, two OTA definitions + storage partition"). Note the label used (often `storage` or `spiffs`).
-    *   Verify partition settings (size, offset).
-2.  **Enable TinyUSB WebUSB:**
-    *   Use `idf.py menuconfig`.
-    *   Go to `Component config` -> `TinyUSB Stack`.
-    *   Ensure `USB Device Communication Class (CDC)` is enabled (often needed as a base or for debugging).
-    *   Ensure `WebUSB` support is enabled within the TinyUSB configuration options.
-    *   Configure VID/PID if not already set correctly.
-3.  **Add Dependencies:**
-    *   Add `serde` and `serde_json` to `Cargo.toml` (with `derive` feature for `serde`).
-    *   Ensure necessary `esp-idf-svc` features for VFS/LittleFS are potentially enabled if needed (might be included by default).
-4.  **Remove `toml_cfg`:** Remove the `#[toml_cfg::toml_config]` macro and its usage for Wi-Fi credentials in `main.rs`, as these will now come from the loaded JSON config.
+1.  **Enable LittleFS Component:**
+    *   Run `idf.py menuconfig` (ensure ESP-IDF env is sourced: `. ./export.sh`).
+    *   Go to `Component config` -> `LittleFS Support`.
+    *   Enable (`[*]`) this component. (If LittleFS is unavailable, enable `SPIFFS` instead and adjust partition subtype/mount function later).
+    *   Note the default `Wear leveling sector size` (usually fine).
+2.  **Configure Partition Table:**
+    *   In `menuconfig`, go to `Component config` -> `Partition Table`.
+    *   Select `[*] Custom partition table CSV`.
+    *   Ensure `Partition table CSV file` points to `partitions.csv` (or your chosen name) in the project root.
+    *   Create/Edit `partitions.csv` to include standard partitions (nvs, otadata, phy_init, ota_0, ota_1) and add a line for LittleFS storage:
+        ```csv
+        # Name,   Type, SubType, Offset,  Size, Flags
+        # ... (nvs, otadata, phy_init, ota_0, ota_1 entries) ...
+        storage,  data, littlefs,,        1M, # Label "storage", type data, subtype littlefs, size (e.g., 1M)
+        ```
+3.  **Enable TinyUSB WebUSB:**
+    *   In `menuconfig`, go to `Component config` -> `TinyUSB Stack`.
+    *   Ensure `[*] USB Device Communication Class (CDC)` is enabled.
+    *   Ensure `[*] WebUSB` support is enabled.
+    *   Verify VID/PID.
+4.  **Add Dependencies:**
+    *   Add `serde`, `serde_json` to `Cargo.toml`...
+    *   The `esp-idf-svc` crate should already be a dependency.
+5.  **Remove `toml_cfg`:** Remove `#[toml_cfg::toml_config]` for Wi-Fi...
 
-## Phase 1: Unified Configuration Structure & Loading
+## Phase 1: Unified Configuration Structure & Loading (with `esp-idf-svc`)
 
 1.  **Define Unified Struct:**
     *   In a suitable module (e.g., `src/config.rs`), define a top-level struct `DeviceConfiguration`.
@@ -40,52 +48,52 @@ This plan outlines the steps to replace the hardcoded configurations (key mappin
     *   Define `DeviceSettings` struct containing fields like `wifi: Option<WifiSettings>`.
     *   Define `WifiSettings` struct containing `ssid: String` and `password: String`.
     *   Add `#[derive(Serialize, Deserialize, Debug, Clone)]` to all these new structs.
-2.  **Initialize LittleFS:**
+2.  **Initialize LittleFS (Rust):**
     *   In `main.rs` or a dedicated `storage` module, add code to:
-        *   Initialize the Virtual Filesystem (VFS) layer for ESP-IDF.
-        *   Configure and mount the LittleFS partition using the label defined in the partition table (e.g., `storage`). Use a base path like `/littlefs`.
-3.  **Implement Configuration Loading:**
+        *   Import necessary items from `esp_idf_svc::vfs` and `esp_idf_svc::hal::prelude::*`.
+        *   Use `esp_idf_svc::vfs::EspVfs::new()` to get VFS capability.
+        *   Use `vfs.register_littlefs("/littlefs", "storage", partition.offset(), partition.len(), max_files)` (or similar API - check `esp-idf-svc` docs for exact signature) to mount the partition labeled `storage` at the `/littlefs` base path. Obtain partition details (`EspPartition::find_first(...)`).
+3.  **Implement Configuration Loading (Rust):**
     *   In `main.rs` (or a `ConfigManager`), implement a function `load_device_configuration()`.
-    *   Attempt to read `/littlefs/device_config.json`.
-    *   Use `serde_json::from_slice/reader` to deserialize into the `DeviceConfiguration` struct.
-4.  **Handle Missing/Invalid Config & Defaults:**
-    *   If loading fails (file missing, invalid JSON):
+    *   Use standard Rust file I/O: `std::fs::File::open("/littlefs/device_config.json")`.
+    *   Use `std::io::Read` trait methods to read data.
+    *   Deserialize using `serde_json::from_slice` or `serde_json::from_reader`.
+4.  **Handle Missing/Invalid Config & Defaults (Rust):**
+    *   If loading fails:
         *   Log warning/error.
         *   Create a *default* `DeviceConfiguration` instance:
             *   Use `Mapper::load_default_config()` for the `mappings` field.
             *   Use `None` or default/empty values for `settings.wifi`.
-        *   *Recommended:* Serialize this default `DeviceConfiguration` to JSON and write it to `/littlefs/device_config.json` so a valid file exists.
+        *   Serialize default config using `serde_json::to_vec` or `to_string`.
+        *   Write default config using `std::fs::File::create("/littlefs/device_config.json")` and `std::io::Write` traits.
 5.  **Distribute Configuration:**
     *   In `main.rs`, after successfully loading or creating the default `DeviceConfiguration`:
         *   Pass `loaded_config.mappings` to `Mapper::new()`.
         *   Pass `loaded_config.settings.wifi` to `Wifi::init()` (modify `Wifi::init` signature).
-6.  **Test:** Verify boot, LittleFS mount, attempt to load config, creation/use of default config, and passing of defaults to `Mapper` and `Wifi` modules.
+6.  **Test:** Verify boot, mount success logs, config loading/default creation, etc.
 
-## Phase 2: WebUSB Firmware Implementation (Receiving Unified Config)
+## Phase 2: WebUSB Firmware Implementation (Receiving Unified Config - with `esp-idf-svc`)
 
 1.  **WebUSB Descriptors:**
     *   Ensure the USB descriptor configuration (likely in `bsp/usb_hid.rs` or similar) correctly includes the necessary WebUSB descriptors (BOS capability descriptor, etc.) as required by TinyUSB. Define a specific landing page URL allowed to connect.
-2.  **TinyUSB WebUSB Task/Callbacks:**
+2.  **TinyUSB WebUSB Task/Callbacks (Rust):**
     *   Implement the necessary TinyUSB callbacks for WebUSB:
         *   `tud_webusb_rx_cb()`: Called when data is received from the host over WebUSB.
         *   `tud_webusb_connected_cb()`: Optional callback for when a WebUSB connection is established.
     *   Alternatively, create a dedicated thread/task that polls `tud_webusb_available()` and reads data using `tud_webusb_read()`.
+    *   **Data Transfer:** Reading data (`tud_webusb_rx_cb`, `tud_webusb_read`) and sending responses (`tud_webusb_write`) might require using `unsafe` blocks with functions from `esp_idf_svc::sys` (re-exporting `esp-idf-sys`), as safe wrappers may not exist in `esp-idf-svc` for these specific functions. Check the latest `esp-idf-svc` documentation.
 3.  **Data Reception Protocol:**
     *   Define a simple protocol. Suggestion: **Length-Prefixed JSON**.
         *   The PC app first sends the total length of the JSON string (e.g., as a 4-byte unsigned integer, little-endian).
         *   The PC app then sends the raw JSON bytes.
-    *   In the ESP32 WebUSB receive callback/task:
-        *   Read the 4-byte length prefix.
-        *   Allocate a buffer of that size.
-        *   Read exactly that many bytes into the buffer (handle potential partial reads).
-4.  **Deserialize and Save Unified Config:**
-    *   Once the full JSON data is received:
-        *   Attempt to deserialize into `DeviceConfiguration` using `serde_json::from_slice`.
+    *   Read 4-byte length, then JSON bytes (using potentially `unsafe` calls to `tud_webusb_read`).
+4.  **Deserialize and Save Unified Config (Rust):**
+    *   Once JSON data is received (as `Vec<u8>`):
+        *   Deserialize using `serde_json::from_slice` (safe Rust).
         *   If successful:
-            *   Open `/littlefs/device_config.json` for writing.
-            *   Write the *received* (and validated) JSON bytes to the file.
-            *   *Crucial:* Trigger relevant modules to reload/apply the new settings (e.g., signal the Wi-Fi task to reconnect if credentials changed, potentially signal `Mapper` to reload, although less critical as it's usually read once at start). This might involve channels or shared state (`Arc<Mutex<...>>`).
-            *   *Optional:* Send success back to host.
+            *   Save to file using `std::fs::File::create` and `std::io::Write` (safe Rust).
+            *   Trigger module reloads/updates (channels, shared state - safe Rust).
+            *   *Optional:* Send success back via WebUSB TX (potentially `unsafe` `tud_webusb_write`).
         *   If deserialization fails:
             *   Log error.
             *   *Optional:* Send failure back to host.
@@ -102,30 +110,4 @@ This plan outlines the steps to replace the hardcoded configurations (key mappin
     *   Implement connection logic (`device.open()`, `device.selectConfiguration()`, `device.claimInterface()`). Handle potential errors.
     *   When "Send Configuration" is clicked:
         *   Get the *full* JSON string representing `DeviceConfiguration` from the `<textarea>`.
-        *   *Important:* Ensure this JSON includes both the `mappings` and `settings` keys with their respective structures.
-        *   Calculate length, create buffers, send length, send JSON data via `transferOut`...
-    *   *Optional:* Implement logic to listen for success/failure messages back from the device using `device.transferIn()`.
-
-## Phase 4: Full Companion Web App UI (Unified Config)
-
-1.  **Mapping Editor UI:**
-    *   Design and implement a user-friendly interface within the web app for creating and editing key mappings (buttons, dropdowns for actions/keys, input fields for delays/mouse movements, etc.). Avoid requiring users to write raw JSON.
-2.  **Settings UI:**
-    *   Add sections/forms in the web app UI for editing Wi-Fi credentials and any other future settings.
-3.  **Configuration Generation:**
-    *   Update JavaScript logic to generate a single JSON object conforming to the `DeviceConfiguration` structure, combining data from the mapping editor *and* the settings forms.
-4.  **Integration:** Replace `<textarea>` with the combined UI. "Save to Device" generates the unified JSON and sends it.
-
-## Phase 5: Refinements & Error Handling
-
-1.  **Robustness:**
-    *   Add specific error handling for filesystem writes, JSON validation failures, and failures applying settings (e.g., Wi-Fi connection failed with new credentials).
-2.  **Feedback:**
-    *   Provide feedback for settings application (e.g., "Wi-Fi connecting...", "Wi-Fi connected", "Wi-Fi failed").
-3.  **Optimization:**
-    *   Consider using MessagePack instead of JSON for smaller configuration size and faster parsing, if needed. Update serialization/deserialization on both ends.
-4.  **Device Discovery:**
-    *   Improve the WebUSB connection flow if multiple valid devices might be present.
-5.  **Applying Settings:** Define a clear strategy for how firmware modules react to configuration changes *after* the new config is saved (re-init, reload flags, message passing, etc.).
-
---- 
+        *   *Important:* Ensure this JSON includes both the `mappings`
