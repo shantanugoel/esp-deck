@@ -1,10 +1,10 @@
 use crate::{
     bsp::{
+        usb::UsbHid,
         usb_desc::{
             ConsumerReport, KeyboardReport, MouseReport, REPORT_ID_CONSUMER, REPORT_ID_KEYBOARD,
             REPORT_ID_MOUSE,
         },
-        usb_hid::UsbHid,
     },
     events::{AppEvent, UsbHidCommand},
 };
