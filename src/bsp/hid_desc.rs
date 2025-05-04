@@ -1,4 +1,4 @@
-use esp_idf_svc::sys::esptinyusb::tusb_desc_device_t;
+use esp_idf_svc::sys::tusb_desc_device_t;
 
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy)]

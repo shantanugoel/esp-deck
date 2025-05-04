@@ -1,9 +1,9 @@
-use esp_idf_svc::sys::esptinyusb::{
+use esp_idf_svc::sys::{hid_report_type_t, tud_mounted};
+use esp_idf_svc::sys::{
     tinyusb_config_t, tinyusb_config_t__bindgen_ty_1, tinyusb_config_t__bindgen_ty_2,
     tinyusb_config_t__bindgen_ty_2__bindgen_ty_1, tinyusb_driver_install,
     tud_hid_n_keyboard_report,
 };
-use esp_idf_svc::sys::tinyusb::{hid_report_type_t, tud_mounted};
 use std::ffi::{c_char, CString};
 use std::ptr;
 
