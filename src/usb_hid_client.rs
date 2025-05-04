@@ -1,6 +1,6 @@
 use crate::{
     bsp::{
-        usb::UsbHid,
+        usb::Usb,
         usb_desc::{
             ConsumerReport, KeyboardReport, MouseReport, REPORT_ID_CONSUMER, REPORT_ID_KEYBOARD,
             REPORT_ID_MOUSE,
@@ -19,7 +19,6 @@ impl UsbHidClient {
     pub fn run(command_rx: Receiver<AppEvent>) -> Result<()> {
         log::info!("Starting USB HID client");
 
-        let _usb_hid = UsbHid::new();
         // The TinyUSB HID interface number. Since we configure only one HID
         // interface in sdkconfig (even if composite), this should be 0.
         const TUSB_HID_ITF: u8 = 0;
@@ -49,19 +48,19 @@ impl UsbHidClient {
                             }
 
                             let report_sent = match cmd {
-                                UsbHidCommand::SendKeyboard(report) => UsbHid::send_hid_report(
+                                UsbHidCommand::SendKeyboard(report) => Usb::send_hid_report(
                                     TUSB_HID_ITF,
                                     REPORT_ID_KEYBOARD,
                                     &report,
                                     size_of::<KeyboardReport>(),
                                 ),
-                                UsbHidCommand::SendMouse(report) => UsbHid::send_hid_report(
+                                UsbHidCommand::SendMouse(report) => Usb::send_hid_report(
                                     TUSB_HID_ITF,
                                     REPORT_ID_MOUSE,
                                     &report,
                                     size_of::<MouseReport>(),
                                 ),
-                                UsbHidCommand::SendConsumer(report) => UsbHid::send_hid_report(
+                                UsbHidCommand::SendConsumer(report) => Usb::send_hid_report(
                                     TUSB_HID_ITF,
                                     REPORT_ID_CONSUMER,
                                     &report,

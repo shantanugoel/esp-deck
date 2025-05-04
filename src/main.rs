@@ -1,6 +1,6 @@
 use esp_deck::{
     actor::Actor,
-    bsp::{time, wifi::Wifi},
+    bsp::{time, usb::Usb, wifi::Wifi},
     config::DeviceConfiguration,
     events::{AppEvent, WifiStatus},
     mapper::Mapper,
@@ -187,6 +187,7 @@ fn main() -> anyhow::Result<()> {
     }));
 
     threads.push(thread::spawn(move || {
+        let _usb = Usb::new();
         UsbHidClient::run(usb_hid_rx).unwrap();
     }));
     ThreadSpawnConfiguration::default().set().unwrap();
