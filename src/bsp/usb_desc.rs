@@ -370,7 +370,7 @@ pub const TUSB_DESC_BOS: [u8; BOS_TOTAL_LEN as usize] = [
 
 // === Microsoft OS 2.0 Descriptor Set ===
 // This is fetched by Windows via vendor specific request
-const MS_OS_20_DESC_LEN: u16 = 10 + 8 + 20 + 130; // CSet Header (10) + Function Subset (8) + Compatible ID (20) + Registry Property (130) = 168
+const MS_OS_20_DESC_LEN: u16 = 10 + 8 + 20 + 140; // CSet Header (10) + Function Subset (8) + Compatible ID (20) + Registry Property (140)
 
 #[rustfmt::skip]
 pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
@@ -378,7 +378,14 @@ pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
   0x0A, 0x00, // wLength = 10
   0x00, 0x00, // MS OS 2.0 descriptor set header
   0x00, 0x00, 0x03, 0x06, // dwWindowsVersion >= Win 8.1
-  (MS_OS_20_DESC_LEN & 0xFF) as u8, (MS_OS_20_DESC_LEN >> 8) as u8, // wTotalLength = 168
+  (MS_OS_20_DESC_LEN & 0xFF) as u8, (MS_OS_20_DESC_LEN >> 8) as u8, // wTotalLength 
+
+  // Configuration Subset header: length, type, config index, reserved, subset length
+  0x08, 0x00, // wLength = 8
+  0x01, 0x00, // MS OS 2.0 configuration subset header
+  0x00, 0x00, // bConfigurationValue = 0
+  // wSubsetLength = 150
+  ((MS_OS_20_DESC_LEN - 0xA) & 0xFF) as u8, ((MS_OS_20_DESC_LEN - 0xA) >> 8) as u8,
 
   // Function Subset header: length, type, first interface, reserved, subset length
   0x08, 0x00, // wLength = 8
@@ -386,7 +393,7 @@ pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
   ITF_NUM_VENDOR, // bFirstInterface = Interface 1 (Vendor)
   0x00,       // reserved
   // wSubsetLength = Compatible ID (20) + Reg Property (130) = 150
-  (150 & 0xFF) as u8, (150 >> 8) as u8,
+  ((MS_OS_20_DESC_LEN - 0xA - 0x8) & 0xFF) as u8, ((MS_OS_20_DESC_LEN - 0xA - 0x8) >> 8) as u8,
 
   // Compatible ID Descriptor: length, type, compatible ID, sub compatible ID
   0x14, 0x00, // wLength = 20
@@ -397,9 +404,10 @@ pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
   // Registry Property Descriptor: length, type, property data type, property name length, property name, property data length, property data
   // GUID_DEVINTERFACE_USB_DEVICE = {A5DCBF10-6530-11D2-901F-00C04FB951ED}
   // Corrected wLength = 130 bytes (DataType(2) + NameLength(2) + Name(42) + DataLength(2) + Data(80))
-  0x82, 0x00, // wLength = 130 bytes
+  ((MS_OS_20_DESC_LEN - 0x0A - 0x08 - 0x08 - 0x14) & 0xFF) as u8, ((MS_OS_20_DESC_LEN - 0x0A - 0x08 - 0x08 - 0x14) >> 8) as u8, 
+  0x04, 0x00,
   0x07, 0x00, // wPropertyDataType = 7 (REG_MULTI_SZ)
-  42, 0x00, // wPropertyNameLength = 42
+  0x2A, 0x00, // wPropertyNameLength = 42
   // Property Name: DeviceInterfaceGUIDs
   b'D', 0x00, b'e', 0x00, b'v', 0x00, b'i', 0x00, b'c', 0x00, b'e', 0x00, b'I', 0x00,
   b'n', 0x00, b't', 0x00, b'e', 0x00, b'r', 0x00, b'f', 0x00, b'a', 0x00, b'c', 0x00,
@@ -407,12 +415,12 @@ pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
 
   0x50, 0x00, // wPropertyDataLength = 80 bytes
   // PropertyData: "{A5DCBF10-6530-11D2-901F-00C04FB951ED}\0\0" (UTF16-LE)
-  b'{', 0x00, b'A', 0x00, b'5', 0x00, b'D', 0x00, b'C', 0x00, b'B', 0x00, b'F', 0x00,
-  b'1', 0x00, b'0', 0x00, b'-', 0x00, b'6', 0x00, b'5', 0x00, b'3', 0x00, b'0', 0x00,
-  b'-', 0x00, b'1', 0x00, b'1', 0x00, b'D', 0x00, b'2', 0x00, b'-', 0x00, b'9', 0x00,
-  b'0', 0x00, b'1', 0x00, b'F', 0x00, b'-', 0x00, b'0', 0x00, b'0', 0x00, b'C', 0x00,
-  b'0', 0x00, b'4', 0x00, b'F', 0x00, b'B', 0x00, b'9', 0x00, b'5', 0x00, b'1', 0x00,
-  b'E', 0x00, b'D', 0x00, b'}', 0x00, 0x00, 0x00, 0x00, 0x00 // Double NUL termination
+  b'{', 0x00, b'9', 0x00, b'7', 0x00, b'5', 0x00, b'F', 0x00, b'4', 0x00, b'4', 0x00,
+  b'D', 0x00, b'9', 0x00, b'-', 0x00, b'0', 0x00, b'D', 0x00, b'0', 0x00, b'8', 0x00,
+  b'-', 0x00, b'4', 0x00, b'3', 0x00, b'F', 0x00, b'D', 0x00, b'-', 0x00, b'8', 0x00,
+  b'B', 0x00, b'3', 0x00, b'E', 0x00, b'-', 0x00, b'1', 0x00, b'2', 0x00, b'7', 0x00,
+  b'C', 0x00, b'A', 0x00, b'8', 0x00, b'A', 0x00, b'F', 0x00, b'F', 0x00, b'F', 0x00,
+  b'9', 0x00, b'D', 0x00, b'}', 0x00, 0x00, 0x00, 0x00, 0x00 // Double NUL termination
 ];
 
 // === URL Descriptor for WebUSB Landing Page ===
