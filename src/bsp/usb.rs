@@ -170,14 +170,18 @@ pub extern "C" fn tud_vendor_control_xfer_cb(
                         );
                     }
                     let url_ptr = crate::bsp::usb_desc::TUSB_DESC_WEBUSB_URL.as_ptr();
+                    let len = crate::bsp::usb_desc::TUSB_DESC_WEBUSB_URL.len() as u16;
+                    let req_len = req.wLength;
+                    let len_to_send = len.min(req_len);
+
+                    log::info!(
+                        "Sending WebUSB Descriptor (requesting {}, sending {})",
+                        req_len,
+                        len_to_send
+                    );
 
                     return unsafe {
-                        tud_control_xfer(
-                            rhport,
-                            request,
-                            url_ptr as *mut _,
-                            crate::bsp::usb_desc::TUSB_DESC_WEBUSB_URL.len() as u16,
-                        )
+                        tud_control_xfer(rhport, request, url_ptr as *mut _, len_to_send)
                     };
                 }
 
