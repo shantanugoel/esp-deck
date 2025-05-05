@@ -77,3 +77,6 @@ CONFIG_PARTITION_TABLE_MD5=y
 # Fix Flash size
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE=y
+
+# Some tasks can be long running of a lot of data tfr is happening
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=60
