@@ -106,7 +106,8 @@ pub extern "C" fn tud_vendor_control_xfer_cb(
     let req = unsafe { &*request };
 
     // Check if it's a WebUSB or MS OS 2.0 vendor request
-    let request_type = unsafe { req.__bindgen_anon_1.bmRequestType };
+    let request_type = unsafe { req.__bindgen_anon_1.bmRequestType_bit.type_() };
+    log::info!("request_type: {}", request_type);
     match request_type {
         crate::bsp::usb_desc::TURB_REQUEST_TYPE_VENDOR => {
             match req.bRequest {
