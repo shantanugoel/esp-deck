@@ -1,12 +1,9 @@
 use esp_idf_svc::sys::{
     hid_report_type_t, tinyusb_config_t, tinyusb_config_t__bindgen_ty_1,
     tinyusb_config_t__bindgen_ty_2, tinyusb_config_t__bindgen_ty_2__bindgen_ty_1,
-    tinyusb_driver_install, tusb_rhport_init, tusb_role_t_TUSB_ROLE_DEVICE,
-    tusb_speed_t_TUSB_SPEED_AUTO,
+    tinyusb_driver_install,
 };
-use esp_idf_svc::sys::{
-    tud_control_xfer, tud_hid_n_report, tusb_control_request_t, tusb_rhport_init_t,
-};
+use esp_idf_svc::sys::{tud_control_xfer, tud_hid_n_report, tusb_control_request_t};
 use std::ffi::{c_char, CString};
 use std::ptr;
 
@@ -61,6 +58,8 @@ extern "C" fn tud_hid_set_report_cb(
     );
 }
 
+// These are commented out because they are defined by esp_tinyusb alread
+// If/When we are able to move away from esp_tinyusb, we can uncomment these
 // #[allow(unused_variables)]
 // #[no_mangle]
 // extern "C" fn tud_descriptor_device_cb() -> *const u8 {
