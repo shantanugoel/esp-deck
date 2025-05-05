@@ -1,7 +1,8 @@
 use esp_idf_svc::sys::{
     hid_report_type_t, tinyusb_config_t, tinyusb_config_t__bindgen_ty_1,
     tinyusb_config_t__bindgen_ty_2, tinyusb_config_t__bindgen_ty_2__bindgen_ty_1,
-    tinyusb_driver_install, tud_control_status,
+    tinyusb_driver_install, tud_control_status, tud_vendor_n_read_flush, tud_vendor_n_write,
+    tud_vendor_n_write_flush,
 };
 use esp_idf_svc::sys::{tud_control_xfer, tud_hid_n_report, tusb_control_request_t};
 use std::ptr;
@@ -89,6 +90,18 @@ extern "C" fn tud_resume_cb() {
 extern "C" fn tud_vendor_rx_cb(itf: u8, buffer: *const u8, len: u16) {
     log::info!("tud_vendor_rx_cb called (itf={}, len={})", itf, len);
     log::info!("Buffer: {:?}", buffer);
+    // Echo
+    unsafe {
+        tud_vendor_n_write(itf, buffer as *const _, len as u32);
+        tud_vendor_n_write_flush(itf);
+        tud_vendor_n_read_flush(itf);
+    }
+}
+
+#[allow(unused_variables)]
+#[no_mangle]
+extern "C" fn tud_vendor_tx_cb(itf: u8, len: u16) {
+    log::info!("tud_vendor_tx_cb called (itf={}, len={})", itf, len);
 }
 
 // These are commented out because they are defined by esp_tinyusb alread
