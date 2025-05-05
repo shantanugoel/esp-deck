@@ -236,15 +236,15 @@ pub const TUSB_DESC_CONFIGURATION: [u8; CONFIG_DESC_TOTAL_LEN as usize] = [
 ];
 
 // Device Descriptor
-const USB_VID: u16 = 0x5AA4;
+const USB_VID: u16 = 0x5AA6;
 const USB_PID: u16 = 0x60E1;
-const USB_DEVICE_VERSION: u16 = 0x0100;
+const USB_DEVICE_VERSION: u16 = 0x0001;
 
 pub const TUSB_DESC_DEVICE: tusb_desc_device_t = tusb_desc_device_t {
     // --- Device Descriptor (18 bytes) ---
     bLength: 18, // bLength: Size of this descriptor (18 bytes)
     bDescriptorType: usb_constants::descriptor_type::DEVICE, // bDescriptorType: DEVICE (0x01)
-    bcdUSB: 0x0210, // bcdUSB: USB Specification Release Number (2.1) to suoport webusb
+    bcdUSB: 0x0201, // bcdUSB: USB Specification Release Number (2.1) to suoport webusb
     // --- Class/SubClass/Protocol: Typically set for composite device / IAD ---
     // Option 1: Use Interface Association Descriptor values (Common for composite)
     bDeviceClass: 0xEF,    // bDeviceClass: Miscellaneous (0xEF)
