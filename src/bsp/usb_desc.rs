@@ -404,7 +404,7 @@ pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
   // Registry Property Descriptor: length, type, property data type, property name length, property name, property data length, property data
   // GUID_DEVINTERFACE_USB_DEVICE = {A5DCBF10-6530-11D2-901F-00C04FB951ED}
   // Corrected wLength = 130 bytes (DataType(2) + NameLength(2) + Name(42) + DataLength(2) + Data(80))
-  ((MS_OS_20_DESC_LEN - 0x0A - 0x08 - 0x08 - 0x14) & 0xFF) as u8, ((MS_OS_20_DESC_LEN - 0x0A - 0x08 - 0x08 - 0x14) >> 8) as u8, 
+  ((0x84) & 0xFF) as u8, ((0x84) >> 8) as u8, 
   0x04, 0x00,
   0x07, 0x00, // wPropertyDataType = 7 (REG_MULTI_SZ)
   0x2A, 0x00, // wPropertyNameLength = 42
