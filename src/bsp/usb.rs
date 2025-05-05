@@ -57,6 +57,40 @@ extern "C" fn tud_hid_set_report_cb(
     );
 }
 
+#[allow(unused_variables)]
+#[no_mangle]
+extern "C" fn tud_mount_cb() {
+    log::info!("tud_mount_cb called");
+}
+
+#[allow(unused_variables)]
+#[no_mangle]
+extern "C" fn tud_unmount_cb() {
+    log::info!("tud_unmount_cb called");
+}
+
+#[allow(unused_variables)]
+#[no_mangle]
+extern "C" fn tud_suspend_cb(do_remote_wakeup: bool) {
+    log::info!(
+        "tud_suspend_cb called (do_remote_wakeup={})",
+        do_remote_wakeup
+    );
+}
+
+#[allow(unused_variables)]
+#[no_mangle]
+extern "C" fn tud_resume_cb() {
+    log::info!("tud_resume_cb called");
+}
+
+#[allow(unused_variables)]
+#[no_mangle]
+extern "C" fn tud_vendor_rx_cb(itf: u8, buffer: *const u8, len: u16) {
+    log::info!("tud_vendor_rx_cb called (itf={}, len={})", itf, len);
+    log::info!("Buffer: {:?}", buffer);
+}
+
 // These are commented out because they are defined by esp_tinyusb alread
 // If/When we are able to move away from esp_tinyusb, we can uncomment these
 // #[allow(unused_variables)]
