@@ -134,8 +134,8 @@ const ENDPOINT_POLL_MS: u8 = 10;
 // Configuration String Index (0 for none)
 const CONFIG_STRING_INDEX: u8 = 0;
 // Interface String Index (0 for none)
-const INTERFACE_STRING_INDEX_HID: u8 = 0;
-const INTERFACE_STRING_INDEX_VENDOR: u8 = 0;
+const INTERFACE_STRING_INDEX_HID: u8 = 4;
+const INTERFACE_STRING_INDEX_VENDOR: u8 = 5;
 
 // Power attributes
 const USB_CONFIG_ATTR: u8 = 0xA0; // Bus powered + Remote Wakeup (0x80 = Bus powered only)
@@ -414,7 +414,7 @@ pub const TUSB_DESC_MS_OS_20: [u8; MS_OS_20_DESC_LEN as usize] = [
   b'e', 0x00, b'G', 0x00, b'U', 0x00, b'I', 0x00, b'D', 0x00, b's', 0x00, 0x00, 0x00, // Terminating NUL
 
   0x50, 0x00, // wPropertyDataLength = 80 bytes
-  // PropertyData: "{A5DCBF10-6530-11D2-901F-00C04FB951ED}\0\0" (UTF16-LE)
+  //bPropertyData: “{975F44D9-0D08-43FD-8B3E-127CA8AFFF9D}”.
   b'{', 0x00, b'9', 0x00, b'7', 0x00, b'5', 0x00, b'F', 0x00, b'4', 0x00, b'4', 0x00,
   b'D', 0x00, b'9', 0x00, b'-', 0x00, b'0', 0x00, b'D', 0x00, b'0', 0x00, b'8', 0x00,
   b'-', 0x00, b'4', 0x00, b'3', 0x00, b'F', 0x00, b'D', 0x00, b'-', 0x00, b'8', 0x00,
@@ -446,13 +446,15 @@ pub static LANGUAGE_STRING: &[u8] = b"0409\0";
 pub static MANUFACTURER_STRING: &[u8] = b"Shaan Labs Inc.\0";
 pub static PRODUCT_STRING: &[u8] = b"ESP DECK\0";
 pub static SERIAL_STRING: &[u8] = b"42069\0";
-pub static INTERFACE_STRING: &[u8] = b"ESP DECK HID Interface\0";
-pub const STRING_DESCRIPTOR_LEN: usize = 5;
+pub static INTERFACE_HID_STRING: &[u8] = b"ESP DECK HID Interface\0";
+pub static INTERFACE_VENDOR_STRING: &[u8] = b"ESP DECK WebUSB Interface\0";
+pub const STRING_DESCRIPTOR_LEN: usize = 6;
 
 pub static mut STRING_DESCRIPTOR: [*const c_char; STRING_DESCRIPTOR_LEN] = [
     LANGUAGE_STRING.as_ptr(),
     MANUFACTURER_STRING.as_ptr(),
     PRODUCT_STRING.as_ptr(),
     SERIAL_STRING.as_ptr(),
-    INTERFACE_STRING.as_ptr(),
+    INTERFACE_HID_STRING.as_ptr(),
+    INTERFACE_VENDOR_STRING.as_ptr(),
 ];
