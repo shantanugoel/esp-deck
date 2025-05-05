@@ -150,6 +150,11 @@ pub const ITF_NUM_VENDOR: u8 = 1;
 pub const VENDOR_REQUEST_WEBUSB: u8 = 1;
 pub const VENDOR_REQUEST_MICROSOFT: u8 = 2;
 
+pub const TURB_REQUEST_TYPE_STANDARD: u8 = 0;
+pub const TURB_REQUEST_TYPE_CLASS: u8 = 1;
+pub const TURB_REQUEST_TYPE_VENDOR: u8 = 2;
+pub const TURB_REQUEST_TYPE_INVALID: u8 = 3;
+
 // Endpoint assignments. 0 is control, HID uses 1 IN
 const EP_VENDOR_OUT: u8 = 0x02;
 const EP_VENDOR_IN: u8 = 0x82;
@@ -239,7 +244,7 @@ pub const TUSB_DESC_DEVICE: tusb_desc_device_t = tusb_desc_device_t {
     // --- Device Descriptor (18 bytes) ---
     bLength: 18, // bLength: Size of this descriptor (18 bytes)
     bDescriptorType: usb_constants::descriptor_type::DEVICE, // bDescriptorType: DEVICE (0x01)
-    bcdUSB: 0x0200, // bcdUSB: USB Specification Release Number (2.00) LSB, MSB
+    bcdUSB: 0x0210, // bcdUSB: USB Specification Release Number (2.1) to suoport webusb
     // --- Class/SubClass/Protocol: Typically set for composite device / IAD ---
     // Option 1: Use Interface Association Descriptor values (Common for composite)
     bDeviceClass: 0xEF,    // bDeviceClass: Miscellaneous (0xEF)
