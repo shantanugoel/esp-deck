@@ -4,7 +4,6 @@ use esp_idf_svc::sys::{
     tinyusb_driver_install,
 };
 use esp_idf_svc::sys::{tud_control_xfer, tud_hid_n_report, tusb_control_request_t};
-use std::ffi::{c_char, CString};
 use std::ptr;
 
 use crate::bsp::usb_desc::{
@@ -145,30 +144,14 @@ pub extern "C" fn tud_vendor_control_xfer_cb(
     }
 }
 
-#[allow(dead_code)]
-fn get_string_descriptor() -> (*mut *const c_char, usize) {
-    let strings = vec![
-        CString::new(String::from_utf8(vec![0x09, 0x04]).unwrap()).unwrap(),
-        CString::new("Shaan Labs Inc.").unwrap(),
-        CString::new("ESP DECK").unwrap(),
-        CString::new("42069").unwrap(),
-        CString::new("ESP DECK HID Interface").unwrap(),
-    ];
-
-    let mut raw_pointers: Vec<*const c_char> = strings.iter().map(|c_str| c_str.as_ptr()).collect();
-    let raw_ptr = raw_pointers.as_mut_ptr();
-    (raw_ptr, raw_pointers.len())
-}
-
 pub struct Usb;
 
 impl Usb {
     #[allow(unused_unsafe)]
     pub fn new() -> Self {
-        let (string_descriptor, string_descriptor_count) = get_string_descriptor();
         let tusb_config = tinyusb_config_t {
-            string_descriptor: string_descriptor,
-            string_descriptor_count: string_descriptor_count as i32,
+            string_descriptor: unsafe { crate::bsp::usb_desc::STRING_DESCRIPTOR.as_mut_ptr() },
+            string_descriptor_count: crate::bsp::usb_desc::STRING_DESCRIPTOR_LEN as i32,
             external_phy: false,
             self_powered: false,
             vbus_monitor_io: 0,
@@ -187,16 +170,6 @@ impl Usb {
         };
 
         unsafe { tinyusb_driver_install(&tusb_config) };
-
-        // let dev_init = tusb_rhport_init_t {
-        //     role: tusb_role_t_TUSB_ROLE_DEVICE,
-        //     speed: tusb_speed_t_TUSB_SPEED_AUTO,
-        //     ..Default::default()
-        // };
-
-        // unsafe {
-        //     tusb_rhport_init(0, &dev_init);
-        // }
 
         Self {}
     }

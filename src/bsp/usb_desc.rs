@@ -1,3 +1,5 @@
+use std::os::raw::c_char;
+
 use esp_idf_svc::sys::tusb_desc_device_t;
 
 #[repr(C)]
@@ -426,3 +428,18 @@ pub const TUSB_DESC_WEBUSB_URL: [u8; URL_DESC_LEN] = {
     }
     desc
 };
+
+pub static LANGUAGE_STRING: &[u8] = b"0409\0";
+pub static MANUFACTURER_STRING: &[u8] = b"Shaan Labs Inc.\0";
+pub static PRODUCT_STRING: &[u8] = b"ESP DECK\0";
+pub static SERIAL_STRING: &[u8] = b"42069\0";
+pub static INTERFACE_STRING: &[u8] = b"ESP DECK HID Interface\0";
+pub const STRING_DESCRIPTOR_LEN: usize = 5;
+
+pub static mut STRING_DESCRIPTOR: [*const c_char; STRING_DESCRIPTOR_LEN] = [
+    LANGUAGE_STRING.as_ptr(),
+    MANUFACTURER_STRING.as_ptr(),
+    PRODUCT_STRING.as_ptr(),
+    SERIAL_STRING.as_ptr(),
+    INTERFACE_STRING.as_ptr(),
+];
