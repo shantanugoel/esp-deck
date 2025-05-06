@@ -19,14 +19,13 @@ use esp_idf_svc::{
 };
 use std::ffi::CString;
 use std::{
-    io::{Read, Write},
     sync::mpsc::{self, Receiver, Sender},
     thread,
 };
 
 const TZ_OFFSET: f32 = 5.5;
-const CONFIG_PATH: &str = "/littlefs/device_config.json";
 const VFS_BASE_PATH: &str = "/littlefs";
+const CONFIG_PATH: &str = "/littlefs/device_config.json";
 const PARTITION_LABEL: &str = "storage";
 
 /// Mounts the LittleFS partition using the underlying C API.
@@ -54,62 +53,6 @@ fn init_vfs() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Loads the device configuration from LittleFS, or creates and saves a default config if not found/invalid.
-fn load_or_create_default_config() -> anyhow::Result<DeviceConfiguration> {
-    match std::fs::File::open(CONFIG_PATH) {
-        Ok(mut file) => {
-            log::info!("Reading configuration from {}", CONFIG_PATH);
-            let mut buf = Vec::new();
-            file.read_to_end(&mut buf)?;
-            match serde_json::from_slice(&buf) {
-                Ok(config) => {
-                    log::info!("Configuration loaded successfully.");
-                    Ok(config)
-                }
-                Err(e) => {
-                    log::error!("Failed to parse config file: {}. Using default config.", e);
-                    create_and_save_default_config()
-                }
-            }
-        }
-        Err(e) => {
-            log::warn!(
-                "Config file not found ({}): {}. Creating default config.",
-                CONFIG_PATH,
-                e
-            );
-            create_and_save_default_config()
-        }
-    }
-}
-
-/// Creates a default configuration and saves it to the filesystem.
-fn create_and_save_default_config() -> anyhow::Result<DeviceConfiguration> {
-    let default_config = DeviceConfiguration::default_config();
-    log::info!("Creating default configuration file at {}", CONFIG_PATH);
-
-    let dir_path = std::path::Path::new(CONFIG_PATH).parent().unwrap();
-    if let Err(e) = std::fs::create_dir_all(dir_path) {
-        log::warn!(
-            "Failed to create directory {}: {} (continuing anyway)",
-            dir_path.display(),
-            e
-        );
-    }
-
-    match std::fs::File::create(CONFIG_PATH) {
-        Ok(mut file) => {
-            let json_data = serde_json::to_vec_pretty(&default_config)?;
-            file.write_all(&json_data)?;
-            log::info!("Default configuration saved successfully.");
-        }
-        Err(e) => {
-            log::error!("Failed to save default config file: {}", e);
-        }
-    }
-    Ok(default_config)
-}
-
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
@@ -124,7 +67,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Load configuration - This will likely fail if VFS isn't mounted
-    let config = load_or_create_default_config()?;
+    let config = DeviceConfiguration::load_or_create_default_config(CONFIG_PATH)?;
 
     let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
