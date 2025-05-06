@@ -2,13 +2,13 @@ use crate::mapper::MappingConfiguration;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct WifiSettings {
     pub ssid: String,
     pub password: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)] // Default for easy creation
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)] // Default for easy creation
 pub struct DeviceSettings {
     // Add optional settings here
     pub wifi: Option<WifiSettings>,
@@ -16,7 +16,7 @@ pub struct DeviceSettings {
     // pub display_brightness: Option<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DeviceConfiguration {
     pub settings: DeviceSettings,
     pub mappings: MappingConfiguration,

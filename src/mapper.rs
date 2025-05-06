@@ -8,7 +8,7 @@ use std::time::Duration; // Add serde for future file loading // Make sure this 
 // --- Configuration Structures ---
 // These structs define how the mapping is represented, potentially loaded from a file later.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ConfigAction {
     KeyPress {
         key: String,

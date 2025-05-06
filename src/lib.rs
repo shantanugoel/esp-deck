@@ -3,5 +3,7 @@ pub mod bsp;
 pub mod config;
 pub mod events;
 pub mod mapper;
+pub mod protocol;
+pub mod transport;
 pub mod ui;
 pub mod usb_hid_client;
