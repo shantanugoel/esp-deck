@@ -42,11 +42,11 @@ fn init_vfs() -> anyhow::Result<()> {
         ..Default::default()
     };
 
+    // This is important to set for the very first time device boots, otherwise the VFS will not be mounted
     conf.set_format_if_mount_failed(true as u8);
     conf.set_dont_mount(false as u8);
     let ret = unsafe { idf_sys::esp_vfs_littlefs_register(&conf) };
 
-    // Use full path for esp! macro
     esp_idf_svc::sys::esp!(ret)?;
 
     log::info!("LittleFS mounted successfully at {}", VFS_BASE_PATH);
@@ -74,7 +74,10 @@ fn main() -> anyhow::Result<()> {
     let timer_service = EspTaskTimerService::new()?;
     let nvs = EspDefaultNvsPartition::take()?;
 
-    let (tx, rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
+    // UI Updates Channel is used to send events to the UI thread. Mostly for logging.
+    let (ui_updates_tx, ui_updates_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
+    // Actor would take action on events typically from the UI thread. (e.g. when a button is pressed, or a new config is received)
+    // and it sends events to the underlying USB module
     let (actor_tx, actor_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
     let (usb_hid_tx, usb_hid_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
 
@@ -90,7 +93,7 @@ fn main() -> anyhow::Result<()> {
     let wifi_nvs = nvs;
     let wifi_sys_loop = sys_loop;
     let wifi_timer = timer_service.clone();
-    let wifi_tx = tx.clone();
+    let peripheral_update_tx = ui_updates_tx.clone();
     let wifi_modem = peripherals.modem;
 
     threads.push(thread::spawn(move || {
@@ -100,18 +103,19 @@ fn main() -> anyhow::Result<()> {
             wifi_sys_loop,
             wifi_nvs,
             wifi_timer,
-            wifi_tx,
+            peripheral_update_tx.clone(),
         ))
         .unwrap();
 
         match block_on(wifi_driver.connect()) {
             Ok(_) => {
-                let _ = block_on(time::init(tx.clone())).unwrap();
+                let _ = block_on(time::init(peripheral_update_tx.clone())).unwrap();
                 log::info!("NTP set up");
             }
             Err(e) => {
                 log::error!("Wi-Fi connection failed: {}", e);
-                tx.send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))
+                peripheral_update_tx
+                    .send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))
                     .unwrap();
             }
         }
@@ -129,8 +133,9 @@ fn main() -> anyhow::Result<()> {
         actor.run();
     }));
 
+    let usb_updates_tx = ui_updates_tx.clone();
     threads.push(thread::spawn(move || {
-        let _usb = Usb::new();
+        let _usb = Usb::new(usb_updates_tx.clone());
         UsbHidClient::run(usb_hid_rx).unwrap();
     }));
     ThreadSpawnConfiguration::default().set().unwrap();
@@ -142,7 +147,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, rx, actor_tx, TZ_OFFSET);
+    let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, TZ_OFFSET);
 
     for thread in threads {
         thread.join().unwrap();

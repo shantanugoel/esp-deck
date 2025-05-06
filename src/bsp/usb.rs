@@ -6,10 +6,14 @@ use esp_idf_svc::sys::{
 };
 use esp_idf_svc::sys::{tud_control_xfer, tud_hid_n_report, tusb_control_request_t};
 use std::ptr;
+use std::sync::{mpsc::Sender, Mutex, OnceLock};
 
 use crate::bsp::usb_desc::{
     TUSB_DESC_BOS, TUSB_DESC_CONFIGURATION, TUSB_DESC_DEVICE, TUSB_DESC_HID_REPORT,
 };
+use crate::events::{AppEvent, UsbStatus};
+
+static USB_UPDATE_TX: OnceLock<Mutex<Sender<AppEvent>>> = OnceLock::new();
 
 #[allow(unused_variables)]
 #[no_mangle]
@@ -58,16 +62,35 @@ extern "C" fn tud_hid_set_report_cb(
     );
 }
 
+fn send_usb_update(status: UsbStatus) {
+    let usb_update_tx = match USB_UPDATE_TX.get() {
+        Some(tx) => match tx.lock() {
+            Ok(tx) => tx,
+            Err(e) => {
+                log::error!("Failed to lock USB_UPDATE_TX: {}", e);
+                return;
+            }
+        },
+        None => {
+            log::error!("USB_UPDATE_TX is not initialized");
+            return;
+        }
+    };
+    usb_update_tx.send(AppEvent::UsbUpdate(status)).unwrap();
+}
+
 #[allow(unused_variables)]
 #[no_mangle]
 extern "C" fn tud_mount_cb() {
     log::info!("tud_mount_cb called");
+    send_usb_update(UsbStatus::Connected);
 }
 
 #[allow(unused_variables)]
 #[no_mangle]
 extern "C" fn tud_unmount_cb() {
     log::info!("tud_unmount_cb called");
+    send_usb_update(UsbStatus::Disconnected);
 }
 
 #[allow(unused_variables)]
@@ -77,12 +100,14 @@ extern "C" fn tud_suspend_cb(do_remote_wakeup: bool) {
         "tud_suspend_cb called (do_remote_wakeup={})",
         do_remote_wakeup
     );
+    send_usb_update(UsbStatus::Suspended);
 }
 
 #[allow(unused_variables)]
 #[no_mangle]
 extern "C" fn tud_resume_cb() {
     log::info!("tud_resume_cb called");
+    send_usb_update(UsbStatus::Connected);
 }
 
 #[allow(unused_variables)]
@@ -238,7 +263,7 @@ pub struct Usb;
 impl Usb {
     #[allow(unused_unsafe)]
     #[allow(static_mut_refs)]
-    pub fn new() -> Self {
+    pub fn new(usb_update_tx: Sender<AppEvent>) -> Self {
         let tusb_config = tinyusb_config_t {
             string_descriptor: unsafe { crate::bsp::usb_desc::STRING_DESCRIPTOR.as_mut_ptr() },
             string_descriptor_count: crate::bsp::usb_desc::STRING_DESCRIPTOR_LEN as i32,
@@ -260,6 +285,15 @@ impl Usb {
         };
 
         unsafe { tinyusb_driver_install(&tusb_config) };
+
+        match USB_UPDATE_TX.set(Mutex::new(usb_update_tx)) {
+            Ok(_) => (),
+            Err(e) => {
+                log::error!("Failed to set USB_UPDATE_TX: {:?}", e);
+            }
+        }
+
+        send_usb_update(UsbStatus::Initialized);
 
         Self {}
     }

@@ -28,8 +28,10 @@ pub enum UsbHidCommand {
 
 #[derive(Debug, Clone)]
 pub enum UsbStatus {
+    Initialized,
     Connected,
     Disconnected,
+    Suspended,
     Error(String),
 }
 

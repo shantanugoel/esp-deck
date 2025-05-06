@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     bsp::slint_platform,
-    events::{AppEvent, TimeStatus, WifiStatus},
+    events::{AppEvent, TimeStatus, UsbStatus, WifiStatus},
 };
 
 slint::include_modules!();
@@ -101,6 +101,16 @@ fn handle_events(
                         TimeStatus::Initializing => SharedString::from("Time: Initializing..."),
                         TimeStatus::Synced => SharedString::from("Time: Synced"),
                         TimeStatus::Error(e) => SharedString::from(&format!("Time: Error: {}", e)),
+                    };
+                    Some(text)
+                }
+                AppEvent::UsbUpdate(status) => {
+                    let text = match status {
+                        UsbStatus::Initialized => SharedString::from("USB: Initialized"),
+                        UsbStatus::Connected => SharedString::from("USB: Connected"),
+                        UsbStatus::Disconnected => SharedString::from("USB: Disconnected"),
+                        UsbStatus::Suspended => SharedString::from("USB: Suspended"),
+                        UsbStatus::Error(e) => SharedString::from(&format!("USB: Error: {}", e)),
                     };
                     Some(text)
                 }
