@@ -5,15 +5,38 @@ use esp_idf_svc::sys::{
     tud_vendor_n_write_flush,
 };
 use esp_idf_svc::sys::{tud_control_xfer, tud_hid_n_report, tusb_control_request_t};
+use std::collections::VecDeque;
 use std::ptr;
-use std::sync::{mpsc::Sender, Mutex, OnceLock};
+use std::sync::{mpsc::Sender, LazyLock, Mutex, OnceLock};
 
 use crate::bsp::usb_desc::{
     TUSB_DESC_BOS, TUSB_DESC_CONFIGURATION, TUSB_DESC_DEVICE, TUSB_DESC_HID_REPORT,
 };
 use crate::events::{AppEvent, UsbStatus};
 
+const MAGIC_WORD: u32 = 0xE59DECC0;
+// Magic Word + Payload length
+const HEADER_SIZE: usize = 8;
+
+#[derive(Debug, Clone, Default)]
+struct UsbRxBuffer {
+    data: VecDeque<u8>,
+    state: UsbRxState,
+}
+
+#[derive(Debug, Clone, Default)]
+enum UsbRxState {
+    #[default]
+    AwaitingMagicWord,
+    ReadingLength,
+    ReadingPayload {
+        payload_length: u32,
+    },
+}
+
 static USB_UPDATE_TX: OnceLock<Mutex<Sender<AppEvent>>> = OnceLock::new();
+static USB_RX_BUFFER: LazyLock<Mutex<UsbRxBuffer>> =
+    LazyLock::new(|| Mutex::new(UsbRxBuffer::default()));
 
 #[allow(unused_variables)]
 #[no_mangle]
@@ -113,14 +136,56 @@ extern "C" fn tud_resume_cb() {
 #[allow(unused_variables)]
 #[no_mangle]
 extern "C" fn tud_vendor_rx_cb(itf: u8, buffer: *const u8, len: u16) {
-    log::info!("tud_vendor_rx_cb called (itf={}, len={})", itf, len);
-    log::info!("Buffer: {:?}", buffer);
-    // Echo
+    log::info!("tud_vendor_rx_cb called with {} bytes", len);
+
+    let new_data_slice = unsafe { std::slice::from_raw_parts(buffer as *const u8, len as usize) };
+
+    match USB_RX_BUFFER.lock() {
+        Ok(mut buffer_guard) => {
+            buffer_guard.data.extend(new_data_slice);
+            log::trace!("Extended RX buffer, new size: {}", buffer_guard.data.len());
+            // Process the buffer if we have at least magic word + payload length + some data
+            if buffer_guard.data.len() > HEADER_SIZE {
+                // Drop the guard to unlock the buffer before calling process_rx_buffer
+                // because process_rx_buffer will lock the buffer again but has enough
+                // granularity to unlock it when sending data over a channel to the main thread
+                drop(buffer_guard);
+                process_rx_buffer();
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to lock USB_RX_BUFFER: {}", e);
+        }
+    }
+    // Prepare to receive more data
     unsafe {
-        tud_vendor_n_write(itf, buffer as *const _, len as u32);
-        tud_vendor_n_write_flush(itf);
         tud_vendor_n_read_flush(itf);
     }
+}
+
+/// Process the RX buffer if we have enough data to process
+/// Returns true if a full message was found and processed
+fn process_rx_buffer() -> bool {
+    let mut guard = match USB_RX_BUFFER.lock() {
+        Ok(guard) => guard,
+        Err(e) => {
+            log::error!("Failed to lock USB_RX_BUFFER: {}", e);
+            return false;
+        }
+    };
+    let UsbRxBuffer { data, state } = &mut *guard;
+    let mut message_processed = false;
+
+    // Loop because we may receive multiple messages in the buffer concatenated together
+    loop {
+        match state {
+            UsbRxState::AwaitingMagicWord => {}
+            UsbRxState::ReadingLength => {}
+            UsbRxState::ReadingPayload { payload_length } => {}
+        }
+    }
+    drop(guard);
+    message_processed
 }
 
 #[allow(unused_variables)]

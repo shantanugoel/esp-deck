@@ -51,3 +51,5 @@ impl<'a> DeFramedMessage<'a> {
         Ok(payload)
     }
 }
+
+pub fn process_rx_buffer() -> Result<()> {}
