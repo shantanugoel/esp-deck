@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurable WebUSB Sender/Receiver</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 1em;
+        }
+
+        #status {
+            margin-bottom: 1em;
+            font-weight: bold;
+        }
+
+        #config input {
+            margin-bottom: 0.5em;
+            padding: 5px;
+        }
+
+        #config label {
+            display: inline-block;
+            width: 140px;
+            text-align: right;
+            margin-right: 5px;
+        }
+
+        #config {
+            border: 1px solid #eee;
+            padding: 1em;
+            margin-bottom: 1em;
+            background-color: #f9f9f9;
+        }
+
+        #controls,
+        #receiveArea {
+            margin-top: 1em;
+        }
+
+        #receivedData {
+            width: 95%;
+            height: 200px;
+            border: 1px solid #ccc;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            font-family: monospace;
+            margin-top: 0.5em;
+            padding: 5px;
+        }
+
+        button {
+            margin-right: 5px;
+            padding: 5px 10px;
+        }
+
+        input[type="text"]#dataToSend {
+            padding: 5px;
+            min-width: 200px;
+            margin-right: 5px;
+        }
+
+        label[for="dataToSend"] {
+            display: block;
+            margin-bottom: 0.5em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>WebUSB Configurable Communication</h1>
+
+    <div id="status">Disconnected.</div>
+
+    <fieldset id="config">
+        <legend>Device Configuration</legend>
+        <div>
+            <label for="vid">Vendor ID (hex):</label>
+            <input type="text" id="vid" value="0x5AA6">
+        </div>
+        <div>
+            <label for="pid">Product ID (hex):</label>
+            <input type="text" id="pid" value="0x60E1">
+        </div>
+        <div>
+            <label for="interface">Interface #:</label>
+            <input type="number" id="interface" value="1" min="0">
+        </div>
+        <div>
+            <label for="epOut">OUT Endpoint #:</label>
+            <input type="number" id="epOut" value="2" min="1">
+        </div>
+        <div>
+            <label for="epIn">IN Endpoint #:</label>
+            <input type="number" id="epIn" value="2" min="1">
+        </div>
+    </fieldset>
+
+    <button id="connectButton">Connect to USB Device</button>
+    <button id="disconnectButton" disabled>Disconnect</button>
+
+    <div id="controls" style="display: none;">
+        <hr>
+        <h2>Send Data</h2>
+        <label for="dataToSend">Text to Send (UTF-8):</label>
+        <input type="text" id="dataToSend" placeholder="Enter text here">
+        <button id="sendButton">Send</button>
+    </div>
+
+    <div id="receiveArea" style="display: none;">
+        <h2>Received Data</h2>
+        <pre id="receivedData"></pre>
+    </div>
+
+    <script>
+        // References to Configuration Inputs
+        const vidInput = document.getElementById('vid');
+        const pidInput = document.getElementById('pid');
+        const interfaceInput = document.getElementById('interface');
+        const epOutInput = document.getElementById('epOut');
+        const epInInput = document.getElementById('epIn');
+
+        // Other UI References
+        const connectButton = document.getElementById('connectButton');
+        const disconnectButton = document.getElementById('disconnectButton');
+        const sendButton = document.getElementById('sendButton');
+        const dataToSendInput = document.getElementById('dataToSend');
+        const receivedDataTextArea = document.getElementById('receivedData');
+        const statusDisplay = document.getElementById('status');
+        const controlsDiv = document.getElementById('controls');
+        const receiveAreaDiv = document.getElementById('receiveArea');
+        const configFieldset = document.getElementById('config');
+
+
+        let device = null;
+        let isReading = false; // Flag to prevent multiple read loops
+        // Store parsed config values for the current connection
+        let currentInterfaceNumber = 0;
+        let currentEndpointOut = 0;
+        let currentEndpointIn = 0;
+
+
+        // Check if WebUSB is supported
+        if (!navigator.usb) {
+            statusDisplay.textContent = 'WebUSB is not supported by this browser.';
+            connectButton.disabled = true;
+            configFieldset.disabled = true;
+        }
+
+        connectButton.addEventListener('click', connectDevice);
+        disconnectButton.addEventListener('click', disconnectDevice);
+        sendButton.addEventListener('click', sendData);
+
+        // Function to parse config values and validate
+        function getDeviceConfig() {
+            const vidString = vidInput.value.trim();
+            const pidString = pidInput.value.trim();
+            const interfaceString = interfaceInput.value.trim();
+            const epOutString = epOutInput.value.trim();
+            const epInString = epInInput.value.trim();
+
+            const vendorId = parseInt(vidString, 16);
+            const productId = parseInt(pidString, 16);
+            const interfaceNumber = parseInt(interfaceString, 10);
+            const endpointOut = parseInt(epOutString, 10);
+            const endpointIn = parseInt(epInString, 10);
+
+            if (isNaN(vendorId) || isNaN(productId) || isNaN(interfaceNumber) || isNaN(endpointOut) || isNaN(endpointIn)) {
+                alert('Invalid input. Please ensure all fields contain valid numbers (hex for VID/PID, decimal for others).');
+                return null;
+            }
+            if (endpointOut < 1 || endpointIn < 1 || interfaceNumber < 0) {
+                alert('Interface must be >= 0, Endpoints must be >= 1.');
+                return null;
+            }
+
+            return { vendorId, productId, interfaceNumber, endpointOut, endpointIn };
+        }
+
+
+        // Function to request device access and connect
+        async function connectDevice() {
+            const config = getDeviceConfig();
+            if (!config) {
+                return; // Validation failed
+            }
+            // Store config for use in send/receive
+            currentInterfaceNumber = config.interfaceNumber;
+            currentEndpointOut = config.endpointOut;
+            currentEndpointIn = config.endpointIn;
+
+            try {
+                statusDisplay.textContent = `Requesting device (VID: 0x${config.vendorId.toString(16)}, PID: 0x${config.productId.toString(16)})...`;
+                console.log('Requesting device with filters:', { vendorId: config.vendorId, productId: config.productId });
+
+                // Request permission from the user using values from inputs
+                device = await navigator.usb.requestDevice({
+                    filters: [{ vendorId: config.vendorId, productId: config.productId }]
+                });
+
+                if (!device) {
+                    statusDisplay.textContent = 'No device selected.';
+                    return;
+                }
+
+                statusDisplay.textContent = `Connecting to ${device.manufacturerName || 'Unknown'} ${device.productName || 'Device'}...`;
+                console.log('Device selected:', device);
+
+                await device.open();
+                console.log('Device opened.');
+
+                if (device.configuration === null) {
+                    await device.selectConfiguration(1);
+                    console.log('Configuration 1 selected.');
+                } else {
+                    console.log('Device already has configuration selected.');
+                }
+
+                await device.claimInterface(currentInterfaceNumber); // Use parsed value
+                console.log(`Interface ${currentInterfaceNumber} claimed.`);
+
+                statusDisplay.textContent = `Connected to ${device.manufacturerName || 'Unknown'} ${device.productName || 'Device'}`;
+                connectButton.disabled = true;
+                disconnectButton.disabled = false;
+                configFieldset.disabled = true; // Disable config inputs while connected
+                controlsDiv.style.display = 'block';
+                receiveAreaDiv.style.display = 'block';
+                receivedDataTextArea.textContent = ''; // Clear receive area
+
+                startReading();
+
+            } catch (error) {
+                statusDisplay.textContent = `Error connecting: ${error.message}`;
+                console.error('Connection error:', error);
+                device = null;
+                configFieldset.disabled = false; // Re-enable config inputs on error
+            }
+        }
+
+        // Function to disconnect
+        async function disconnectDevice() {
+            isReading = false; // Signal read loop to stop
+            if (!device) {
+                console.log("Already disconnected.");
+                configFieldset.disabled = false; // Ensure inputs enabled
+                return;
+            }
+            try {
+                statusDisplay.textContent = 'Disconnecting...';
+                // Make sure to use the interface number used during connection
+                await device.releaseInterface(currentInterfaceNumber);
+                console.log(`Interface ${currentInterfaceNumber} released.`);
+                await device.close();
+                console.log('Device closed.');
+
+            } catch (error) {
+                statusDisplay.textContent = `Error disconnecting: ${error.message}`;
+                console.error('Disconnection error:', error);
+            } finally {
+                device = null;
+                statusDisplay.textContent = 'Disconnected.';
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                configFieldset.disabled = false; // Re-enable config inputs
+                controlsDiv.style.display = 'none';
+                receiveAreaDiv.style.display = 'none';
+            }
+        }
+
+        // Function to send data
+        async function sendData() {
+            if (!device) {
+                alert('Device not connected.');
+                return;
+            }
+
+            const dataToSend = dataToSendInput.value;
+            if (!dataToSend) {
+                alert('Enter some data to send.');
+                return;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                const dataBytes = encoder.encode(dataToSend);
+
+                // Use the endpoint number stored during connection
+                console.log(`Sending ${dataBytes.length} bytes to endpoint ${currentEndpointOut}:`, dataBytes);
+                const result = await device.transferOut(currentEndpointOut, dataBytes);
+                console.log('Transfer OUT result:', result);
+
+                if (result.status !== 'ok') {
+                    statusDisplay.textContent = `Send Error: ${result.status}`;
+                    console.error('Send Error Status:', result.status);
+                } else {
+                    dataToSendInput.value = '';
+                }
+
+            } catch (error) {
+                statusDisplay.textContent = `Error sending data: ${error.message}`;
+                console.error('Send data error:', error);
+                if (error.message.includes("disconnected")) {
+                    disconnectDevice();
+                }
+            }
+        }
+
+        // Function to continuously read data from the IN endpoint
+        async function startReading() {
+            if (isReading || !device) return;
+            isReading = true;
+            // Use the endpoint number stored during connection
+            console.log(`Starting read loop for endpoint ${currentEndpointIn}...`);
+
+            while (isReading && device?.opened) {
+                try {
+                    // Use stored IN endpoint number
+                    const result = await device.transferIn(currentEndpointIn, 64); // Read up to 64 bytes
+
+                    if (result.data && result.data.byteLength > 0) {
+                        const decoder = new TextDecoder();
+                        const text = decoder.decode(result.data);
+                        console.log('Received Text:', text);
+                        receivedDataTextArea.textContent += text;
+                        receivedDataTextArea.scrollTop = receivedDataTextArea.scrollHeight;
+                    }
+
+                    if (result.status !== 'ok') {
+                        if (result.status === 'stall') {
+                            console.warn(`Endpoint ${currentEndpointIn} stalled. Attempting to clear halt.`);
+                            await device.clearHalt('in', currentEndpointIn);
+                        } else {
+                            console.error(`Read Error Status: ${result.status}. Stopping read loop.`);
+                            statusDisplay.textContent = `Read Error: ${result.status}`;
+                            isReading = false;
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Read loop error:', error);
+                    // Only update status if still trying to read (avoid overwriting disconnect message)
+                    if (isReading) {
+                        statusDisplay.textContent = `Error reading data: ${error.message}`;
+                    }
+                    isReading = false;
+                    if (error.message.includes("disconnected")) {
+                        // Don't call disconnectDevice here, the disconnect event listener handles it
+                    }
+                    break;
+                }
+            }
+            isReading = false;
+            console.log("Read loop stopped.");
+        }
+
+        // Check for previously granted devices on page load
+        navigator.usb.getDevices().then(async (devices) => {
+            if (devices.length > 0) {
+                console.log("Found previously granted devices:", devices);
+            }
+        });
+
+        // Listen for device disconnection events
+        navigator.usb.addEventListener('disconnect', (event) => {
+            console.log('Device disconnect event:', event);
+            if (device && event.device === device) {
+                console.log(`Connected device ${device.productName || 'Device'} disconnected.`);
+                // Update UI immediately
+                statusDisplay.textContent = 'Device disconnected.';
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                configFieldset.disabled = false; // Re-enable config
+                controlsDiv.style.display = 'none';
+                receiveAreaDiv.style.display = 'none';
+                isReading = false;
+                device = null;
+            }
+        });
+
+    </script>
+
+</body>
+
+</html>
