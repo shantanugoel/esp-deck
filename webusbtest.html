@@ -16,24 +16,52 @@
             font-weight: bold;
         }
 
-        #config input {
+        #config input,
+        #sendConfig input,
+        #sendConfig select,
+        #sendConfig textarea {
             margin-bottom: 0.5em;
             padding: 5px;
         }
 
-        #config label {
+        #config label,
+        #sendConfig label {
             display: inline-block;
-            width: 140px;
+            width: 160px;
+            /* Adjusted for potentially longer labels */
             text-align: right;
             margin-right: 5px;
+            vertical-align: middle;
         }
 
-        #config {
+        #sendConfig label[for^="deviceConfigJson"],
+        #sendConfig label[for^="rawJsonPayload"],
+        #sendConfig label[for^="invalidTextPayload"] {
+            display: block;
+            text-align: left;
+            width: auto;
+            margin-bottom: 3px;
+        }
+
+
+        #config,
+        #sendConfig {
             border: 1px solid #eee;
             padding: 1em;
             margin-bottom: 1em;
             background-color: #f9f9f9;
         }
+
+        #sendConfig fieldset {
+            margin-top: 10px;
+            border: 1px dashed #ccc;
+            padding: 10px;
+        }
+
+        #sendConfig legend {
+            font-weight: bold;
+        }
+
 
         #controls,
         #receiveArea {
@@ -56,7 +84,7 @@
             padding: 5px 10px;
         }
 
-        input[type="text"]#dataToSend {
+        /* input[type="text"]#dataToSend {
             padding: 5px;
             min-width: 200px;
             margin-right: 5px;
@@ -65,7 +93,7 @@
         label[for="dataToSend"] {
             display: block;
             margin-bottom: 0.5em;
-        }
+        } */
     </style>
 </head>
 
@@ -104,10 +132,61 @@
 
     <div id="controls" style="display: none;">
         <hr>
-        <h2>Send Data</h2>
-        <label for="dataToSend">Text to Send (UTF-8):</label>
-        <input type="text" id="dataToSend" placeholder="Enter text here">
-        <button id="sendButton">Send</button>
+        <fieldset id="sendConfig">
+            <legend>Send Data</legend>
+            <div>
+                <label for="customHeader">Message Header (4-byte hex):</label>
+                <input type="text" id="customHeader" value="E59DECC0" maxlength="8" style="width: 100px;">
+            </div>
+            <br>
+
+            <div>
+                <label for="commandType">Command / Payload Type:</label>
+                <select id="commandType">
+                    <option value="getConfig" selected>GetConfig Command</option>
+                    <option value="setConfig">SetConfig Command</option>
+                    <option value="rawJson">Raw JSON Payload</option>
+                    <option value="invalidText">Invalid Text Payload</option>
+                    <option value="emptyPayload">Empty Payload (Length 0)</option>
+                </select>
+            </div>
+
+            <fieldset id="protocolHeaderFields">
+                <legend>Protocol Header Fields</legend>
+                <div>
+                    <label for="protocolVersion">Version (uint32):</label>
+                    <input type="number" id="protocolVersion" value="65536"> <!-- 0x00010000 -->
+                </div>
+                <div>
+                    <label for="correlationId">Correlation ID (number, opt.):</label>
+                    <input type="text" id="correlationId" placeholder="e.g., 12345 (optional)">
+                </div>
+            </fieldset>
+
+            <fieldset id="setConfigFields" style="display:none;">
+                <legend>SetConfig Specific Fields</legend>
+                <div>
+                    <label for="deviceConfigJson">Device Configuration (JSON format):</label>
+                    <textarea id="deviceConfigJson" rows="4" style="width: 90%;"
+                        placeholder='''{"brightness": 100, "power_on": true}'''></textarea>
+                </div>
+            </fieldset>
+
+            <fieldset id="rawJsonPayloadFields" style="display:none;">
+                <legend>Raw JSON Payload</legend>
+                <textarea id="rawJsonPayload" rows="4" style="width: 90%;"
+                    placeholder='''{"type": "GetConfig", "header": {"version": 65536}}'''></textarea>
+            </fieldset>
+
+            <fieldset id="invalidTextPayloadFields" style="display:none;">
+                <legend>Invalid Text Payload</legend>
+                <textarea id="invalidTextPayload" rows="4" style="width: 90%;"
+                    placeholder='''This is not JSON {type: GetConfig}'''></textarea>
+            </fieldset>
+
+
+            <button id="sendButton" style="margin-top:15px;">Send Message</button>
+        </fieldset>
     </div>
 
     <div id="receiveArea" style="display: none;">
@@ -127,12 +206,25 @@
         const connectButton = document.getElementById('connectButton');
         const disconnectButton = document.getElementById('disconnectButton');
         const sendButton = document.getElementById('sendButton');
-        const dataToSendInput = document.getElementById('dataToSend');
+        // const dataToSendInput = document.getElementById('dataToSend'); // Removed
         const receivedDataTextArea = document.getElementById('receivedData');
         const statusDisplay = document.getElementById('status');
         const controlsDiv = document.getElementById('controls');
         const receiveAreaDiv = document.getElementById('receiveArea');
         const configFieldset = document.getElementById('config');
+
+        // New UI elements for sending data
+        const customHeaderInput = document.getElementById('customHeader');
+        const commandTypeSelect = document.getElementById('commandType');
+        const protocolHeaderFieldsDiv = document.getElementById('protocolHeaderFields');
+        const protocolVersionInput = document.getElementById('protocolVersion');
+        const correlationIdInput = document.getElementById('correlationId');
+        const setConfigFieldsDiv = document.getElementById('setConfigFields');
+        const deviceConfigJsonTextarea = document.getElementById('deviceConfigJson');
+        const rawJsonPayloadFieldsDiv = document.getElementById('rawJsonPayloadFields');
+        const rawJsonPayloadTextarea = document.getElementById('rawJsonPayload');
+        const invalidTextPayloadFieldsDiv = document.getElementById('invalidTextPayloadFields');
+        const invalidTextPayloadTextarea = document.getElementById('invalidTextPayload');
 
 
         let device = null;
@@ -141,6 +233,59 @@
         let currentInterfaceNumber = 0;
         let currentEndpointOut = 0;
         let currentEndpointIn = 0;
+
+
+        // Helper function to convert a hex string to Uint8Array
+        function hexStringToUint8Array(hexString) {
+            if (hexString.startsWith('0x')) {
+                hexString = hexString.substring(2);
+            }
+            // Ensure 8 hex characters for 4 bytes.
+            if (hexString.length !== 8) {
+                throw new Error("Hex header must be exactly 4 bytes (8 hex characters). Example: E59DECC0");
+            }
+            if (!/^[0-9a-fA-F]{8}$/.test(hexString)) {
+                throw new Error("Hex header contains invalid characters. Only 0-9 and A-F are allowed.");
+            }
+
+            const byteArray = new Uint8Array(4); // Always 4 bytes
+            for (let i = 0; i < 4; i++) {
+                byteArray[i] = parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
+                if (isNaN(byteArray[i])) { // Should be caught by regex, but good for safety
+                    throw new Error(`Invalid hex character sequence in header at byte ${i}`);
+                }
+            }
+            return byteArray;
+        }
+
+        // Helper function to convert a u32 number to a 4-byte Big Endian Uint8Array
+        function u32ToBigEndianBytes(num) {
+            const buffer = new ArrayBuffer(4);
+            const view = new DataView(buffer);
+            view.setUint32(0, num, false); // false for big-endian
+            return new Uint8Array(buffer);
+        }
+
+        // Update UI based on command type selection
+        commandTypeSelect.addEventListener('change', function () {
+            const selectedType = this.value;
+            protocolHeaderFieldsDiv.style.display = 'none';
+            setConfigFieldsDiv.style.display = 'none';
+            rawJsonPayloadFieldsDiv.style.display = 'none';
+            invalidTextPayloadFieldsDiv.style.display = 'none';
+
+            if (selectedType === 'getConfig' || selectedType === 'setConfig') {
+                protocolHeaderFieldsDiv.style.display = 'block';
+                if (selectedType === 'setConfig') {
+                    setConfigFieldsDiv.style.display = 'block';
+                }
+            } else if (selectedType === 'rawJson') {
+                rawJsonPayloadFieldsDiv.style.display = 'block';
+            } else if (selectedType === 'invalidText') {
+                invalidTextPayloadFieldsDiv.style.display = 'block';
+            }
+            // For 'emptyPayload', no specific fields are needed beyond the main header.
+        });
 
 
         // Check if WebUSB is supported
@@ -213,10 +358,10 @@
                 console.log('Device opened.');
 
                 if (device.configuration === null) {
-                    await device.selectConfiguration(1);
+                    await device.selectConfiguration(1); // Select the first configuration
                     console.log('Configuration 1 selected.');
                 } else {
-                    console.log('Device already has configuration selected.');
+                    console.log(`Device already has configuration ${device.configuration.configurationValue} selected.`);
                 }
 
                 await device.claimInterface(currentInterfaceNumber); // Use parsed value
@@ -229,6 +374,8 @@
                 controlsDiv.style.display = 'block';
                 receiveAreaDiv.style.display = 'block';
                 receivedDataTextArea.textContent = ''; // Clear receive area
+                // Trigger change event on load to set initial visibility of command fields
+                commandTypeSelect.dispatchEvent(new Event('change'));
 
                 startReading();
 
@@ -246,6 +393,10 @@
             if (!device) {
                 console.log("Already disconnected.");
                 configFieldset.disabled = false; // Ensure inputs enabled
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                controlsDiv.style.display = 'none';
+                receiveAreaDiv.style.display = 'none';
                 return;
             }
             try {
@@ -257,8 +408,11 @@
                 console.log('Device closed.');
 
             } catch (error) {
-                statusDisplay.textContent = `Error disconnecting: ${error.message}`;
-                console.error('Disconnection error:', error);
+                // Ignore errors if device is already gone or interface not claimed
+                if (error.name !== 'NotFoundError' && error.name !== 'InvalidStateError') {
+                    statusDisplay.textContent = `Error disconnecting: ${error.message}`;
+                    console.error('Disconnection error:', error);
+                }
             } finally {
                 device = null;
                 statusDisplay.textContent = 'Disconnected.';
@@ -277,33 +431,110 @@
                 return;
             }
 
-            const dataToSend = dataToSendInput.value;
-            if (!dataToSend) {
-                alert('Enter some data to send.');
+            let messageHeaderBytes;
+            try {
+                const customHeaderStr = customHeaderInput.value.trim();
+                messageHeaderBytes = hexStringToUint8Array(customHeaderStr); // hexStringToUint8Array validates length and format
+            } catch (error) {
+                alert(`Error parsing Custom Header: ${error.message}`);
                 return;
             }
 
-            try {
-                const encoder = new TextEncoder();
-                const dataBytes = encoder.encode(dataToSend);
+            const commandType = commandTypeSelect.value;
+            let payloadBodyBytes = new Uint8Array(0); // Default to empty payload
 
-                // Use the endpoint number stored during connection
-                console.log(`Sending ${dataBytes.length} bytes to endpoint ${currentEndpointOut}:`, dataBytes);
-                const result = await device.transferOut(currentEndpointOut, dataBytes);
+            try {
+                let jsonPayloadString = "";
+
+                if (commandType === 'getConfig' || commandType === 'setConfig') {
+                    const protocolVersionStr = protocolVersionInput.value.trim();
+                    const correlationIdStr = correlationIdInput.value.trim();
+
+                    if (!protocolVersionStr) {
+                        alert("Protocol Version is required.");
+                        return;
+                    }
+                    const protocolVersion = parseInt(protocolVersionStr, 10);
+                    if (isNaN(protocolVersion) || protocolVersion < 0) {
+                        alert("Invalid Protocol Version. Must be a non-negative number.");
+                        return;
+                    }
+
+                    let headerObject = { version: protocolVersion };
+                    if (correlationIdStr) {
+                        const correlationId = parseInt(correlationIdStr, 10);
+                        if (isNaN(correlationId)) {
+                            alert("Invalid Correlation ID. Must be a number if provided.");
+                            return;
+                        }
+                        headerObject.correlationId = correlationId;
+                    }
+
+                    let commandObject = {};
+                    if (commandType === 'getConfig') {
+                        commandObject = { type: "GetConfig", header: headerObject };
+                    } else { // setConfig
+                        const deviceConfigStr = deviceConfigJsonTextarea.value.trim();
+                        if (!deviceConfigStr) {
+                            alert("Device Configuration JSON is required for SetConfig.");
+                            return;
+                        }
+                        try {
+                            const deviceConfig = JSON.parse(deviceConfigStr);
+                            commandObject = { type: "SetConfig", header: headerObject, config: deviceConfig };
+                        } catch (e) {
+                            alert(`Invalid JSON in Device Configuration: ${e.message}`);
+                            return;
+                        }
+                    }
+                    jsonPayloadString = JSON.stringify(commandObject);
+                } else if (commandType === 'rawJson') {
+                    jsonPayloadString = rawJsonPayloadTextarea.value;
+                    // Optionally validate if it's JSON, or let the device handle it
+                    try { if (jsonPayloadString) JSON.parse(jsonPayloadString); } catch (e) { /* ignore, it's "raw" */ }
+                } else if (commandType === 'invalidText') {
+                    jsonPayloadString = invalidTextPayloadTextarea.value;
+                } else if (commandType === 'emptyPayload') {
+                    // jsonPayloadString remains empty, payloadBodyBytes will be empty, length will be 0
+                }
+
+                if (jsonPayloadString) { // If there's a string payload to encode
+                    payloadBodyBytes = new TextEncoder().encode(jsonPayloadString);
+                }
+
+            } catch (error) {
+                alert(`Error preparing payload: ${error.message}`);
+                console.error("Error preparing payload:", error);
+                return;
+            }
+
+            const payloadLength = payloadBodyBytes.length;
+            const messageLengthBytes = u32ToBigEndianBytes(payloadLength);
+
+            const finalMessage = new Uint8Array(messageHeaderBytes.length + messageLengthBytes.length + payloadBodyBytes.length);
+            finalMessage.set(messageHeaderBytes, 0);
+            finalMessage.set(messageLengthBytes, messageHeaderBytes.length);
+            finalMessage.set(payloadBodyBytes, messageHeaderBytes.length + messageLengthBytes.length);
+
+            try {
+                console.log(`Sending message: Header=${Array.from(messageHeaderBytes).map(b => b.toString(16).padStart(2, '0')).join('')}, Length=${payloadLength}, Payload (first 50 bytes)=${new TextDecoder().decode(payloadBodyBytes.slice(0, 50))}`);
+                console.log("Full message bytes:", finalMessage);
+                const result = await device.transferOut(currentEndpointOut, finalMessage);
                 console.log('Transfer OUT result:', result);
 
                 if (result.status !== 'ok') {
                     statusDisplay.textContent = `Send Error: ${result.status}`;
                     console.error('Send Error Status:', result.status);
                 } else {
-                    dataToSendInput.value = '';
+                    // Optionally clear some fields after successful send
+                    // e.g. rawJsonPayloadTextarea.value = '';
                 }
 
             } catch (error) {
                 statusDisplay.textContent = `Error sending data: ${error.message}`;
                 console.error('Send data error:', error);
-                if (error.message.includes("disconnected")) {
-                    disconnectDevice();
+                if (error.message.includes("disconnected") || error.name === "NotFoundError" || error.message.includes("The device was disconnected") || error.message.includes("No such interface")) {
+                    await disconnectDevice(); // Ensure full disconnect logic runs
                 }
             }
         }
@@ -335,21 +566,20 @@
                         } else {
                             console.error(`Read Error Status: ${result.status}. Stopping read loop.`);
                             statusDisplay.textContent = `Read Error: ${result.status}`;
-                            isReading = false;
+                            isReading = false; // Stop reading on non-stall errors
                             break;
                         }
                     }
                 } catch (error) {
                     console.error('Read loop error:', error);
-                    // Only update status if still trying to read (avoid overwriting disconnect message)
-                    if (isReading) {
+                    if (isReading) { // Only update status if we were still trying to read
                         statusDisplay.textContent = `Error reading data: ${error.message}`;
                     }
-                    isReading = false;
-                    if (error.message.includes("disconnected")) {
-                        // Don't call disconnectDevice here, the disconnect event listener handles it
+                    isReading = false; // Stop reading on any catch
+                    if (error.message.includes("disconnected") || error.name === "NotFoundError" || error.message.includes("The device was disconnected")) {
+                        // The 'disconnect' event listener will handle the UI updates for disconnection.
                     }
-                    break;
+                    break; // Exit loop on error
                 }
             }
             isReading = false;
@@ -360,23 +590,18 @@
         navigator.usb.getDevices().then(async (devices) => {
             if (devices.length > 0) {
                 console.log("Found previously granted devices:", devices);
+                // You could attempt to auto-connect to the first one, or list them.
+                // For now, just logging.
             }
         });
 
         // Listen for device disconnection events
-        navigator.usb.addEventListener('disconnect', (event) => {
+        navigator.usb.addEventListener('disconnect', async (event) => {
             console.log('Device disconnect event:', event);
             if (device && event.device === device) {
                 console.log(`Connected device ${device.productName || 'Device'} disconnected.`);
-                // Update UI immediately
-                statusDisplay.textContent = 'Device disconnected.';
-                connectButton.disabled = false;
-                disconnectButton.disabled = true;
-                configFieldset.disabled = false; // Re-enable config
-                controlsDiv.style.display = 'none';
-                receiveAreaDiv.style.display = 'none';
-                isReading = false;
-                device = null;
+                // Ensure we call our disconnectDevice function to clean up state and UI
+                await disconnectDevice();
             }
         });
 
