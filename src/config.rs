@@ -12,7 +12,7 @@ pub struct WifiSettings {
 pub struct DeviceSettings {
     // Add optional settings here
     pub wifi: Option<WifiSettings>,
-    // pub timezone_offset: Option<f32>, // Example: Could move tz_offset here later
+    pub timezone_offset: Option<f32>,
     // pub display_brightness: Option<u8>,
 }
 

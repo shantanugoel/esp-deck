@@ -155,7 +155,8 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, TZ_OFFSET);
+    let tz_offset = config.settings.timezone_offset.unwrap_or(TZ_OFFSET);
+    let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, tz_offset);
 
     for thread in threads {
         thread.join().unwrap();
