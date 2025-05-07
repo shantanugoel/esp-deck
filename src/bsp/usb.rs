@@ -179,7 +179,36 @@ fn process_rx_buffer() -> bool {
     // Loop because we may receive multiple messages in the buffer concatenated together
     loop {
         match state {
-            UsbRxState::AwaitingMagicWord => {}
+            UsbRxState::AwaitingMagicWord => {
+                if data.len() >= 4 {
+                    // Peek at the first 4 bytes to look for the magic word
+                    // without consuming them
+                    let magic_word: u32 = (data[0] as u32) << 24
+                        | (data[1] as u32) << 16
+                        | (data[2] as u32) << 8
+                        | (data[3] as u32);
+                    // let magic_word = u32::from_le_bytes(magic_word_bytes);
+                    if magic_word == MAGIC_WORD {
+                        // Found the magic word, move the buffer forward by 4 bytes
+                        data.drain(..4);
+                        log::info!("Found magic word, moving to ReadingLength state");
+                        *state = UsbRxState::ReadingLength;
+                    } else {
+                        log::warn!(
+                            "Magic word mismatch. Expected {:x}, got {:x}. Discarding byte: {:#04x}",
+                            MAGIC_WORD,
+                            magic_word,
+                            data[0]
+                        );
+                        data.pop_front();
+                        if data.len() < 4 {
+                            break;
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
             UsbRxState::ReadingLength => {}
             UsbRxState::ReadingPayload { payload_length } => {}
         }
