@@ -1,3 +1,5 @@
+use std::sync::mpsc::Receiver;
+
 use crate::config::DeviceConfiguration;
 use serde::{Deserialize, Serialize};
 
@@ -59,4 +61,28 @@ pub struct AckResponse {
     pub header: ProtocolHeader,
     pub message: String,
     pub success: bool,
+}
+
+pub struct ProtocolManager {
+    message_rx: Receiver<Vec<u8>>,
+}
+
+impl ProtocolManager {
+    pub fn new(message_rx: Receiver<Vec<u8>>) -> Self {
+        Self { message_rx }
+    }
+
+    pub fn run(&self) {
+        loop {
+            let message = self.message_rx.recv().unwrap();
+            match serde_json::from_slice::<Command>(&message) {
+                Ok(command) => {
+                    log::info!("Received command: {:?}", command);
+                }
+                Err(e) => {
+                    log::error!("Error deserializing command: {}", e);
+                }
+            }
+        }
+    }
 }

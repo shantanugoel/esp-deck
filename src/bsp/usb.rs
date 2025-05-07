@@ -15,8 +15,10 @@ use crate::bsp::usb_desc::{
 use crate::events::{AppEvent, UsbStatus};
 
 const MAGIC_WORD: u32 = 0xE59DECC0;
-// Magic Word + Payload length
+// Magic Word + Payload length bytes
 const HEADER_SIZE: usize = 8;
+// Max payload length is 4KB
+const MAX_PAYLOAD_LENGTH: usize = 4 * 1024;
 
 #[derive(Debug, Clone, Default)]
 struct UsbRxBuffer {
@@ -35,6 +37,7 @@ enum UsbRxState {
 }
 
 static USB_UPDATE_TX: OnceLock<Mutex<Sender<AppEvent>>> = OnceLock::new();
+static USB_MESSAGE_TX: OnceLock<Mutex<Sender<Vec<u8>>>> = OnceLock::new();
 static USB_RX_BUFFER: LazyLock<Mutex<UsbRxBuffer>> =
     LazyLock::new(|| Mutex::new(UsbRxBuffer::default()));
 
@@ -100,6 +103,24 @@ fn send_usb_update(status: UsbStatus) {
         }
     };
     usb_update_tx.send(AppEvent::UsbUpdate(status)).unwrap();
+}
+
+fn send_usb_message(message: Vec<u8>) -> bool {
+    let usb_message_tx = match USB_MESSAGE_TX.get() {
+        Some(tx) => match tx.lock() {
+            Ok(tx) => tx,
+            Err(e) => {
+                log::error!("Failed to lock USB_MESSAGE_TX: {}", e);
+                return false;
+            }
+        },
+        None => {
+            log::error!("USB_MESSAGE_TX is not initialized");
+            return false;
+        }
+    };
+    usb_message_tx.send(message).unwrap();
+    true
 }
 
 #[allow(unused_variables)]
@@ -209,8 +230,54 @@ fn process_rx_buffer() -> bool {
                     break;
                 }
             }
-            UsbRxState::ReadingLength => {}
-            UsbRxState::ReadingPayload { payload_length } => {}
+            UsbRxState::ReadingLength => {
+                if data.len() >= 4 {
+                    // Peek at the first 4 bytes to look for the payload length
+                    // without consuming them
+                    let payload_length: u32 = (data[0] as u32) << 24
+                        | (data[1] as u32) << 16
+                        | (data[2] as u32) << 8
+                        | (data[3] as u32);
+                    if payload_length > 0 && payload_length <= MAX_PAYLOAD_LENGTH as u32 {
+                        log::info!(
+                            "Payload length: {}. Moving to ReadingPayload state",
+                            payload_length
+                        );
+                        data.drain(..4);
+                        *state = UsbRxState::ReadingPayload { payload_length };
+                    } else {
+                        log::warn!(
+                            "Invalid payload length: {}. Max is {}. Moving back to AwaitingMagicWord state",
+                            payload_length,
+                            MAX_PAYLOAD_LENGTH
+                        );
+                        *state = UsbRxState::AwaitingMagicWord;
+                        // Don't break here because we want to continue processing the buffer
+                    }
+                } else {
+                    break;
+                }
+            }
+            UsbRxState::ReadingPayload { payload_length } => {
+                let payload_length = *payload_length as usize;
+                if data.len() >= payload_length {
+                    let payload_bytes: Vec<u8> = data.drain(0..payload_length).collect();
+                    log::info!(
+                        "Received payload of length {}. Deserializing...",
+                        payload_length
+                    );
+                    // Send over to protocol handler over a channel to deserialize and process
+                    if send_usb_message(payload_bytes) {
+                        log::info!("Sent payload to protocol handler");
+                        message_processed = true;
+                    }
+
+                    // Move back to AwaitingMagicWord state to process the next message
+                    *state = UsbRxState::AwaitingMagicWord;
+                } else {
+                    break;
+                }
+            }
         }
     }
     drop(guard);
@@ -357,7 +424,7 @@ pub struct Usb;
 impl Usb {
     #[allow(unused_unsafe)]
     #[allow(static_mut_refs)]
-    pub fn new(usb_update_tx: Sender<AppEvent>) -> Self {
+    pub fn new(usb_update_tx: Sender<AppEvent>, message_tx: Sender<Vec<u8>>) -> Self {
         let tusb_config = tinyusb_config_t {
             string_descriptor: unsafe { crate::bsp::usb_desc::STRING_DESCRIPTOR.as_mut_ptr() },
             string_descriptor_count: crate::bsp::usb_desc::STRING_DESCRIPTOR_LEN as i32,
@@ -384,6 +451,13 @@ impl Usb {
             Ok(_) => (),
             Err(e) => {
                 log::error!("Failed to set USB_UPDATE_TX: {:?}", e);
+            }
+        }
+
+        match USB_MESSAGE_TX.set(Mutex::new(message_tx)) {
+            Ok(_) => (),
+            Err(e) => {
+                log::error!("Failed to set USB_MESSAGE_TX: {:?}", e);
             }
         }
 

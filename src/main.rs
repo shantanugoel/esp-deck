@@ -4,6 +4,7 @@ use esp_deck::{
     config::DeviceConfiguration,
     events::{AppEvent, WifiStatus},
     mapper::Mapper,
+    protocol::ProtocolManager,
     ui::Window,
     usb_hid_client::UsbHidClient,
 };
@@ -80,6 +81,7 @@ fn main() -> anyhow::Result<()> {
     // and it sends events to the underlying USB module
     let (actor_tx, actor_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
     let (usb_hid_tx, usb_hid_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
+    let (usb_message_tx, usb_message_rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
 
     ThreadSpawnConfiguration {
         stack_size: 4096,
@@ -134,11 +136,17 @@ fn main() -> anyhow::Result<()> {
     }));
 
     let usb_updates_tx = ui_updates_tx.clone();
+    let usb_message_tx = usb_message_tx.clone();
     threads.push(thread::spawn(move || {
-        let _usb = Usb::new(usb_updates_tx.clone());
+        let _usb = Usb::new(usb_updates_tx.clone(), usb_message_tx.clone());
         UsbHidClient::run(usb_hid_rx).unwrap();
     }));
     ThreadSpawnConfiguration::default().set().unwrap();
+
+    threads.push(thread::spawn(move || {
+        let protocol_manager = ProtocolManager::new(usb_message_rx);
+        protocol_manager.run();
+    }));
 
     let touch_i2c = esp_idf_svc::hal::i2c::I2cDriver::new(
         peripherals.i2c0,
