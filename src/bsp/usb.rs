@@ -1,3 +1,4 @@
+use anyhow::Result;
 use esp_idf_svc::sys::{
     hid_report_type_t, tinyusb_config_t, tinyusb_config_t__bindgen_ty_1,
     tinyusb_config_t__bindgen_ty_2, tinyusb_config_t__bindgen_ty_2__bindgen_ty_1,
@@ -5,9 +6,11 @@ use esp_idf_svc::sys::{
     tud_vendor_n_write_flush,
 };
 use esp_idf_svc::sys::{tud_control_xfer, tud_hid_n_report, tusb_control_request_t};
+use serde::Serialize;
 use std::collections::VecDeque;
 use std::ptr;
 use std::sync::{mpsc::Sender, LazyLock, Mutex, OnceLock};
+use thiserror::Error;
 
 use crate::bsp::usb_desc::{
     TUSB_DESC_BOS, TUSB_DESC_CONFIGURATION, TUSB_DESC_DEVICE, TUSB_DESC_HID_REPORT,
@@ -19,6 +22,14 @@ const MAGIC_WORD: u32 = 0xE59DECC0;
 const HEADER_SIZE: usize = 8;
 // Max payload length is 4KB
 const MAX_PAYLOAD_LENGTH: usize = 4 * 1024;
+
+#[derive(Debug, Clone, Error)]
+pub enum UsbMessageError {
+    #[error("Not enough space to send message")]
+    NotEnoughSpace,
+    #[error("Failed to frame message: {0}")]
+    FailedToFrame(String),
+}
 
 #[derive(Debug, Clone, Default)]
 struct UsbRxBuffer {
@@ -37,7 +48,7 @@ enum UsbRxState {
 }
 
 static USB_UPDATE_TX: OnceLock<Mutex<Sender<AppEvent>>> = OnceLock::new();
-static USB_MESSAGE_TX: OnceLock<Mutex<Sender<Vec<u8>>>> = OnceLock::new();
+static PROCESS_MESSAGE_TX: OnceLock<Mutex<Sender<Vec<u8>>>> = OnceLock::new();
 static USB_RX_BUFFER: LazyLock<Mutex<UsbRxBuffer>> =
     LazyLock::new(|| Mutex::new(UsbRxBuffer::default()));
 
@@ -105,22 +116,50 @@ fn send_usb_update(status: UsbStatus) {
     usb_update_tx.send(AppEvent::UsbUpdate(status)).unwrap();
 }
 
-fn send_usb_message(message: Vec<u8>) -> bool {
-    let usb_message_tx = match USB_MESSAGE_TX.get() {
+fn process_message(message: Vec<u8>) -> bool {
+    let usb_message_tx = match PROCESS_MESSAGE_TX.get() {
         Some(tx) => match tx.lock() {
             Ok(tx) => tx,
             Err(e) => {
-                log::error!("Failed to lock USB_MESSAGE_TX: {}", e);
+                log::error!("Failed to lock PROCESS_MESSAGE_TX: {}", e);
                 return false;
             }
         },
         None => {
-            log::error!("USB_MESSAGE_TX is not initialized");
+            log::error!("PROCESS_MESSAGE_TX is not initialized");
             return false;
         }
     };
     usb_message_tx.send(message).unwrap();
     true
+}
+
+fn frame_message<T: Serialize>(payload: &T) -> Result<Vec<u8>> {
+    let json_payload = serde_json::to_vec(payload)?;
+    let payload_bytes = json_payload.as_slice();
+    let payload_length = payload_bytes.len();
+
+    let mut frame = Vec::with_capacity(HEADER_SIZE + payload_length);
+    frame.extend_from_slice(&MAGIC_WORD.to_le_bytes());
+    frame.extend_from_slice(&payload_length.to_le_bytes());
+    frame.extend_from_slice(payload_bytes);
+    Ok(frame)
+}
+
+pub fn send_usb_message(message: Vec<u8>) -> Result<()> {
+    // Ideally we should check if there is enough space to send the message using tud_vendor_n_write_available
+    // but FIFO is not implemented in esp-tinyusb yet
+    let frame = frame_message(&message);
+    match frame {
+        Ok(frame) => {
+            unsafe {
+                tud_vendor_n_write(0, frame.as_ptr() as *const _, frame.len() as u32);
+                tud_vendor_n_write_flush(0);
+            }
+            Ok(())
+        }
+        Err(e) => Err(UsbMessageError::FailedToFrame(e.to_string()).into()),
+    }
 }
 
 #[allow(unused_variables)]
@@ -267,7 +306,7 @@ fn process_rx_buffer() -> bool {
                         payload_length
                     );
                     // Send over to protocol handler over a channel to deserialize and process
-                    if send_usb_message(payload_bytes) {
+                    if process_message(payload_bytes) {
                         log::info!("Sent payload to protocol handler");
                         message_processed = true;
                     }
@@ -454,7 +493,7 @@ impl Usb {
             }
         }
 
-        match USB_MESSAGE_TX.set(Mutex::new(message_tx)) {
+        match PROCESS_MESSAGE_TX.set(Mutex::new(message_tx)) {
             Ok(_) => (),
             Err(e) => {
                 log::error!("Failed to set USB_MESSAGE_TX: {:?}", e);

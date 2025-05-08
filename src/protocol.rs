@@ -1,5 +1,6 @@
 use std::sync::mpsc::Receiver;
 
+use crate::bsp::usb::{send_usb_message, UsbMessageError};
 use crate::config::DeviceConfiguration;
 use serde::{Deserialize, Serialize};
 
@@ -63,13 +64,14 @@ pub struct AckResponse {
     pub success: bool,
 }
 
-pub struct ProtocolManager {
+pub struct ProtocolManager<'a> {
     message_rx: Receiver<Vec<u8>>,
+    config: &'a mut DeviceConfiguration,
 }
 
-impl ProtocolManager {
-    pub fn new(message_rx: Receiver<Vec<u8>>) -> Self {
-        Self { message_rx }
+impl<'a> ProtocolManager<'a> {
+    pub fn new(message_rx: Receiver<Vec<u8>>, config: &'a mut DeviceConfiguration) -> Self {
+        Self { message_rx, config }
     }
 
     pub fn run(&self) {
@@ -78,9 +80,58 @@ impl ProtocolManager {
             match serde_json::from_slice::<Command>(&message) {
                 Ok(command) => {
                     log::info!("Received command: {:?}", command);
+                    self.process_command(&command);
                 }
                 Err(e) => {
                     log::error!("Error deserializing command: {}", e);
+                }
+            }
+        }
+    }
+
+    fn process_command(&self, command: &Command) {
+        match command {
+            Command::GetConfig(command) => {
+                let response = GetConfigResponse {
+                    header: ProtocolHeader {
+                        version: PROTOCOL_VERSION,
+                        correlation_id: command.header.correlation_id,
+                    },
+                    config: self.config.clone(),
+                };
+                let response_message = serde_json::to_vec(&response).unwrap();
+                send_response(response_message);
+            }
+
+            Command::SetConfig(command) => {
+                let response = AckResponse {
+                    header: ProtocolHeader {
+                        version: PROTOCOL_VERSION,
+                        correlation_id: command.header.correlation_id,
+                    },
+                    message: "Config set successfully".to_string(),
+                    success: true,
+                };
+                let response_message = serde_json::to_vec(&response).unwrap();
+                send_response(response_message);
+            }
+        }
+    }
+}
+
+fn send_response(response_message: Vec<u8>) {
+    match send_usb_message(response_message) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("Error sending response: {}", e);
+            match e.downcast_ref::<UsbMessageError>() {
+                Some(UsbMessageError::NotEnoughSpace) => {
+                    log::error!("Not enough space to send response");
+                    //TODO This code won't be reached because of the FIFO not implemented in esp-tinyusb
+                    // If it is implemented, we should try again later.
+                }
+                _ => {
+                    log::error!("Discarding response");
                 }
             }
         }
