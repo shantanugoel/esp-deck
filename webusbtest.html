@@ -330,6 +330,94 @@
         let currentEndpointOut = 0;
         let currentEndpointIn = 0;
 
+        // New variables for receiving and parsing framed messages
+        let receiveBuffer = new Uint8Array(0);
+        const EXPECTED_MAGIC_WORD_VALUE = 0xE59DECC0; // As defined in Rust (0xE59DECC0)
+        const MAX_EXPECTED_PAYLOAD_LENGTH = 4 * 1024; // Matching MAX_PAYLOAD_LENGTH in usb.rs
+        let receiveState = 'AWAITING_MAGIC_WORD'; // Possible states: 'AWAITING_MAGIC_WORD', 'AWAITING_LENGTH', 'AWAITING_PAYLOAD'
+        let expectedPayloadLength = 0;
+
+        // Helper function to append an ArrayBuffer to a Uint8Array
+        function appendBuffer(existingUint8Array, newArrayBuffer) {
+            const newUint8Array = new Uint8Array(newArrayBuffer);
+            const totalLength = existingUint8Array.length + newUint8Array.length;
+            const result = new Uint8Array(totalLength);
+            result.set(existingUint8Array, 0);
+            result.set(newUint8Array, existingUint8Array.length);
+            return result;
+        }
+
+        function processReceiveBuffer() {
+            let processedSomething = true; // To loop if multiple messages are in buffer
+            while (processedSomething) {
+                processedSomething = false;
+
+                if (receiveState === 'AWAITING_MAGIC_WORD') {
+                    if (receiveBuffer.length >= 4) {
+                        const view = new DataView(receiveBuffer.buffer, receiveBuffer.byteOffset, 4);
+                        const magicWord = view.getUint32(0, true); // true for little-endian
+
+                        if (magicWord === EXPECTED_MAGIC_WORD_VALUE) {
+                            receiveBuffer = receiveBuffer.slice(4);
+                            receiveState = 'AWAITING_LENGTH';
+                            processedSomething = true;
+                            console.log("Magic word found. Awaiting length.");
+                        } else {
+                            console.warn(`Invalid magic word found: 0x${magicWord.toString(16)}. Expected: 0x${EXPECTED_MAGIC_WORD_VALUE.toString(16)}. Discarding 1 byte.`);
+                            receivedDataTextArea.textContent += `[DEBUG] Invalid magic word: 0x${magicWord.toString(16)}. Discarding 1 byte.\n`;
+                            receiveBuffer = receiveBuffer.slice(1); // Basic resync: discard one byte
+                            processedSomething = true;
+                        }
+                    } else {
+                        break; // Not enough data for magic word
+                    }
+                }
+
+                if (receiveState === 'AWAITING_LENGTH') {
+                    if (receiveBuffer.length >= 4) {
+                        const view = new DataView(receiveBuffer.buffer, receiveBuffer.byteOffset, 4);
+                        expectedPayloadLength = view.getUint32(0, true); // true for little-endian
+                        receiveBuffer = receiveBuffer.slice(4);
+
+                        if (expectedPayloadLength > 0 && expectedPayloadLength <= MAX_EXPECTED_PAYLOAD_LENGTH) {
+                            receiveState = 'AWAITING_PAYLOAD';
+                            processedSomething = true;
+                            console.log(`Expected payload length: ${expectedPayloadLength}. Awaiting payload.`);
+                        } else {
+                            console.error(`Invalid payload length: ${expectedPayloadLength}. Max is ${MAX_EXPECTED_PAYLOAD_LENGTH}. Resetting state.`);
+                            receivedDataTextArea.textContent += `[ERROR] Invalid payload length: ${expectedPayloadLength}. Resetting.\n`;
+                            receiveState = 'AWAITING_MAGIC_WORD';
+                            processedSomething = true;
+                        }
+                    } else {
+                        break; // Not enough data for length
+                    }
+                }
+
+                if (receiveState === 'AWAITING_PAYLOAD') {
+                    if (receiveBuffer.length >= expectedPayloadLength) {
+                        const payloadBytes = receiveBuffer.slice(0, expectedPayloadLength);
+                        receiveBuffer = receiveBuffer.slice(expectedPayloadLength);
+
+                        const payloadJsonString = new TextDecoder().decode(payloadBytes);
+                        console.log("Received raw payload string:", payloadJsonString);
+                        try {
+                            const parsedResponse = JSON.parse(payloadJsonString);
+                            receivedDataTextArea.textContent += `Received: ${JSON.stringify(parsedResponse, null, 2)}\n\n`;
+                        } catch (e) {
+                            console.error("Error parsing JSON payload:", e, "Raw:", payloadJsonString);
+                            receivedDataTextArea.textContent += `Error parsing JSON: ${e.message}\nRaw: ${payloadJsonString}\n\n`;
+                        }
+                        receivedDataTextArea.scrollTop = receivedDataTextArea.scrollHeight;
+                        receiveState = 'AWAITING_MAGIC_WORD';
+                        processedSomething = true;
+                        console.log("Payload processed. Awaiting magic word.");
+                    } else {
+                        break; // Not enough data for payload
+                    }
+                }
+            }
+        }
 
         // Helper function to convert a hex string to Uint8Array
         function hexStringToUint8Array(hexString) {
@@ -643,30 +731,60 @@
             if (isReading || !device) return;
             isReading = true;
             console.log(`Starting read loop for endpoint ${currentEndpointIn}...`);
+            // Reset buffer and state when starting to read
+            receiveBuffer = new Uint8Array(0);
+            receiveState = 'AWAITING_MAGIC_WORD';
+            expectedPayloadLength = 0;
+
             while (isReading && device?.opened) {
                 try {
-                    const result = await device.transferIn(currentEndpointIn, 64);
-                    if (result.data && result.data.byteLength > 0) {
-                        const text = new TextDecoder().decode(result.data);
-                        receivedDataTextArea.textContent += text;
-                        receivedDataTextArea.scrollTop = receivedDataTextArea.scrollHeight;
+                    const result = await device.transferIn(currentEndpointIn, 64); // Read up to 64 bytes (common packet size)
+
+                    if (result.data) { // Check if result.data is not null/undefined
+                        if (result.data.byteLength > 0) {
+                            receiveBuffer = appendBuffer(receiveBuffer, result.data.buffer);
+                            console.log(`Received ${result.data.byteLength} bytes. Buffer size: ${receiveBuffer.length}`);
+                            receivedDataTextArea.textContent += `[DEBUG] Received ${result.data.byteLength} raw bytes. Buffer: ${receiveBuffer.length}\n`; // Temporary direct log to textarea
+                            processReceiveBuffer(); // Process any complete messages in the buffer
+                        } else {
+                            // Log if zero bytes are received, if result.data exists
+                            console.log("Poll returned 0 bytes from device.transferIn.");
+                            // Optionally, uncomment to add a debug message to textarea for this specific case if helpful
+                            // receivedDataTextArea.textContent += "[DEBUG] Poll returned 0 bytes.\n";
+                        }
+                    } else {
+                        // This case implies an issue with the transferIn result structure if no error was thrown
+                        console.warn("device.transferIn result.data is null or undefined, but no error thrown.");
+                        receivedDataTextArea.textContent += "[WARN] transferIn result.data was null/undefined.\n";
                     }
+
+                    // Check for non-OK status after processing data, as 'stall' might still have data.
                     if (result.status !== 'ok') {
                         if (result.status === 'stall') {
+                            console.warn('Endpoint stalled. Clearing halt.');
                             await device.clearHalt('in', currentEndpointIn);
                         } else {
                             statusDisplay.textContent = `Read Error: ${result.status}`;
-                            isReading = false; break;
+                            console.error(`Read Error: ${result.status}`);
+                            isReading = false; // Stop reading on other errors
+                            break;
                         }
                     }
                 } catch (error) {
-                    if (isReading) statusDisplay.textContent = `Error reading data: ${error.message}`;
-                    isReading = false;
-                    console.error('Read loop error:', error);
+                    if (isReading) { // Only update status if we were still supposed to be reading
+                        statusDisplay.textContent = `Error reading data: ${error.message}`;
+                        console.error('Read loop error:', error);
+                    }
+                    isReading = false; // Stop reading on exception
+                    // Check if the error is due to disconnection
+                    if (error.message.includes("disconnected") || error.name === "NotFoundError" || error.message.includes("The device was disconnected") || error.message.includes("No such interface")) {
+                        console.log("Device appears to be disconnected, ensuring UI reflects this.");
+                        await disconnectDevice(); // Ensure full disconnection logic is triggered
+                    }
                     break;
                 }
             }
-            isReading = false;
+            isReading = false; // Ensure isReading is false when loop exits
             console.log("Read loop stopped.");
         }
 

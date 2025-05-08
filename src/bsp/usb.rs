@@ -6,7 +6,6 @@ use esp_idf_svc::sys::{
     tud_vendor_n_write_flush,
 };
 use esp_idf_svc::sys::{tud_control_xfer, tud_hid_n_report, tusb_control_request_t};
-use serde::Serialize;
 use std::collections::VecDeque;
 use std::ptr;
 use std::sync::{mpsc::Sender, LazyLock, Mutex, OnceLock};
@@ -134,14 +133,20 @@ fn process_message(message: Vec<u8>) -> bool {
     true
 }
 
-fn frame_message<T: Serialize>(payload: &T) -> Result<Vec<u8>> {
-    let json_payload = serde_json::to_vec(payload)?;
-    let payload_bytes = json_payload.as_slice();
+fn frame_message(payload_bytes: &[u8]) -> Result<Vec<u8>> {
     let payload_length = payload_bytes.len();
+
+    if payload_length > MAX_PAYLOAD_LENGTH {
+        return Err(UsbMessageError::FailedToFrame(format!(
+            "Payload too large: {} bytes, max is {}",
+            payload_length, MAX_PAYLOAD_LENGTH
+        ))
+        .into());
+    }
 
     let mut frame = Vec::with_capacity(HEADER_SIZE + payload_length);
     frame.extend_from_slice(&MAGIC_WORD.to_le_bytes());
-    frame.extend_from_slice(&payload_length.to_le_bytes());
+    frame.extend_from_slice(&(payload_length as u32).to_le_bytes()); // Ensure it's u32 for length field
     frame.extend_from_slice(payload_bytes);
     Ok(frame)
 }
@@ -149,16 +154,29 @@ fn frame_message<T: Serialize>(payload: &T) -> Result<Vec<u8>> {
 pub fn send_usb_message(message: Vec<u8>) -> Result<()> {
     // Ideally we should check if there is enough space to send the message using tud_vendor_n_write_available
     // but FIFO is not implemented in esp-tinyusb yet
-    let frame = frame_message(&message);
+    //TODO: Implement mutex
+    let frame = frame_message(&message); // Pass as slice
     match frame {
         Ok(frame) => {
             unsafe {
-                tud_vendor_n_write(0, frame.as_ptr() as *const _, frame.len() as u32);
-                tud_vendor_n_write_flush(0);
+                let mut total_bytes_written: usize = 0;
+                while total_bytes_written < frame.len() {
+                    let chunk_ptr = frame.as_ptr().add(total_bytes_written);
+                    let remaining_bytes = frame.len() - total_bytes_written;
+                    let bytes_written =
+                        tud_vendor_n_write(0, chunk_ptr as *const _, remaining_bytes as u32);
+                    log::info!(
+                    "tud_vendor_n_write called with frame_len: {}. Bytes reportedly written to FIFO: {}",
+                    frame.len(),
+                    bytes_written
+                );
+                    tud_vendor_n_write_flush(0);
+                    total_bytes_written += bytes_written as usize;
+                }
             }
             Ok(())
         }
-        Err(e) => Err(UsbMessageError::FailedToFrame(e.to_string()).into()),
+        Err(e) => Err(e),
     }
 }
 
