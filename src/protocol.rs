@@ -31,7 +31,7 @@ pub struct GetConfigCommand {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SetConfigCommand {
     pub header: ProtocolHeader,
-    pub config: Configurator,
+    pub config: DeviceConfig,
 }
 
 // Responses
@@ -97,7 +97,9 @@ impl<'a> ProtocolManager<'a> {
                         version: PROTOCOL_VERSION,
                         correlation_id: command.header.correlation_id,
                     },
-                    config: self.config.config.clone(),
+
+                    // TODO: Check error here
+                    config: self.config.get_config().unwrap(),
                 };
                 let response_message = serde_json::to_vec(&response).unwrap();
                 send_response(response_message);

@@ -91,7 +91,7 @@ fn main() -> anyhow::Result<()> {
     .unwrap();
     let mut threads = Vec::new();
 
-    let wifi_settings = config.config.settings.wifi.clone();
+    let wifi_settings = config.get_wifi_settings();
     let wifi_nvs = nvs;
     let wifi_sys_loop = sys_loop;
     let wifi_timer = timer_service.clone();
@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
         }
     }));
 
-    let actor_mappings = config.config.mappings.clone();
+    let actor_mappings = config.get_mappings().unwrap();
     let actor_mapper = Mapper::new(actor_mappings);
     let actor_usb_hid_tx = usb_hid_tx.clone();
     threads.push(thread::spawn(move || {
@@ -144,7 +144,7 @@ fn main() -> anyhow::Result<()> {
     ThreadSpawnConfiguration::default().set().unwrap();
 
     // Get the TZ offset here because we move the config into the ProtocolManager past this point
-    let tz_offset = config.config.settings.timezone_offset.unwrap_or(TZ_OFFSET);
+    let tz_offset = config.get_timezone_offset().unwrap_or(TZ_OFFSET);
 
     threads.push(thread::spawn(move || {
         let protocol_manager = ProtocolManager::new(usb_message_rx, &mut config);

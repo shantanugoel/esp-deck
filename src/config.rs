@@ -1,7 +1,10 @@
 use crate::mapper::MappingConfiguration;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
+use std::{
+    io::{Read, Write},
+    sync::{Arc, Mutex},
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct WifiSettings {
@@ -23,19 +26,19 @@ pub struct DeviceConfig {
     pub mappings: MappingConfiguration,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Configurator {
     // Config path shouldn't be needed outside of this module, so this
     // is a private field.
     config_path: String,
-    pub config: DeviceConfig,
+    pub config_data: Arc<Mutex<DeviceConfig>>,
 }
 
 // Helper function to create a default configuration object
 impl Configurator {
     /// Loads the device configuration from LittleFS, or creates and saves a default config if not found/invalid.
-    pub fn load_or_create_default_config(config_path: &str) -> anyhow::Result<Configurator> {
-        match std::fs::File::open(config_path) {
+    pub fn load_or_create_default_config(config_path: &str) -> Result<Self> {
+        let config = match std::fs::File::open(config_path) {
             Ok(mut file) => {
                 log::info!("Reading configuration from {}", config_path);
                 let mut buf = Vec::new();
@@ -43,11 +46,11 @@ impl Configurator {
                 match serde_json::from_slice(&buf) {
                     Ok(config) => {
                         log::info!("Configuration loaded successfully.");
-                        Ok(config)
+                        config
                     }
                     Err(e) => {
                         log::error!("Failed to parse config file: {}. Using default config.", e);
-                        Self::create_and_save_default_config(config_path)
+                        Self::create_and_save_default_config(config_path)?
                     }
                 }
             }
@@ -57,19 +60,20 @@ impl Configurator {
                     config_path,
                     e
                 );
-                Self::create_and_save_default_config(config_path)
+                Self::create_and_save_default_config(config_path)?
             }
-        }
+        };
+        Ok(Configurator {
+            config_path: config_path.to_string(),
+            config_data: Arc::new(Mutex::new(config)),
+        })
     }
 
     /// Creates a default configuration and saves it to the filesystem.
-    fn create_and_save_default_config(config_path: &str) -> Result<Configurator> {
-        let default_config = Configurator {
-            config_path: config_path.to_string(),
-            config: DeviceConfig {
-                settings: DeviceSettings::default(), // Default settings (e.g., no wifi)
-                mappings: crate::mapper::Mapper::load_default_config(), // Default mappings
-            },
+    fn create_and_save_default_config(config_path: &str) -> Result<DeviceConfig> {
+        let default_config = DeviceConfig {
+            settings: DeviceSettings::default(), // Default settings (e.g., no wifi)
+            mappings: crate::mapper::Mapper::load_default_config(), // Default mappings
         };
         log::info!("Creating default configuration file at {}", config_path);
 
@@ -104,7 +108,8 @@ impl Configurator {
         log::info!("Backup of existing config saved to {}", backup_path);
 
         // Save the new config
-        let json_data = serde_json::to_vec_pretty(&self)?;
+        let config = self.config_data.lock().unwrap();
+        let json_data = serde_json::to_vec_pretty(&config.clone())?;
         match std::fs::File::open(&self.config_path) {
             Ok(mut file) => {
                 file.write_all(&json_data)?;
@@ -116,5 +121,25 @@ impl Configurator {
                 Err(anyhow::anyhow!("Failed to save config file: {}", e))
             }
         }
+    }
+
+    pub fn get_config(&self) -> Result<DeviceConfig> {
+        let config = self.config_data.lock().unwrap();
+        Ok(config.clone())
+    }
+
+    pub fn get_wifi_settings(&self) -> Option<WifiSettings> {
+        let config = self.config_data.lock().unwrap();
+        config.settings.wifi.clone()
+    }
+
+    pub fn get_timezone_offset(&self) -> Option<f32> {
+        let config = self.config_data.lock().unwrap();
+        config.settings.timezone_offset.clone()
+    }
+
+    pub fn get_mappings(&self) -> Option<MappingConfiguration> {
+        let config = self.config_data.lock().unwrap();
+        Some(config.mappings.clone())
     }
 }
