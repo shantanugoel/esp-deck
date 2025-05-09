@@ -1,4 +1,5 @@
 use crate::mapper::MappingConfiguration;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
@@ -18,6 +19,9 @@ pub struct DeviceSettings {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DeviceConfiguration {
+    // Config path shouldn't be needed outside of this module, so this
+    // is a private field.
+    config_path: String,
     pub settings: DeviceSettings,
     pub mappings: MappingConfiguration,
 }
@@ -53,16 +57,13 @@ impl DeviceConfiguration {
         }
     }
 
-    fn default_config() -> Self {
-        DeviceConfiguration {
+    /// Creates a default configuration and saves it to the filesystem.
+    fn create_and_save_default_config(config_path: &str) -> Result<DeviceConfiguration> {
+        let default_config = DeviceConfiguration {
+            config_path: config_path.to_string(),
             settings: DeviceSettings::default(), // Default settings (e.g., no wifi)
             mappings: crate::mapper::Mapper::load_default_config(), // Default mappings
-        }
-    }
-
-    /// Creates a default configuration and saves it to the filesystem.
-    fn create_and_save_default_config(config_path: &str) -> anyhow::Result<DeviceConfiguration> {
-        let default_config = DeviceConfiguration::default_config();
+        };
         log::info!("Creating default configuration file at {}", config_path);
 
         let dir_path = std::path::Path::new(config_path).parent().unwrap();
@@ -85,5 +86,28 @@ impl DeviceConfiguration {
             }
         }
         Ok(default_config)
+    }
+
+    pub fn save(&self) -> Result<()> {
+        log::info!("Updating configuration");
+
+        // Backup the existing config file
+        let backup_path = format!("{}.bak", self.config_path);
+        std::fs::copy(&self.config_path, &backup_path)?;
+        log::info!("Backup of existing config saved to {}", backup_path);
+
+        // Save the new config
+        let json_data = serde_json::to_vec_pretty(&self)?;
+        match std::fs::File::open(&self.config_path) {
+            Ok(mut file) => {
+                file.write_all(&json_data)?;
+                log::info!("Configuration updated successfully.");
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("Failed to save config file: {}", e);
+                Err(anyhow::anyhow!("Failed to save config file: {}", e))
+            }
+        }
     }
 }
