@@ -31,7 +31,7 @@ pub struct Configurator {
     // Config path shouldn't be needed outside of this module, so this
     // is a private field.
     config_path: String,
-    pub config_data: Arc<Mutex<DeviceConfig>>,
+    config_data: Arc<Mutex<DeviceConfig>>,
 }
 
 // Helper function to create a default configuration object
