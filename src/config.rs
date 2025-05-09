@@ -99,7 +99,7 @@ impl Configurator {
         Ok(default_config)
     }
 
-    pub fn save(&self) -> Result<()> {
+    pub fn save(&self, config: &DeviceConfig) -> Result<()> {
         log::info!("Updating configuration");
 
         // Backup the existing config file
@@ -108,8 +108,9 @@ impl Configurator {
         log::info!("Backup of existing config saved to {}", backup_path);
 
         // Save the new config
-        let config = self.config_data.lock().unwrap();
-        let json_data = serde_json::to_vec_pretty(&config.clone())?;
+        let mut old_config = self.config_data.lock().unwrap();
+        *old_config = config.clone();
+        let json_data = serde_json::to_vec_pretty(&old_config.clone())?;
         match std::fs::File::open(&self.config_path) {
             Ok(mut file) => {
                 file.write_all(&json_data)?;

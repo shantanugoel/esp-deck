@@ -106,16 +106,31 @@ impl<'a> ProtocolManager<'a> {
             }
 
             Command::SetConfig(command) => {
-                let response = AckResponse {
-                    header: ProtocolHeader {
-                        version: PROTOCOL_VERSION,
-                        correlation_id: command.header.correlation_id,
-                    },
-                    message: "Config set successfully".to_string(),
-                    success: true,
+                let response_header = ProtocolHeader {
+                    version: PROTOCOL_VERSION,
+                    correlation_id: command.header.correlation_id,
                 };
-                let response_message = serde_json::to_vec(&response).unwrap();
-                send_response(response_message);
+                let new_config = command.config.clone();
+                let response = match self.config.save(&new_config) {
+                    Ok(_) => {
+                        let response = AckResponse {
+                            header: response_header,
+                            message: "Config set successfully".to_string(),
+                            success: true,
+                        };
+                        serde_json::to_vec(&response).unwrap()
+                    }
+                    Err(e) => {
+                        log::error!("Error saving config: {}", e);
+                        let response = ErrorResponse {
+                            header: response_header,
+                            message: e.to_string(),
+                            error_code: 1,
+                        };
+                        serde_json::to_vec(&response).unwrap()
+                    }
+                };
+                send_response(response);
             }
         }
     }
