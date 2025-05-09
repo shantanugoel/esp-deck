@@ -66,11 +66,11 @@ pub struct AckResponse {
 
 pub struct ProtocolManager<'a> {
     message_rx: Receiver<Vec<u8>>,
-    config: &'a mut DeviceConfiguration,
+    config: &'a DeviceConfiguration,
 }
 
 impl<'a> ProtocolManager<'a> {
-    pub fn new(message_rx: Receiver<Vec<u8>>, config: &'a mut DeviceConfiguration) -> Self {
+    pub fn new(message_rx: Receiver<Vec<u8>>, config: &'a DeviceConfiguration) -> Self {
         Self { message_rx, config }
     }
 
