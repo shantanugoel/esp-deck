@@ -1,6 +1,6 @@
 use crate::{
     bsp::usb_desc::{ConsumerReport, KeyboardReport, MouseReport},
-    config::DeviceConfiguration,
+    config::Configurator,
 };
 use std::net::Ipv4Addr;
 use std::time::Duration;
@@ -45,7 +45,7 @@ pub enum AppEvent {
     UsbUpdate(UsbStatus),
     UsbHidCommand(UsbHidCommand),
     ButtonPressed(i32),
-    ConfigUpdate(Box<DeviceConfiguration>),
+    ConfigUpdate(Box<Configurator>),
 }
 
 // Represents a single primitive HID action or delay

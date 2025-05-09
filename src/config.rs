@@ -18,18 +18,23 @@ pub struct DeviceSettings {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct DeviceConfiguration {
-    // Config path shouldn't be needed outside of this module, so this
-    // is a private field.
-    config_path: String,
+pub struct DeviceConfig {
     pub settings: DeviceSettings,
     pub mappings: MappingConfiguration,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Configurator {
+    // Config path shouldn't be needed outside of this module, so this
+    // is a private field.
+    config_path: String,
+    pub config: DeviceConfig,
+}
+
 // Helper function to create a default configuration object
-impl DeviceConfiguration {
+impl Configurator {
     /// Loads the device configuration from LittleFS, or creates and saves a default config if not found/invalid.
-    pub fn load_or_create_default_config(config_path: &str) -> anyhow::Result<DeviceConfiguration> {
+    pub fn load_or_create_default_config(config_path: &str) -> anyhow::Result<Configurator> {
         match std::fs::File::open(config_path) {
             Ok(mut file) => {
                 log::info!("Reading configuration from {}", config_path);
@@ -58,11 +63,13 @@ impl DeviceConfiguration {
     }
 
     /// Creates a default configuration and saves it to the filesystem.
-    fn create_and_save_default_config(config_path: &str) -> Result<DeviceConfiguration> {
-        let default_config = DeviceConfiguration {
+    fn create_and_save_default_config(config_path: &str) -> Result<Configurator> {
+        let default_config = Configurator {
             config_path: config_path.to_string(),
-            settings: DeviceSettings::default(), // Default settings (e.g., no wifi)
-            mappings: crate::mapper::Mapper::load_default_config(), // Default mappings
+            config: DeviceConfig {
+                settings: DeviceSettings::default(), // Default settings (e.g., no wifi)
+                mappings: crate::mapper::Mapper::load_default_config(), // Default mappings
+            },
         };
         log::info!("Creating default configuration file at {}", config_path);
 

@@ -1,7 +1,7 @@
 use esp_deck::{
     actor::Actor,
     bsp::{time, usb::Usb, wifi::Wifi},
-    config::DeviceConfiguration,
+    config::Configurator,
     events::{AppEvent, WifiStatus},
     mapper::Mapper,
     protocol::ProtocolManager,
@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Load configuration - This will likely fail if VFS isn't mounted
-    let mut config = DeviceConfiguration::load_or_create_default_config(CONFIG_PATH)?;
+    let mut config = Configurator::load_or_create_default_config(CONFIG_PATH)?;
 
     let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
@@ -91,7 +91,7 @@ fn main() -> anyhow::Result<()> {
     .unwrap();
     let mut threads = Vec::new();
 
-    let wifi_settings = config.settings.wifi.clone();
+    let wifi_settings = config.config.settings.wifi.clone();
     let wifi_nvs = nvs;
     let wifi_sys_loop = sys_loop;
     let wifi_timer = timer_service.clone();
@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
         }
     }));
 
-    let actor_mappings = config.mappings.clone();
+    let actor_mappings = config.config.mappings.clone();
     let actor_mapper = Mapper::new(actor_mappings);
     let actor_usb_hid_tx = usb_hid_tx.clone();
     threads.push(thread::spawn(move || {
@@ -144,7 +144,7 @@ fn main() -> anyhow::Result<()> {
     ThreadSpawnConfiguration::default().set().unwrap();
 
     // Get the TZ offset here because we move the config into the ProtocolManager past this point
-    let tz_offset = config.settings.timezone_offset.unwrap_or(TZ_OFFSET);
+    let tz_offset = config.config.settings.timezone_offset.unwrap_or(TZ_OFFSET);
 
     threads.push(thread::spawn(move || {
         let protocol_manager = ProtocolManager::new(usb_message_rx, &mut config);

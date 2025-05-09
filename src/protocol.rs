@@ -1,7 +1,7 @@
 use std::sync::mpsc::Receiver;
 
 use crate::bsp::usb::{send_usb_message, UsbMessageError};
-use crate::config::DeviceConfiguration;
+use crate::config::{Configurator, DeviceConfig};
 use serde::{Deserialize, Serialize};
 
 //Major version: 1, Minor version: 0
@@ -31,7 +31,7 @@ pub struct GetConfigCommand {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SetConfigCommand {
     pub header: ProtocolHeader,
-    pub config: DeviceConfiguration,
+    pub config: Configurator,
 }
 
 // Responses
@@ -46,7 +46,7 @@ pub enum Response {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct GetConfigResponse {
     pub header: ProtocolHeader,
-    pub config: DeviceConfiguration,
+    pub config: DeviceConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -66,11 +66,11 @@ pub struct AckResponse {
 
 pub struct ProtocolManager<'a> {
     message_rx: Receiver<Vec<u8>>,
-    config: &'a DeviceConfiguration,
+    config: &'a Configurator,
 }
 
 impl<'a> ProtocolManager<'a> {
-    pub fn new(message_rx: Receiver<Vec<u8>>, config: &'a DeviceConfiguration) -> Self {
+    pub fn new(message_rx: Receiver<Vec<u8>>, config: &'a Configurator) -> Self {
         Self { message_rx, config }
     }
 
@@ -97,7 +97,7 @@ impl<'a> ProtocolManager<'a> {
                         version: PROTOCOL_VERSION,
                         correlation_id: command.header.correlation_id,
                     },
-                    config: self.config.clone(),
+                    config: self.config.config.clone(),
                 };
                 let response_message = serde_json::to_vec(&response).unwrap();
                 send_response(response_message);
