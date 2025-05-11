@@ -115,7 +115,6 @@ impl Configurator {
 
         // Save the new config
         let mut old_config = self.config_data.lock().unwrap();
-        *old_config = config.clone();
         Self::merge_configs(&mut old_config, config, config_updated_for);
         let json_data = serde_json::to_vec_pretty(&old_config.clone())?;
 
@@ -165,6 +164,7 @@ impl Configurator {
                 log::warn!("Key {} not found in old config, skipping", key);
             }
         }
+        // This is not needed for the config to be updated, but it's nice to know
         config_updated_for.mappings = true;
     }
 
