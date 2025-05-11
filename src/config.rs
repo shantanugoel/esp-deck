@@ -34,6 +34,13 @@ pub struct Configurator {
     config_data: Arc<Mutex<DeviceConfig>>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ConfigUpdatedFor {
+    pub wifi: bool,
+    pub timezone_offset: bool,
+    pub mappings: bool,
+}
+
 // Helper function to create a default configuration object
 impl Configurator {
     /// Loads the device configuration from LittleFS, or creates and saves a default config if not found/invalid.
@@ -99,13 +106,17 @@ impl Configurator {
         Ok(default_config)
     }
 
-    pub fn save(&self, config: &DeviceConfig) -> Result<()> {
+    pub fn save(
+        &self,
+        config: &DeviceConfig,
+        config_updated_for: &mut ConfigUpdatedFor,
+    ) -> Result<()> {
         log::info!("Updating configuration");
 
         // Save the new config
         let mut old_config = self.config_data.lock().unwrap();
         *old_config = config.clone();
-        Self::merge_configs(&mut old_config, config);
+        Self::merge_configs(&mut old_config, config, config_updated_for);
         let json_data = serde_json::to_vec_pretty(&old_config.clone())?;
 
         // Backup the existing config file
@@ -134,12 +145,18 @@ impl Configurator {
         }
     }
 
-    fn merge_configs(old_config: &mut DeviceConfig, new_config: &DeviceConfig) {
+    fn merge_configs(
+        old_config: &mut DeviceConfig,
+        new_config: &DeviceConfig,
+        config_updated_for: &mut ConfigUpdatedFor,
+    ) {
         if let Some(new_wifi) = &new_config.settings.wifi {
             old_config.settings.wifi = Some(new_wifi.clone());
+            config_updated_for.wifi = true;
         }
         if let Some(new_timezone_offset) = &new_config.settings.timezone_offset {
             old_config.settings.timezone_offset = Some(new_timezone_offset.clone());
+            config_updated_for.timezone_offset = true;
         }
         for (key, new_actions) in &new_config.mappings {
             if old_config.mappings.contains_key(key) {
@@ -148,6 +165,7 @@ impl Configurator {
                 log::warn!("Key {} not found in old config, skipping", key);
             }
         }
+        config_updated_for.mappings = true;
     }
 
     pub fn get_config(&self) -> Result<DeviceConfig> {

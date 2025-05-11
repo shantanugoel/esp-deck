@@ -1,7 +1,7 @@
 use esp_deck::{
     actor::Actor,
     bsp::{time, usb::Usb, wifi::Wifi},
-    config::Configurator,
+    config::{Configurator, WifiSettings},
     events::{AppEvent, WifiStatus},
     mapper::Mapper,
     protocol::ProtocolManager,
@@ -20,7 +20,7 @@ use esp_idf_svc::{
 };
 use std::ffi::CString;
 use std::{
-    sync::mpsc::{self, Receiver, Sender},
+    sync::mpsc::{self, Receiver, Sender, SyncSender},
     thread,
 };
 
@@ -82,6 +82,10 @@ fn main() -> anyhow::Result<()> {
     let (actor_tx, actor_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
     let (usb_hid_tx, usb_hid_rx): (Sender<AppEvent>, Receiver<AppEvent>) = mpsc::channel();
     let (usb_message_tx, usb_message_rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::channel();
+    let (main_wifi_time_init_tx, main_wifi_time_init_rx): (
+        SyncSender<Option<WifiSettings>>,
+        Receiver<Option<WifiSettings>>,
+    ) = mpsc::sync_channel(1);
 
     ThreadSpawnConfiguration {
         stack_size: 4096,
@@ -97,10 +101,11 @@ fn main() -> anyhow::Result<()> {
     let wifi_timer = timer_service.clone();
     let peripheral_update_tx = ui_updates_tx.clone();
     let wifi_modem = peripherals.modem;
+    // Send a signal beforehand to ensure the wifi driver is initialized
+    main_wifi_time_init_tx.send(wifi_settings).unwrap();
 
     threads.push(thread::spawn(move || {
         let mut wifi_driver = block_on(Wifi::init(
-            wifi_settings,
             wifi_modem,
             wifi_sys_loop,
             wifi_nvs,
@@ -109,21 +114,24 @@ fn main() -> anyhow::Result<()> {
         ))
         .unwrap();
 
-        match block_on(wifi_driver.connect()) {
-            Ok(_) => {
-                let _ = block_on(time::init(peripheral_update_tx.clone())).unwrap();
-                log::info!("NTP set up");
-            }
-            Err(e) => {
-                log::error!("Wi-Fi connection failed: {}", e);
-                peripheral_update_tx
-                    .send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))
-                    .unwrap();
-            }
-        }
-
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(100));
+            match main_wifi_time_init_rx.recv() {
+                Ok(wifi_settings) => match block_on(wifi_driver.connect(wifi_settings)) {
+                    Ok(_) => {
+                        let _ = block_on(time::init(peripheral_update_tx.clone())).unwrap();
+                        log::info!("NTP set up");
+                    }
+                    Err(e) => {
+                        log::error!("Wi-Fi connection failed: {}", e);
+                        peripheral_update_tx
+                            .send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))
+                            .unwrap();
+                    }
+                },
+                _ => {
+                    log::error!("Received spurious error signal from main_wifi_time_init_rx");
+                }
+            }
         }
     }));
 
@@ -147,7 +155,8 @@ fn main() -> anyhow::Result<()> {
     let tz_offset = config.get_timezone_offset().unwrap_or(TZ_OFFSET);
 
     threads.push(thread::spawn(move || {
-        let protocol_manager = ProtocolManager::new(usb_message_rx, &mut config);
+        let protocol_manager =
+            ProtocolManager::new(usb_message_rx, main_wifi_time_init_tx, &mut config);
         protocol_manager.run();
     }));
 

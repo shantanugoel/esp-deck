@@ -1,7 +1,7 @@
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, SyncSender};
 
 use crate::bsp::usb::{send_usb_message, UsbMessageError};
-use crate::config::{Configurator, DeviceConfig};
+use crate::config::{ConfigUpdatedFor, Configurator, DeviceConfig, WifiSettings};
 use serde::{Deserialize, Serialize};
 
 //Major version: 1, Minor version: 0
@@ -66,12 +66,21 @@ pub struct AckResponse {
 
 pub struct ProtocolManager<'a> {
     message_rx: Receiver<Vec<u8>>,
+    main_wifi_time_init_tx: SyncSender<Option<WifiSettings>>,
     config: &'a Configurator,
 }
 
 impl<'a> ProtocolManager<'a> {
-    pub fn new(message_rx: Receiver<Vec<u8>>, config: &'a Configurator) -> Self {
-        Self { message_rx, config }
+    pub fn new(
+        message_rx: Receiver<Vec<u8>>,
+        main_wifi_time_init_tx: SyncSender<Option<WifiSettings>>,
+        config: &'a Configurator,
+    ) -> Self {
+        Self {
+            message_rx,
+            main_wifi_time_init_tx,
+            config,
+        }
     }
 
     pub fn run(&self) {
@@ -111,7 +120,8 @@ impl<'a> ProtocolManager<'a> {
                     correlation_id: command.header.correlation_id,
                 };
                 let new_config = command.config.clone();
-                let response = match self.config.save(&new_config) {
+                let mut config_updated_for = ConfigUpdatedFor::default();
+                let response = match self.config.save(&new_config, &mut config_updated_for) {
                     Ok(_) => {
                         let response = AckResponse {
                             header: response_header,
@@ -131,6 +141,11 @@ impl<'a> ProtocolManager<'a> {
                     }
                 };
                 send_response(response);
+                if config_updated_for.wifi {
+                    self.main_wifi_time_init_tx
+                        .send(self.config.get_wifi_settings())
+                        .unwrap();
+                }
             }
         }
     }

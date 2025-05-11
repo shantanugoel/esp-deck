@@ -22,7 +22,6 @@ pub struct Wifi {
 
 impl Wifi {
     pub async fn init(
-        wifi_settings: Option<WifiSettings>,
         modem: Modem,
         sys_loop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -39,15 +38,15 @@ impl Wifi {
         Ok(Self {
             wifi_driver,
             tx,
-            wifi_settings,
+            wifi_settings: None,
         })
     }
 
-    pub async fn connect(&mut self) -> Result<()> {
-        let settings = self
-            .wifi_settings
+    pub async fn connect(&mut self, wifi_settings: Option<WifiSettings>) -> Result<()> {
+        let settings = wifi_settings
             .as_ref()
             .ok_or_else(|| anyhow!("No Wi-Fi credentials provided"))?;
+        self.wifi_settings = Some(settings.clone());
 
         self.tx.send(AppEvent::WifiUpdate(WifiStatus::Connecting))?;
         let wifi_config: Configuration = Configuration::Client(ClientConfiguration {
@@ -88,9 +87,5 @@ impl Wifi {
         info!("WiFi interface is up");
 
         Ok(())
-    }
-
-    pub fn has_credentials(&self) -> bool {
-        self.wifi_settings.is_some()
     }
 }
