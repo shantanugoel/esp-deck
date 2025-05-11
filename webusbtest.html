@@ -97,6 +97,17 @@
             padding: 5px;
         }
 
+        #sentData {
+            width: 95%;
+            height: 200px;
+            border: 1px solid #ccc;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            font-family: monospace;
+            margin-top: 0.5em;
+            padding: 5px;
+        }
+
         button {
             margin-right: 5px;
             padding: 5px 10px;
@@ -263,6 +274,8 @@
     </div>
 
     <div id="receiveArea" style="display: none;">
+        <h2>Sent Data</h2>
+        <pre id="sentData"></pre>
         <h2>Received Data</h2>
         <pre id="receivedData"></pre>
     </div>
@@ -280,6 +293,7 @@
         const disconnectButton = document.getElementById('disconnectButton');
         const sendButton = document.getElementById('sendButton');
         const receivedDataTextArea = document.getElementById('receivedData');
+        const sentDataTextArea = document.getElementById('sentData');
         const statusDisplay = document.getElementById('status');
         const controlsDiv = document.getElementById('controls');
         const receiveAreaDiv = document.getElementById('receiveArea');
@@ -713,6 +727,11 @@
             try {
                 console.log(`Sending message: Header=${Array.from(messageHeaderBytes).map(b => b.toString(16).padStart(2, '0')).join('')}, Length=${payloadLength}, Payload (first 100 bytes)=${new TextDecoder().decode(payloadBodyBytes.slice(0, 100))}`);
                 console.log("Full message bytes:", finalMessage);
+                // Log sent data to the Sent Data field
+                if (sentDataTextArea) {
+                    sentDataTextArea.textContent += `Sent: Header=${Array.from(messageHeaderBytes).map(b => b.toString(16).padStart(2, '0')).join('')}, Length=${payloadLength}, Payload=${payloadString}\n\n`;
+                    sentDataTextArea.scrollTop = sentDataTextArea.scrollHeight;
+                }
                 const result = await device.transferOut(currentEndpointOut, finalMessage);
                 console.log('Transfer OUT result:', result);
                 if (result.status !== 'ok') {

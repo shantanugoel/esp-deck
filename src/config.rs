@@ -2,6 +2,7 @@ use crate::mapper::MappingConfiguration;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
+    fs,
     io::{Read, Write},
     sync::{Arc, Mutex},
 };
@@ -17,7 +18,6 @@ pub struct DeviceSettings {
     // Add optional settings here
     pub wifi: Option<WifiSettings>,
     pub timezone_offset: Option<f32>,
-    // pub display_brightness: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -102,16 +102,26 @@ impl Configurator {
     pub fn save(&self, config: &DeviceConfig) -> Result<()> {
         log::info!("Updating configuration");
 
-        // Backup the existing config file
-        let backup_path = format!("{}.bak", self.config_path);
-        std::fs::copy(&self.config_path, &backup_path)?;
-        log::info!("Backup of existing config saved to {}", backup_path);
-
         // Save the new config
         let mut old_config = self.config_data.lock().unwrap();
         *old_config = config.clone();
+        Self::merge_configs(&mut old_config, config);
         let json_data = serde_json::to_vec_pretty(&old_config.clone())?;
-        match std::fs::File::open(&self.config_path) {
+
+        // Backup the existing config file
+        let config_path = std::path::Path::new(&self.config_path);
+        if config_path.exists() {
+            log::info!("Backing up existing config file");
+            let backup_path = format!("{}.bak", self.config_path);
+            let mut src = fs::File::open(&self.config_path)?;
+            let mut dst = fs::File::create(&backup_path)?;
+            std::io::copy(&mut src, &mut dst)?;
+            log::info!("Backup of existing config saved to {}", backup_path);
+        } else {
+            log::warn!("Config file not found, skipping backup");
+        }
+
+        match std::fs::File::create(&self.config_path) {
             Ok(mut file) => {
                 file.write_all(&json_data)?;
                 log::info!("Configuration updated successfully.");
@@ -120,6 +130,22 @@ impl Configurator {
             Err(e) => {
                 log::error!("Failed to save config file: {}", e);
                 Err(anyhow::anyhow!("Failed to save config file: {}", e))
+            }
+        }
+    }
+
+    fn merge_configs(old_config: &mut DeviceConfig, new_config: &DeviceConfig) {
+        if let Some(new_wifi) = &new_config.settings.wifi {
+            old_config.settings.wifi = Some(new_wifi.clone());
+        }
+        if let Some(new_timezone_offset) = &new_config.settings.timezone_offset {
+            old_config.settings.timezone_offset = Some(new_timezone_offset.clone());
+        }
+        for (key, new_actions) in &new_config.mappings {
+            if old_config.mappings.contains_key(key) {
+                old_config.mappings.insert(key.clone(), new_actions.clone());
+            } else {
+                log::warn!("Key {} not found in old config, skipping", key);
             }
         }
     }
