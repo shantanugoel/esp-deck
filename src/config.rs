@@ -168,6 +168,20 @@ impl Configurator {
         config_updated_for.mappings = true;
     }
 
+    pub fn reset_config(&self) -> Result<()> {
+        let mut config = self.config_data.lock().unwrap();
+        match Self::create_and_save_default_config(&self.config_path) {
+            Ok(default_config) => {
+                *config = default_config;
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("Failed to reset config: {}", e);
+                Err(e)
+            }
+        }
+    }
+
     pub fn get_config(&self) -> Result<DeviceConfig> {
         let config = self.config_data.lock().unwrap();
         Ok(config.clone())

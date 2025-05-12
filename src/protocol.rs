@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 //Major version: 1, Minor version: 0
 const PROTOCOL_VERSION: u32 = 0x00010000;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct ProtocolHeader {
     pub version: u32,
     #[serde(rename = "correlationId", skip_serializing_if = "Option::is_none")]
@@ -21,6 +21,7 @@ pub struct ProtocolHeader {
 pub enum Command {
     GetConfig(GetConfigCommand),
     SetConfig(SetConfigCommand),
+    ResetConfig(ResetConfigCommand),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -32,6 +33,11 @@ pub struct GetConfigCommand {
 pub struct SetConfigCommand {
     pub header: ProtocolHeader,
     pub config: DeviceConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ResetConfigCommand {
+    pub header: ProtocolHeader,
 }
 
 // Responses
@@ -57,7 +63,7 @@ pub struct ErrorResponse {
     pub error_code: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct AckResponse {
     pub header: ProtocolHeader,
     pub message: String,
@@ -146,6 +152,30 @@ impl<'a> ProtocolManager<'a> {
                         .send(self.config.get_wifi_settings())
                         .unwrap();
                 }
+            }
+
+            Command::ResetConfig(command) => {
+                let response_header = ProtocolHeader {
+                    version: PROTOCOL_VERSION,
+                    correlation_id: command.header.correlation_id,
+                };
+                let mut response = AckResponse {
+                    header: response_header,
+                    ..Default::default()
+                };
+                match self.config.reset_config() {
+                    Ok(_) => {
+                        response.message = "Config reset successfully".to_string();
+                        response.success = true;
+                    }
+                    Err(e) => {
+                        log::error!("Error resetting config: {}", e);
+                        response.message = e.to_string();
+                        response.success = false;
+                    }
+                }
+                let response_message = serde_json::to_vec(&response).unwrap();
+                send_response(response_message);
             }
         }
     }
