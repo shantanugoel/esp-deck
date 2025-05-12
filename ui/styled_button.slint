@@ -22,6 +22,10 @@ export component StyledButton inherits TouchArea {
         background: current-background; // Use the stateful background
         border-radius: root.border-radius;
         border-width: 0px;
+        horizontal-stretch: 1;
+        vertical-stretch: 1;
+        min-width: 185px;
+        max-width: 185px;
         Text {
             text: root.text;
             color: root.text-color;
