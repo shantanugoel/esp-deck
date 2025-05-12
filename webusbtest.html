@@ -163,6 +163,7 @@
                 <select id="messageType">
                     <option value="getConfig" selected>GetConfig Command</option>
                     <option value="setConfig">SetConfig Command</option>
+                    <option value="resetConfig">ResetConfig Command</option>
                     <option value="customJson">Custom JSON Message</option>
                     <option value="invalidText">Invalid Text Message</option>
                     <option value="emptyPayload">Empty Message</option>
@@ -417,7 +418,12 @@
                         console.log("Received raw payload string:", payloadJsonString);
                         try {
                             const parsedResponse = JSON.parse(payloadJsonString);
-                            receivedDataTextArea.textContent += `Received: ${JSON.stringify(parsedResponse, null, 2)}\n\n`;
+                            // Annotate AckResponse for ResetConfig
+                            if (parsedResponse.success !== undefined && parsedResponse.message !== undefined && parsedResponse.header) {
+                                receivedDataTextArea.textContent += `Ack: ${parsedResponse.success ? 'Success' : 'Failure'} - ${parsedResponse.message}\n\n`;
+                            } else {
+                                receivedDataTextArea.textContent += `Received: ${JSON.stringify(parsedResponse, null, 2)}\n\n`;
+                            }
                         } catch (e) {
                             console.error("Error parsing JSON payload:", e, "Raw:", payloadJsonString);
                             receivedDataTextArea.textContent += `Error parsing JSON: ${e.message}\nRaw: ${payloadJsonString}\n\n`;
@@ -465,8 +471,8 @@
         // Update UI based on message type and input mode selection
         function updateSendUI() {
             const selectedMessageType = messageTypeSelect.value;
-            const selectedCommandInputMode = document.querySelector('input[name="commandInputMode"]:checked').value;
-            const selectedSetConfigInputMode = document.querySelector('input[name="setConfigInputMode"]:checked').value;
+            const selectedCommandInputMode = document.querySelector('input[name="commandInputMode"]:checked')?.value;
+            const selectedSetConfigInputMode = document.querySelector('input[name="setConfigInputMode"]:checked')?.value;
 
             // Hide all conditional sections first
             commandInputModeDiv.style.display = 'none';
@@ -503,6 +509,10 @@
                 } else { // raw mode for command
                     rawFullCommandJsonContainer.style.display = 'block';
                 }
+            } else if (selectedMessageType === 'resetConfig') {
+                // Only show protocol header fields for ResetConfig
+                structuredFieldsContainer.style.display = 'block';
+                protocolHeaderFieldsDiv.style.display = 'block';
             } else if (selectedMessageType === 'customJson') {
                 customJsonMessageFieldsDiv.style.display = 'block';
             } else if (selectedMessageType === 'invalidText') {
@@ -642,8 +652,8 @@
             }
 
             const selectedMessageType = messageTypeSelect.value;
-            const selectedCommandInputMode = document.querySelector('input[name="commandInputMode"]:checked').value;
-            const selectedSetConfigInputMode = document.querySelector('input[name="setConfigInputMode"]:checked').value;
+            const selectedCommandInputMode = document.querySelector('input[name="commandInputMode"]:checked')?.value;
+            const selectedSetConfigInputMode = document.querySelector('input[name="setConfigInputMode"]:checked')?.value;
             let payloadString = "";
 
             try {
@@ -701,6 +711,19 @@
                         if (!payloadString) throw new Error("Raw Full Command JSON cannot be empty.");
                         JSON.parse(payloadString); // Validate JSON structure
                     }
+                } else if (selectedMessageType === 'resetConfig') {
+                    // Only structured mode for ResetConfig
+                    const protocolVersion = parseInt(protocolVersionInput.value.trim(), 10);
+                    if (isNaN(protocolVersion) || protocolVersion < 0) throw new Error("Protocol Version must be a non-negative number.");
+                    let headerObject = { version: protocolVersion };
+                    const correlationIdStr = correlationIdInput.value.trim();
+                    if (correlationIdStr) {
+                        const correlationId = parseInt(correlationIdStr, 10);
+                        if (isNaN(correlationId)) throw new Error("Correlation ID must be a number if provided.");
+                        headerObject.correlationId = correlationId;
+                    }
+                    let commandObject = { type: "ResetConfig", header: headerObject };
+                    payloadString = JSON.stringify(commandObject);
                 } else if (selectedMessageType === 'customJson') {
                     payloadString = customJsonMessageTextarea.value;
                     if (payloadString) JSON.parse(payloadString); // Optional: validate if it should be JSON
