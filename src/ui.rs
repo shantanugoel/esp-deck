@@ -71,8 +71,8 @@ pub fn set_button_names(window: &MainWindow, button_names: Option<HashMap<usize,
             .as_ref()
             .and_then(|map| map.get(&i))
             .map(|s| {
-                if s.len() > 12 {
-                    SharedString::from(&s[..12])
+                if s.len() > 20 {
+                    SharedString::from(&s[..20])
                 } else {
                     SharedString::from(s)
                 }

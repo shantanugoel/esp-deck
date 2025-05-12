@@ -85,8 +85,11 @@ impl Configurator {
     /// Creates a default configuration and saves it to the filesystem.
     fn create_and_save_default_config(config_path: &str) -> Result<DeviceConfig> {
         let mut button_names = HashMap::new();
-        for i in 0..16 {
-            button_names.insert(i, format!("Button {}", i + 1));
+        for (i, name) in crate::mapper::Mapper::get_default_button_names()
+            .iter()
+            .enumerate()
+        {
+            button_names.insert(i, name.to_string());
         }
         let default_config = DeviceConfig {
             settings: DeviceSettings::default(),
@@ -182,8 +185,8 @@ impl Configurator {
         if let Some(new_names) = &new_config.button_names {
             let old_names = old_config.button_names.get_or_insert_with(HashMap::new);
             for (&idx, name) in new_names {
-                let truncated = if name.len() > 12 {
-                    name[..12].to_string()
+                let truncated = if name.len() > 20 {
+                    name[..20].to_string()
                 } else {
                     name.clone()
                 };

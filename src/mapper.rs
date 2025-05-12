@@ -54,6 +54,27 @@ impl Mapper {
         Self { config }
     }
 
+    pub fn get_default_button_names() -> Vec<&'static str> {
+        vec![
+            "A 🅰️",            // Button 1: Key A
+            "Ctrl+C 📋",       // Button 2: Copy
+            "Hello 👋",        // Button 3: Hello
+            "F5 🔄",           // Button 4: F5
+            "Left Click 🖱️",   // Button 5: Mouse left
+            "Move Square 🔲",  // Button 6: Mouse move
+            "Scroll Down 🖱️",  // Button 7: Scroll
+            "Right Click 🖱️",  // Button 8: Mouse right
+            "Vol Up 🔊",       // Button 9: Volume up
+            "Vol Down 🔉",     // Button 10: Volume down
+            "Mute 🔇",         // Button 11: Mute
+            "Play/Pause ⏯️",   // Button 12: Play/Pause
+            "Alt+Tab 🔀",      // Button 13: Alt+Tab
+            "Ctrl+Alt+Del 💻", // Button 14: Ctrl+Alt+Del
+            "Copy+Paste 📋",   // Button 15: Copy+Paste
+            "TaskMgr 🧑‍💻",      // Button 16: Task Manager
+        ]
+    }
+
     /// Loads a hardcoded default configuration - Keep as helper, maybe make pub?
     /// Or move this logic entirely into config.rs's DeviceConfiguration::default_config()
     pub fn load_default_config() -> MappingConfiguration {
