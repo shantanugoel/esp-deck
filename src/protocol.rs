@@ -22,6 +22,7 @@ pub enum Command {
     GetConfig(GetConfigCommand),
     SetConfig(SetConfigCommand),
     ResetConfig(ResetConfigCommand),
+    Reboot(RebootCommand),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -37,6 +38,11 @@ pub struct SetConfigCommand {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ResetConfigCommand {
+    pub header: ProtocolHeader,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct RebootCommand {
     pub header: ProtocolHeader,
 }
 
@@ -177,6 +183,22 @@ impl<'a> ProtocolManager<'a> {
                 let response_message = serde_json::to_vec(&response).unwrap();
                 send_response(response_message);
             }
+
+            Command::Reboot(command) => {
+                let response_header = ProtocolHeader {
+                    version: PROTOCOL_VERSION,
+                    correlation_id: command.header.correlation_id,
+                };
+                let mut response = AckResponse {
+                    header: response_header,
+                    ..Default::default()
+                };
+                response.message = "Device will reboot".to_string();
+                response.success = true;
+                let response_message = serde_json::to_vec(&response).unwrap();
+                send_response(response_message);
+                esp_restart();
+            }
         }
     }
 }
@@ -198,4 +220,9 @@ fn send_response(response_message: Vec<u8>) {
             }
         }
     }
+}
+
+#[cfg(target_arch = "xtensa")]
+fn esp_restart() {
+    unsafe { esp_idf_svc::sys::esp_restart() };
 }

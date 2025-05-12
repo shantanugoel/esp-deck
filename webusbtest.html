@@ -164,6 +164,7 @@
                     <option value="getConfig" selected>GetConfig Command</option>
                     <option value="setConfig">SetConfig Command</option>
                     <option value="resetConfig">ResetConfig Command</option>
+                    <option value="reboot">Reboot Command</option>
                     <option value="customJson">Custom JSON Message</option>
                     <option value="invalidText">Invalid Text Message</option>
                     <option value="emptyPayload">Empty Message</option>
@@ -558,8 +559,8 @@
                 } else { // raw mode for command
                     rawFullCommandJsonContainer.style.display = 'block';
                 }
-            } else if (selectedMessageType === 'resetConfig') {
-                // Only show protocol header fields for ResetConfig
+            } else if (selectedMessageType === 'resetConfig' || selectedMessageType === 'reboot') {
+                // Only show protocol header fields for ResetConfig and Reboot
                 structuredFieldsContainer.style.display = 'block';
                 protocolHeaderFieldsDiv.style.display = 'block';
             } else if (selectedMessageType === 'customJson') {
@@ -781,6 +782,19 @@
                         headerObject.correlationId = correlationId;
                     }
                     let commandObject = { type: "ResetConfig", header: headerObject };
+                    payloadString = JSON.stringify(commandObject);
+                } else if (selectedMessageType === 'reboot') {
+                    // Only structured mode for Reboot
+                    const protocolVersion = parseInt(protocolVersionInput.value.trim(), 10);
+                    if (isNaN(protocolVersion) || protocolVersion < 0) throw new Error("Protocol Version must be a non-negative number.");
+                    let headerObject = { version: protocolVersion };
+                    const correlationIdStr = correlationIdInput.value.trim();
+                    if (correlationIdStr) {
+                        const correlationId = parseInt(correlationIdStr, 10);
+                        if (isNaN(correlationId)) throw new Error("Correlation ID must be a number if provided.");
+                        headerObject.correlationId = correlationId;
+                    }
+                    let commandObject = { type: "Reboot", header: headerObject };
                     payloadString = JSON.stringify(commandObject);
                 } else if (selectedMessageType === 'customJson') {
                     payloadString = customJsonMessageTextarea.value;
