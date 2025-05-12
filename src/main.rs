@@ -154,6 +154,9 @@ fn main() -> anyhow::Result<()> {
     // Get the TZ offset here because we move the config into the ProtocolManager past this point
     let tz_offset = config.get_timezone_offset().unwrap_or(TZ_OFFSET);
 
+    // Get the button names here because we move the config into the ProtocolManager past this point
+    let button_names = config.get_button_names();
+
     threads.push(thread::spawn(move || {
         let protocol_manager =
             ProtocolManager::new(usb_message_rx, main_wifi_time_init_tx, &mut config);
@@ -167,7 +170,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, tz_offset);
+    let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, tz_offset, button_names);
 
     for thread in threads {
         thread.join().unwrap();

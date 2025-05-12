@@ -1,7 +1,9 @@
 use crate::mapper::MappingConfiguration;
 use anyhow::Result;
+use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs,
     io::{Read, Write},
     sync::{Arc, Mutex},
@@ -24,6 +26,9 @@ pub struct DeviceSettings {
 pub struct DeviceConfig {
     pub settings: DeviceSettings,
     pub mappings: MappingConfiguration,
+    // Custom deserializer because JS sends strings for the keys
+    #[serde(default, deserialize_with = "deserialize_usize_key_map")]
+    pub button_names: Option<HashMap<usize, String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +44,7 @@ pub struct ConfigUpdatedFor {
     pub wifi: bool,
     pub timezone_offset: bool,
     pub mappings: bool,
+    pub button_names: bool,
 }
 
 // Helper function to create a default configuration object
@@ -78,9 +84,14 @@ impl Configurator {
 
     /// Creates a default configuration and saves it to the filesystem.
     fn create_and_save_default_config(config_path: &str) -> Result<DeviceConfig> {
+        let mut button_names = HashMap::new();
+        for i in 0..16 {
+            button_names.insert(i, format!("Button {}", i + 1));
+        }
         let default_config = DeviceConfig {
-            settings: DeviceSettings::default(), // Default settings (e.g., no wifi)
-            mappings: crate::mapper::Mapper::load_default_config(), // Default mappings
+            settings: DeviceSettings::default(),
+            mappings: crate::mapper::Mapper::load_default_config(),
+            button_names: Some(button_names),
         };
         log::info!("Creating default configuration file at {}", config_path);
 
@@ -166,6 +177,20 @@ impl Configurator {
         }
         // This is not needed for the config to be updated, but it's nice to know
         config_updated_for.mappings = true;
+
+        // Merge button_names as a map, only update provided keys
+        if let Some(new_names) = &new_config.button_names {
+            let old_names = old_config.button_names.get_or_insert_with(HashMap::new);
+            for (&idx, name) in new_names {
+                let truncated = if name.len() > 12 {
+                    name[..12].to_string()
+                } else {
+                    name.clone()
+                };
+                old_names.insert(idx, truncated);
+            }
+            config_updated_for.button_names = true;
+        }
     }
 
     pub fn reset_config(&self) -> Result<()> {
@@ -200,5 +225,33 @@ impl Configurator {
     pub fn get_mappings(&self) -> Option<MappingConfiguration> {
         let config = self.config_data.lock().unwrap();
         Some(config.mappings.clone())
+    }
+
+    pub fn get_button_names(&self) -> Option<HashMap<usize, String>> {
+        let config = self.config_data.lock().unwrap();
+        config.button_names.clone()
+    }
+}
+
+// Custom deserializer for HashMap<usize, String> from JSON with string keys
+fn deserialize_usize_key_map<'de, D>(
+    deserializer: D,
+) -> Result<Option<HashMap<usize, String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let map: HashMap<String, String> = HashMap::deserialize(deserializer)?;
+    if map.is_empty() {
+        Ok(None)
+    } else {
+        let converted: Result<HashMap<usize, String>, D::Error> = map
+            .into_iter()
+            .map(|(k, v)| {
+                k.parse::<usize>()
+                    .map_err(|_| de::Error::custom(format!("invalid usize key: {}", k)))
+                    .map(|num| (num, v))
+            })
+            .collect();
+        converted.map(Some)
     }
 }

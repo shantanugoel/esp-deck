@@ -3,6 +3,7 @@ use chrono::{DateTime, FixedOffset, Utc};
 use esp_idf_svc::hal::i2c::I2cDriver;
 use slint::{SharedString, Weak};
 use std::{
+    collections::HashMap,
     sync::mpsc::{Receiver, Sender},
     time::Duration,
 };
@@ -21,11 +22,13 @@ impl Window {
         rx: Receiver<AppEvent>,
         actor_tx: Sender<AppEvent>,
         tz_offset: f32,
+        button_names: Option<HashMap<usize, String>>,
     ) -> Result<()> {
         slint_platform::init(touch_i2c);
         let window = MainWindow::new()
             .map_err(|e| anyhow::anyhow!("Failed to create main window: {}", e))?;
 
+        set_button_names(&window, button_names);
         install_test_callback(&window);
 
         let weak_window_status_updates = window.as_weak();
@@ -59,6 +62,25 @@ impl Window {
 
         Ok(())
     }
+}
+
+pub fn set_button_names(window: &MainWindow, button_names: Option<HashMap<usize, String>>) {
+    let mut names: Vec<SharedString> = Vec::with_capacity(16);
+    for i in 0..16 {
+        let name = button_names
+            .as_ref()
+            .and_then(|map| map.get(&i))
+            .map(|s| {
+                if s.len() > 12 {
+                    SharedString::from(&s[..12])
+                } else {
+                    SharedString::from(s)
+                }
+            })
+            .unwrap_or_else(|| SharedString::from(format!("Button {}", i + 1)));
+        names.push(name);
+    }
+    window.set_button_names(names.as_slice().into());
 }
 
 fn install_test_callback(window: &MainWindow) {

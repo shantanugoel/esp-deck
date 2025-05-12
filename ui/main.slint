@@ -24,6 +24,7 @@ export component MainWindow inherits Window {
     callback button-pressed(int);
     in-out property <string> current_time: "00:00";
     in-out property <string> wifi_symbol: "🛜❌";
+    in-out property <[string]> button-names: [];
     VerticalLayout {
         padding: 15px;
         spacing: 10px;
@@ -57,207 +58,19 @@ export component MainWindow inherits Window {
             horizontal-stretch: 1;
 
             // View 1: Button Grid
-            GridLayout {
-                width: 100%;
-                height: 100%;
+            VerticalLayout {
                 spacing: 10px;
-                 // --- Rows with buttons --- (remain the same)
-                 Row {
-                    StyledButton {
-                        text: "Button 1";
+                for row in 4: HorizontalLayout {
+                    spacing: 10px;
+                    for col in 4: StyledButton {
+                        text: root.button-names.length > (row * 4 + col) ? root.button-names[row * 4 + col] : ("Button " + (row * 4 + col + 1));
                         base-background: root.color-button;
                         text-color: root.color-button-text;
                         border-radius: root.button-border-radius;
                         hover-background: color-accent;
                         pressed-background: color-accent;
                         clicked => {
-                            root.button-pressed(1);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 2";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(2);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 3";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(3);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 4";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(4);
-                        }
-                    }
-                }
-
-                Row {
-                    StyledButton {
-                        text: "Button 5";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(5);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 6";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(6);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 7";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(7);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 8";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(8);
-                        }
-                    }
-                }
-
-                Row {
-                    StyledButton {
-                        text: "Button 9";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(9);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 10";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(10);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 11";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(11);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 12";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(12);
-                        }
-                    }
-                }
-
-                Row {
-                    StyledButton {
-                        text: "Button 13";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(13);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 14";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(14);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 15";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(15);
-                        }
-                    }
-
-                    StyledButton {
-                        text: "Button 16";
-                        base-background: root.color-button;
-                        text-color: root.color-button-text;
-                        border-radius: root.button-border-radius;
-                        hover-background: color-accent;
-                        pressed-background: color-accent;
-                        clicked => {
-                            root.button-pressed(16);
+                            root.button-pressed(row * 4 + col + 1);
                         }
                     }
                 }
