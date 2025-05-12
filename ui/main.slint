@@ -25,6 +25,13 @@ export component MainWindow inherits Window {
     in-out property <string> current_time: "00:00";
     in-out property <string> wifi_symbol: "🛜❌";
     in-out property <[string]> button-names: [];
+    
+    // This is just to embed these glyphs into the build
+    Text {
+        text: "⌨️ 🅰️ 🔠 🔡 ↩️ ⏎ ⌫ ⌦ 🔢 🔤 🔣 🖱️ 🖲️ ⏯️ ⏸️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ 🔊 🔉 🔇 📋 ✂️ 📝 🗑️ 🖥️ 💻 🧑‍💻 🔒 🔓 🔁 🔀 🛑 ⬆️ ⬇️ ⬅️ ➡️ ↔️ ↕️ 🔄 🌐 🦊 🧭 🧩 🗂️ 🗃️ 🗄️ 🗒️ 🗓️ 🕒 📨 📧 🖨️ 👋 🏠 🏁 🏃 💤 🔔 🛠️ 🏷️ ⭐ 🏆 🧹 🧲 🧰 🧪 🚀 🧭";
+        visible: false;
+    }
+
     VerticalLayout {
         padding: 15px;
         spacing: 10px;
