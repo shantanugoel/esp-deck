@@ -21,9 +21,16 @@
               </div>
               <component :is="getActionEditor(act, idx)" :action="act" @update="updateAction(idx, $event)" />
             </div>
-            <button @click="removeAction(idx)" class="ml-2 p-1 rounded text-destructive hover:text-destructive/80" title="Delete">
-              <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M3 6h18M8 6v12a2 2 0 002 2h4a2 2 0 002-2V6m-6 0V4a2 2 0 012-2h0a2 2 0 012 2v2'/></svg>
-            </button>
+            <span
+              @click="removeAction(idx)"
+              tabindex="0"
+              class="ml-2 w-8 h-8 flex items-center justify-center text-xl text-destructive hover:text-destructive/80 cursor-pointer focus-visible:ring focus-visible:ring-destructive/40 rounded"
+              role="button"
+              aria-label="Delete"
+              title="Delete"
+            >
+              🗑️
+            </span>
           </li>
         </div>
       </VueDraggable>
