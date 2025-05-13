@@ -320,7 +320,8 @@ function deepEqual(a: any, b: any): boolean {
 }
 
 const hasSettingsChanged = computed(() =>
-  !deepEqual(deviceStore.deviceConfig, deviceStore.lastFetchedConfig)
+  !deepEqual(deviceStore.deviceConfig, deviceStore.lastFetchedConfig) ||
+  Object.keys(deviceStore.stagedButtonChanges).length > 0
 )
 
 function startEditSsid() {
