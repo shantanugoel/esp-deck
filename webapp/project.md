@@ -91,9 +91,9 @@ graph TD
 
 ### Phase 1: Boilerplate & Structure
 - [x] Vite + Vue 3 + TypeScript + Tailwind + Shadcn-Vue setup
-- [ ] Scaffold main directories: components, composables, stores, views, types
-- [ ] Set up Pinia store
-- [ ] Set up routing (if needed)
+- [x] Scaffold main directories: components, composables, stores, views, types
+- [x] Set up Pinia store
+- [x] Set up routing (if needed)
 
 ### Phase 2: Core UI & State
 - [ ] Implement App.vue layout
