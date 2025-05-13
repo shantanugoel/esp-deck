@@ -46,7 +46,7 @@ async function connectToDevice(): Promise<ApiResult<boolean>> {
 
 function encodeCommand(payload: string): Uint8Array {
     const header = new Uint8Array(4)
-    new DataView(header.buffer).setUint32(0, MAGIC_WORD, true)
+    new DataView(header.buffer).setUint32(0, MAGIC_WORD, false)
     const length = new Uint8Array(4)
     new DataView(length.buffer).setUint32(0, payload.length, false)
     const body = new TextEncoder().encode(payload)
@@ -68,7 +68,7 @@ async function sendCommand(payload: string): Promise<string> {
     const view = new DataView(result.data.buffer)
     const magic = view.getUint32(0, true)
     if (magic !== MAGIC_WORD) throw new Error('Invalid response magic word')
-    const len = view.getUint32(4, false)
+    const len = view.getUint32(4, true)
     const payloadBytes = new Uint8Array(result.data.buffer, 8, len)
     return new TextDecoder().decode(payloadBytes)
 }
