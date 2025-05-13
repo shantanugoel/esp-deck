@@ -104,11 +104,18 @@
           Save Settings
         </button>
         <button
+          @click="deviceStore.fetchConfig"
+          :disabled="deviceStore.loading || !deviceApi.isConnected"
+          class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          Reload Settings
+        </button>
+        <button
           @click="onResetConfig"
           :disabled="deviceApi.loading"
           class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Reset Config
+          Reset Settings
         </button>
         <button
           @click="onReboot"
