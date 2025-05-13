@@ -29,41 +29,7 @@
         </div>
       </div>
     </div>
-    <div class="w-full max-w-4xl flex justify-center mt-4">
-      <DeviceStatus
-        :status="deviceStatus"
-        :wifi="deviceWifi"
-        :time="deviceTime" />
-    </div>
-    <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex justify-center mt-4 gap-4">
-      <button
-        @click="onResetConfig"
-        :disabled="deviceApi.loading"
-        class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        Reset Config
-      </button>
-      <button
-        @click="onReboot"
-        :disabled="deviceApi.loading"
-        class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        Reboot Device
-      </button>
-    </div>
-    <div class="w-full max-w-4xl flex justify-center mt-2">
-      <div class="text-xs text-muted-foreground font-mono">Time: Synced</div>
-    </div>
-    <div v-if="deviceStore.loading" class="absolute inset-0 flex items-center justify-center bg-background/80 rounded-2xl z-10">
-      <span class="text-muted-foreground">Loading...</span>
-    </div>
-    <FeedbackToast
-      v-if="deviceStore.error || normalizedApiError"
-      :message="deviceStore.error || normalizedApiError || ''"
-      type="error"
-      :show="!!(deviceStore.error || normalizedApiError)"
-    />
-    <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex flex-col items-center mt-6">
+    <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex flex-col items-center mt-4">
       <div class="w-full bg-muted/40 rounded-lg p-4 flex flex-col gap-4 border border-muted">
         <div class="font-semibold text-base mb-2">Device Settings</div>
         <div class="flex flex-col sm:flex-row gap-4">
@@ -126,17 +92,45 @@
             </div>
           </div>
         </div>
-        <div class="flex justify-end mt-4">
-          <button
-            @click="onSaveSettings"
-            :disabled="!hasSettingsChanged || deviceStore.loading"
-            class="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/80 transition disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            Save Settings
-          </button>
-        </div>
       </div>
     </div>
+    <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex justify-center mt-4">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <button
+          @click="onSaveSettings"
+          :disabled="!hasSettingsChanged || deviceStore.loading"
+          class="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/80 transition disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          Save Settings
+        </button>
+        <button
+          @click="onResetConfig"
+          :disabled="deviceApi.loading"
+          class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          Reset Config
+        </button>
+        <button
+          @click="onReboot"
+          :disabled="deviceApi.loading"
+          class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          Reboot Device
+        </button>
+      </div>
+    </div>
+    <div class="w-full max-w-4xl flex justify-center mt-4">
+      <DeviceStatus :status="deviceStatus" />
+    </div>
+    <div v-if="deviceStore.loading" class="absolute inset-0 flex items-center justify-center bg-background/80 rounded-2xl z-10">
+      <span class="text-muted-foreground">Loading...</span>
+    </div>
+    <FeedbackToast
+      v-if="deviceStore.error || normalizedApiError"
+      :message="deviceStore.error || normalizedApiError || ''"
+      type="error"
+      :show="!!(deviceStore.error || normalizedApiError)"
+    />
   </div>
 </template>
 
