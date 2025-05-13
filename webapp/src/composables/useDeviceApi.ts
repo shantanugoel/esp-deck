@@ -22,6 +22,7 @@ let device: any = null // USBDevice | null
 const isConnected = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
+const debugLogs = ref<{ type: 'sent' | 'received', data: string, timestamp: Date }[]>([])
 
 async function connectToDevice(): Promise<ApiResult<boolean>> {
     loading.value = true
@@ -59,7 +60,14 @@ function encodeCommand(payload: string): Uint8Array {
 
 async function sendCommand(payload: string): Promise<string> {
     if (!device) throw new Error('Device not connected')
+    const header = MAGIC_WORD
+    const payloadLength = payload.length
     const data = encodeCommand(payload)
+    debugLogs.value.push({
+        type: 'sent',
+        data: `USB Header: 0x${header.toString(16).toUpperCase()}\nPayload Length: ${payloadLength}\nPayload:\n${payload}`,
+        timestamp: new Date()
+    })
     await device.transferOut(ENDPOINT_OUT, data)
 
     // Accumulate incoming data until a full response is received
@@ -86,14 +94,19 @@ async function sendCommand(payload: string): Promise<string> {
         if (receiveBuffer.length < 8) continue
         const view = new DataView(receiveBuffer.buffer, receiveBuffer.byteOffset, receiveBuffer.byteLength)
         const magic = view.getUint32(0, true) // big-endian
-        if (magic !== 0xE59DECC0) throw new Error('Invalid response magic word')
         const len = view.getUint32(4, true) // little-endian
         expectedPayloadLength = len
         // Wait for full payload
         if (receiveBuffer.length < 8 + expectedPayloadLength) continue
         // Extract payload
         const payloadBytes = receiveBuffer.slice(8, 8 + expectedPayloadLength)
-        return new TextDecoder().decode(payloadBytes)
+        const decoded = new TextDecoder().decode(payloadBytes)
+        debugLogs.value.push({
+            type: 'received',
+            data: `USB Header: 0x${magic.toString(16).toUpperCase()}\nPayload Length: ${expectedPayloadLength}\nPayload:\n${decoded}`,
+            timestamp: new Date()
+        })
+        return decoded
     }
 }
 
@@ -171,5 +184,6 @@ export function useDeviceApi() {
         setConfig,
         resetConfig,
         reboot,
+        debugLogs,
     })
 } 

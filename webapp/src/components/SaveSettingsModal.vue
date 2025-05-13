@@ -1,0 +1,56 @@
+<template>
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div class="bg-card rounded-xl shadow-lg p-6 w-full max-w-md">
+      <div class="font-semibold text-lg mb-2">Confirm Settings to Save</div>
+      <div class="mb-4 text-sm text-muted-foreground">Select which settings you want to update. A summary of changes is shown below.</div>
+      <form @submit.prevent="onConfirm">
+        <div class="flex flex-col gap-3 mb-4">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" v-model="selected.wifi" /> WiFi Settings
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" v-model="selected.tz" /> Timezone Offset
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" v-model="selected.mappings" /> Button Mappings
+          </label>
+        </div>
+        <div class="mb-4">
+          <div v-if="selected.wifi && changedWifi">
+            <div class="font-medium">WiFi Changes:</div>
+            <ul class="ml-4 list-disc">
+              <li v-if="changedWifi.ssid">SSID: <span class="font-mono">{{ changedWifi.ssid.old }}</span> → <span class="font-mono">{{ changedWifi.ssid.new }}</span></li>
+              <li v-if="changedWifi.password">Password: <span class="font-mono">••••••••</span> (changed)</li>
+            </ul>
+          </div>
+          <div v-if="selected.tz && changedTz">
+            <div class="font-medium">Timezone Offset:</div>
+            <div class="ml-4">{{ changedTz.old }} → {{ changedTz.new }}</div>
+          </div>
+          <div v-if="selected.mappings && changedMappings && changedMappings.length">
+            <div class="font-medium">Button Mappings Changed:</div>
+            <div class="ml-4">Buttons: <span class="font-mono">{{ changedMappings.join(', ') }}</span></div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-6">
+          <button type="button" @click="$emit('cancel')" class="px-4 py-2 rounded bg-muted text-muted-foreground font-semibold hover:bg-muted/80">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/80">Confirm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, defineProps, defineEmits } from 'vue'
+const props = defineProps<{
+  changedWifi: { ssid?: { old: string, new: string }, password?: boolean } | null,
+  changedTz: { old: number|null, new: number|null } | null,
+  changedMappings: number[]
+}>()
+const emit = defineEmits(['confirm', 'cancel'])
+const selected = ref({ wifi: !!props.changedWifi, tz: !!props.changedTz, mappings: !!(props.changedMappings && props.changedMappings.length) })
+function onConfirm() {
+  emit('confirm', { ...selected.value })
+}
+</script> 

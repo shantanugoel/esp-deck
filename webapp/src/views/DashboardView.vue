@@ -122,7 +122,30 @@
     <div class="w-full max-w-4xl flex justify-center mt-4">
       <DeviceStatus :status="deviceStatus" />
     </div>
-    <div v-if="deviceStore.loading" class="absolute inset-0 flex items-center justify-center bg-background/80 rounded-2xl z-10">
+    <div class="w-full max-w-4xl flex justify-center mt-2">
+      <button @click="toggleDebug" class="px-3 py-1 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-xs font-semibold">
+        {{ showDebug ? 'Hide Debug Logs' : 'Show Debug Logs' }}
+      </button>
+    </div>
+    <div v-if="showDebug" class="w-full max-w-4xl mx-auto bg-background border border-muted rounded-lg mt-2 p-4 overflow-x-auto max-h-96">
+      <div class="font-semibold mb-2">Debug Logs</div>
+      <div class="text-xs text-muted-foreground mb-2">Sent and received data with timestamps.</div>
+      <div class="space-y-2 max-h-72 overflow-y-auto font-mono">
+        <template v-if="deviceApi.debugLogs.length">
+          <div v-for="(log, idx) in deviceApi.debugLogs" :key="idx" :class="log.type === 'sent' ? 'text-blue-700' : 'text-green-700'">
+            <div>
+              <span class="font-bold">[{{ log.type.toUpperCase() }}]</span>
+              <span class="ml-2 text-gray-500">{{ log.timestamp.toLocaleString() }}</span>
+            </div>
+            <pre class="whitespace-pre-wrap break-all bg-muted/40 rounded p-2 mt-1">{{ log.data }}</pre>
+          </div>
+        </template>
+        <template v-else>
+          <div class="text-center text-muted-foreground py-8">No logs yet.</div>
+        </template>
+      </div>
+    </div>
+    <div v-if="deviceStore.loading" class="absolute left-0 right-0 top-0 flex items-center justify-center bg-background/80 rounded-2xl z-10" style="min-height: 200px;">
       <span class="text-muted-foreground">Loading...</span>
     </div>
     <FeedbackToast
@@ -275,35 +298,37 @@ function onSaveSettings() {
 
 function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean }) {
   showSaveModal.value = false
-  const payload: any = {}
-  if (selection.wifi && changedWifi.value) {
-    payload.settings = payload.settings || {}
-    payload.settings.wifi = {
-      ssid: tempSsid.value,
-      password: tempPassword.value,
+  const config: any = {}
+  // Always include settings if any part is selected
+  if (selection.wifi || selection.tz) {
+    config.settings = {}
+    if (selection.wifi && changedWifi.value) {
+      config.settings.wifi = {
+        ssid: tempSsid.value,
+        password: tempPassword.value,
+      }
+    }
+    if (selection.tz && changedTz.value) {
+      config.settings.timezone_offset = tempTz.value
     }
   }
-  if (selection.tz && changedTz.value) {
-    payload.settings = payload.settings || {}
-    payload.settings.timezone_offset = tempTz.value
-  }
+  // Always include mappings (empty if not updating)
   if (selection.mappings && changedMappings.value.length) {
-    payload.button_mappings = {} // TODO: fill with actual changed mappings
-  } else if (!selection.mappings) {
-    payload.button_mappings = {}
+    config.mappings = {} // TODO: fill with actual changed mappings
+  } else {
+    config.mappings = {}
   }
-  saveSettingsPayload(payload)
+  // Only include button_names if you support editing them
+  // config.button_names = ...
+  saveSettingsPayload(config)
 }
 
 function handleSaveModalCancel() {
   showSaveModal.value = false
 }
 
-async function saveSettingsPayload(payload: any) {
-  await deviceStore.saveConfig({
-    ...deviceStore.deviceConfig?.config,
-    ...payload,
-  })
+async function saveSettingsPayload(config: any) {
+  await deviceStore.saveConfig(config)
   await deviceStore.fetchConfig()
 }
 
@@ -328,4 +353,7 @@ async function onResetConfig() {
 async function onReboot() {
   await deviceApi.reboot()
 }
+
+const showDebug = ref(false)
+function toggleDebug() { showDebug.value = !showDebug.value }
 </script> 
