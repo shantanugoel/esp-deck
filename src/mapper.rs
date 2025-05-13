@@ -11,7 +11,7 @@ use std::time::Duration; // Add serde for future file loading // Make sure this 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ConfigAction {
     KeyPress {
-        key: String,
+        keys: Vec<String>,
         modifier: Option<String>,
     }, // Use string names for keys/modifiers
     KeyRelease,
@@ -87,7 +87,7 @@ impl Mapper {
             "1".to_string(),
             vec![
                 ConfigAction::KeyPress {
-                    key: "KeyA".to_string(),
+                    keys: vec!["KeyA".to_string()],
                     modifier: Some("ShiftLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
@@ -100,7 +100,7 @@ impl Mapper {
             "2".to_string(),
             vec![
                 ConfigAction::KeyPress {
-                    key: "KeyC".to_string(),
+                    keys: vec!["KeyC".to_string()],
                     modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
@@ -114,39 +114,31 @@ impl Mapper {
             vec![
                 // H
                 ConfigAction::KeyPress {
-                    key: "KeyH".to_string(),
+                    keys: vec!["KeyH".to_string()],
                     modifier: Some("ShiftLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
-                ConfigAction::KeyRelease,
-                ConfigAction::Delay { ms: 5 },
                 // e
                 ConfigAction::KeyPress {
-                    key: "KeyE".to_string(),
+                    keys: vec!["KeyE".to_string()],
                     modifier: None,
                 },
-                ConfigAction::Delay { ms: 5 },
-                ConfigAction::KeyRelease,
                 ConfigAction::Delay { ms: 5 },
                 // l
                 ConfigAction::KeyPress {
-                    key: "KeyL".to_string(),
+                    keys: vec!["KeyL".to_string()],
                     modifier: None,
                 },
-                ConfigAction::Delay { ms: 5 },
-                ConfigAction::KeyRelease,
                 ConfigAction::Delay { ms: 5 },
                 // l
                 ConfigAction::KeyPress {
-                    key: "KeyL".to_string(),
+                    keys: vec!["KeyL".to_string()],
                     modifier: None,
                 },
-                ConfigAction::Delay { ms: 5 },
-                ConfigAction::KeyRelease,
                 ConfigAction::Delay { ms: 5 },
                 // o
                 ConfigAction::KeyPress {
-                    key: "KeyO".to_string(),
+                    keys: vec!["KeyO".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -159,7 +151,7 @@ impl Mapper {
             "4".to_string(),
             vec![
                 ConfigAction::KeyPress {
-                    key: "F5".to_string(),
+                    keys: vec!["F5".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 10 },
@@ -263,7 +255,7 @@ impl Mapper {
             "13".to_string(),
             vec![
                 ConfigAction::KeyPress {
-                    key: "Tab".to_string(),
+                    keys: vec!["Tab".to_string()],
                     modifier: Some("AltLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
@@ -277,31 +269,31 @@ impl Mapper {
             vec![
                 // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Press Alt (Ctrl still held)
                 ConfigAction::KeyPress {
-                    key: "AltLeft".to_string(),
+                    keys: vec!["AltLeft".to_string()],
                     modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Press Delete (Ctrl+Alt still held)
                 ConfigAction::KeyPress {
-                    key: "Delete".to_string(),
+                    keys: vec!["Delete".to_string()],
                     modifier: Some("ControlLeft AltLeft".to_string()),
                 }, // Note: Multi-modifier needs testing
                 ConfigAction::Delay { ms: 10 },
                 // Release Delete (Ctrl+Alt remain)
                 ConfigAction::KeyPress {
-                    key: "AltLeft".to_string(),
+                    keys: vec!["AltLeft".to_string()],
                     modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Release Alt (Ctrl remains)
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -317,19 +309,19 @@ impl Mapper {
                 // --- Copy ---
                 // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Press C (Ctrl Held)
                 ConfigAction::KeyPress {
-                    key: "KeyC".to_string(),
+                    keys: vec!["KeyC".to_string()],
                     modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
                 // Release C (Ctrl Held)
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -340,19 +332,19 @@ impl Mapper {
                 // --- Paste ---
                 // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Press V (Ctrl Held)
                 ConfigAction::KeyPress {
-                    key: "KeyV".to_string(),
+                    keys: vec!["KeyV".to_string()],
                     modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 10 },
                 // Release V (Ctrl Held)
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -367,31 +359,31 @@ impl Mapper {
             vec![
                 // Press Ctrl
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Press Shift (Ctrl Held)
                 ConfigAction::KeyPress {
-                    key: "ShiftLeft".to_string(),
+                    keys: vec!["ShiftLeft".to_string()],
                     modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Press Esc (Ctrl+Shift Held)
                 ConfigAction::KeyPress {
-                    key: "Escape".to_string(),
+                    keys: vec!["Escape".to_string()],
                     modifier: Some("ControlLeft ShiftLeft".to_string()),
                 }, // Note: Multi-modifier needs testing
                 ConfigAction::Delay { ms: 10 },
                 // Release Esc (Ctrl+Shift Held)
                 ConfigAction::KeyPress {
-                    key: "ShiftLeft".to_string(),
+                    keys: vec!["ShiftLeft".to_string()],
                     modifier: Some("ControlLeft".to_string()),
                 },
                 ConfigAction::Delay { ms: 5 },
                 // Release Shift (Ctrl Held)
                 ConfigAction::KeyPress {
-                    key: "ControlLeft".to_string(),
+                    keys: vec!["ControlLeft".to_string()],
                     modifier: None,
                 },
                 ConfigAction::Delay { ms: 5 },
@@ -503,16 +495,15 @@ impl Mapper {
         let mut hid_actions = Vec::new();
         for action in config_actions {
             match action {
-                ConfigAction::KeyPress { key, modifier } => {
-                    // Use the improved translate_key
-                    let (mod_bits, key_code) = Self::translate_key(&key, modifier.as_deref());
-                    // Add action if either modifier or keycode is non-zero
-                    if mod_bits != 0 || key_code != 0 {
-                        hid_actions.push(HidAction::KeyPress(mod_bits, key_code));
-                    } else {
-                        // This case should now be less likely due to improved translate_key logging
-                        log::warn!("KeyPress action resulted in no effective output for key: {}, modifier: {:?}", key, modifier);
+                ConfigAction::KeyPress { keys, modifier } => {
+                    let mut keycodes = [0u8; 6];
+                    let mut mod_bits = 0u8;
+                    for (idx, key) in keys.iter().take(6).enumerate() {
+                        let (mb, key_code) = Self::translate_key(&key, modifier.as_deref());
+                        keycodes[idx] = key_code;
+                        mod_bits |= mb;
                     }
+                    hid_actions.push(HidAction::KeyPress(mod_bits, keycodes));
                 }
                 ConfigAction::KeyRelease => hid_actions.push(HidAction::KeyRelease),
                 ConfigAction::MouseMove { dx, dy } => {

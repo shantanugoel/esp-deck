@@ -35,14 +35,15 @@ impl Actor {
                         for action in action_sequence {
                             log::debug!("Actor executing action: {:?}", action);
                             match action {
-                                HidAction::KeyPress(modifier_bits, keycode) => {
+                                HidAction::KeyPress(modifier_bits, keycodes) => {
                                     let mut report = KeyboardReport::default();
                                     report.modifier = modifier_bits;
-                                    if keycode != 0 {
-                                        report.keys[0] = keycode;
-                                    }
-                                    log::debug!("Actor sending KeyboardReport: modifier={:#04x}, keys=[{:#04x}, {:#04x}, ...])",
-                                        report.modifier, report.keys[0], report.keys[1]);
+                                    report.keys = keycodes;
+                                    log::debug!(
+                                        "Actor sending KeyboardReport: modifier={:#04x}, keys={:?}",
+                                        report.modifier,
+                                        report.keys
+                                    );
                                     let _ = self
                                         .usb_hid_tx
                                         .send(AppEvent::UsbHidCommand(SendKeyboard(report)));

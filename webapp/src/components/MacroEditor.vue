@@ -9,6 +9,7 @@
         </button>
       </div>
       <div v-if="sequence.length === 0" class="text-muted-foreground text-sm mb-2">No actions yet. Add actions from above.</div>
+      <div>sequence: {{ sequence }}</div>
       <VueDraggable v-model="sequence" class="space-y-2">
         <div v-for="(act, idx) in sequence" :key="idx">
           <li class="flex items-center gap-2 bg-card rounded border border-muted px-2 py-1 shadow-sm hover:shadow transition-all">
@@ -49,10 +50,12 @@ import ConsumerPressEditor from './ConsumerPressEditor.vue'
 import DelayEditor from './DelayEditor.vue'
 import SequenceEditor from './SequenceEditor.vue'
 import UnknownEditor from './UnknownEditor.vue'
+import KeyReleaseEditor from './KeyReleaseEditor.vue'
 
 // Action type definitions
 const actionPalette = [
-  { type: 'KeyPress', label: 'Keyboard' },
+  { type: 'KeyPress', label: 'KeyPress' },
+  { type: 'KeyRelease', label: 'KeyRelease' },
   { type: 'MousePress', label: 'Mouse Press' },
   { type: 'MouseMove', label: 'Mouse Move' },
   { type: 'MouseWheel', label: 'Mouse Wheel' },
@@ -75,7 +78,10 @@ watch(() => props.modelValue, (val) => {
 
 function addAction(type: string) {
   let action: any = {}
-  if (type === 'KeyPress') action = { KeyPress: { key: '', modifier: '' } }
+  if (type === 'KeyPress')
+    action = { KeyPress: { keys: [''], modifier: '' } }
+  else if (type === 'KeyRelease')
+    action = { KeyRelease: true }
   else if (type === 'MousePress') action = { MousePress: { button: 1 } }
   else if (type === 'MouseMove') action = { MouseMove: { dx: 0, dy: 0 } }
   else if (type === 'MouseWheel') action = { MouseWheel: { amount: 1 } }
@@ -111,6 +117,7 @@ function updateAction(idx: number, newAction: any) {
 // Editor components for each action type
 function getActionEditor(act: any, idx: number) {
   if (act.KeyPress) return KeyPressEditor
+  if (act.KeyRelease) return KeyReleaseEditor
   if (act.MousePress) return MousePressEditor
   if (act.MouseMove) return MouseMoveEditor
   if (act.MouseWheel) return MouseWheelEditor
@@ -123,9 +130,10 @@ function getActionEditor(act: any, idx: number) {
 // Move getActionSummary above the template so it is available for template usage
 function getActionSummary(act: any): string {
   if (act.KeyPress) {
-    const key = act.KeyPress.key || '<key>'
+    const keys = Array.isArray(act.KeyPress.keys) ? act.KeyPress.keys : []
+    const keyLabel = keys.length > 0 ? keys.map((k: string) => k || '<key>').join(' + ') : '<key>'
     const mod = act.KeyPress.modifier ? ` + ${act.KeyPress.modifier}` : ''
-    return `<b>KeyPress:</b> ${key}${mod}`
+    return `<b>KeyPress:</b> ${keyLabel}${mod}`
   }
   if (act.MousePress) {
     const btn = act.MousePress.button === 1 ? 'Left' : act.MousePress.button === 2 ? 'Right' : 'Middle'

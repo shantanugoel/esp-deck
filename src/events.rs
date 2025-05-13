@@ -51,13 +51,13 @@ pub enum AppEvent {
 // Represents a single primitive HID action or delay
 #[derive(Debug, Clone)]
 pub enum HidAction {
-    KeyPress(u8, u8),   // modifier, keycode
-    KeyRelease,         // Releases all keys/modifiers
-    MouseMove(i8, i8),  // dx, dy
-    MousePress(u8),     // buttons bitmask
-    MouseRelease,       // Releases all buttons
-    MouseWheel(i8),     // wheel movement
-    ConsumerPress(u16), // usage_id
-    ConsumerRelease,    // Releases consumer control
-    Delay(Duration),    // Pause execution
+    KeyPress(u8, [u8; 6]), // modifier, up to 6 keycodes
+    KeyRelease,            // Releases all keys/modifiers
+    MouseMove(i8, i8),     // dx, dy
+    MousePress(u8),        // buttons bitmask
+    MouseRelease,          // Releases all buttons
+    MouseWheel(i8),        // wheel movement
+    ConsumerPress(u16),    // usage_id
+    ConsumerRelease,       // Releases consumer control
+    Delay(Duration),       // Pause execution
 }
