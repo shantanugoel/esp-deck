@@ -61,16 +61,40 @@ async function sendCommand(payload: string): Promise<string> {
     if (!device) throw new Error('Device not connected')
     const data = encodeCommand(payload)
     await device.transferOut(ENDPOINT_OUT, data)
-    // Read response (assume max 4KB)
-    const result = await device.transferIn(ENDPOINT_IN, 4096)
-    if (!result.data) throw new Error('No response from device')
-    // Parse response: skip magic word and length
-    const view = new DataView(result.data.buffer)
-    const magic = view.getUint32(0, true)
-    if (magic !== MAGIC_WORD) throw new Error('Invalid response magic word')
-    const len = view.getUint32(4, true)
-    const payloadBytes = new Uint8Array(result.data.buffer, 8, len)
-    return new TextDecoder().decode(payloadBytes)
+
+    // Accumulate incoming data until a full response is received
+    let receiveBuffer = new Uint8Array(0)
+    let expectedPayloadLength: number | null = null
+    let timeoutMs = 2000
+    let start = Date.now()
+
+    while (true) {
+        // Timeout check
+        if (Date.now() - start > timeoutMs) {
+            throw new Error('Timeout waiting for device response')
+        }
+        const result = await device.transferIn(ENDPOINT_IN, 64)
+        if (!result.data || result.data.byteLength === 0) continue
+        // Append new chunk
+        const newChunk = new Uint8Array(result.data.buffer)
+        const combined = new Uint8Array(receiveBuffer.length + newChunk.length)
+        combined.set(receiveBuffer, 0)
+        combined.set(newChunk, receiveBuffer.length)
+        receiveBuffer = combined
+
+        // Wait for at least header + length
+        if (receiveBuffer.length < 8) continue
+        const view = new DataView(receiveBuffer.buffer, receiveBuffer.byteOffset, receiveBuffer.byteLength)
+        const magic = view.getUint32(0, true) // big-endian
+        if (magic !== 0xE59DECC0) throw new Error('Invalid response magic word')
+        const len = view.getUint32(4, true) // little-endian
+        expectedPayloadLength = len
+        // Wait for full payload
+        if (receiveBuffer.length < 8 + expectedPayloadLength) continue
+        // Extract payload
+        const payloadBytes = receiveBuffer.slice(8, 8 + expectedPayloadLength)
+        return new TextDecoder().decode(payloadBytes)
+    }
 }
 
 async function getConfig(): Promise<ApiResult<DeviceConfig>> {
