@@ -5,17 +5,12 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/',
         name: 'Dashboard',
-        component: () => import('../views/DashboardView.vue'),
-    },
-    {
-        path: '/settings',
-        name: 'Settings',
-        component: () => import('../views/SettingsView.vue'),
+        component: () => import('@/views/DashboardView.vue'),
     },
     {
         path: '/edit-macro/:buttonIndex',
         name: 'edit-macro',
-        component: () => import('../views/EditMacroView.vue'),
+        component: () => import('@/views/EditMacroView.vue'),
         props: true,
     },
 ]

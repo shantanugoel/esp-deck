@@ -19,13 +19,6 @@ const isActiveRoute = (path: string) => route.path === path
         >
           Dashboard
         </RouterLink>
-        <RouterLink
-          to="/settings"
-          class="px-4 py-2 rounded transition hover:bg-muted text-primary-foreground"
-          :class="{ 'bg-muted font-semibold': isActiveRoute('/settings') }"
-        >
-          Settings
-        </RouterLink>
       </div>
       <div class="text-xs text-muted-foreground">v0.1.x</div>
     </nav>
