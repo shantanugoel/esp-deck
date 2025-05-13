@@ -20,9 +20,9 @@
     </div>
     <div class="w-full max-w-4xl flex justify-center mt-4">
       <DeviceStatus
-        :status="deviceStore.deviceConfig ? 'Connected' : undefined"
-        :wifi="deviceStore.deviceConfig?.config?.settings?.wifi?.ssid ?? undefined"
-        :time="deviceStore.deviceConfig?.config?.device_time ?? '-'" />
+        :status="deviceStatus"
+        :wifi="deviceWifi"
+        :time="deviceTime" />
     </div>
     <div class="w-full max-w-4xl flex justify-center mt-2">
       <div class="text-xs text-muted-foreground font-mono">Time: Synced</div>
@@ -62,6 +62,10 @@ const buttonLabels = computed(() => {
   }
   return defaultLabels
 })
+
+const deviceStatus = computed(() => deviceStore.deviceConfig ? 'Connected' : undefined)
+const deviceWifi = computed(() => deviceStore.deviceConfig?.config?.settings?.wifi?.ssid ?? undefined)
+const deviceTime = computed(() => deviceStore.deviceConfig?.config?.device_time ?? '-')
 
 const normalizedApiError = computed(() => {
   const err = deviceApi.error
