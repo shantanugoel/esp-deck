@@ -7,27 +7,27 @@ const isActiveRoute = (path: string) => route.path === path
 </script>
 
 <template>
-  <div class="w-screen min-h-screen bg-zinc-950 text-zinc-100">
+  <div class="w-screen min-h-screen bg-background text-foreground">
     <!-- Top Navigation Bar -->
-    <nav class="flex items-center justify-between px-8 py-4 bg-red-700 shadow-md">
+    <nav class="flex items-center justify-between px-8 py-4 bg-primary shadow-md">
       <div class="flex items-center gap-6">
-        <span class="font-bold text-xl tracking-wide text-white">ESP Deck</span>
+        <span class="font-bold text-xl tracking-wide text-primary-foreground">ESP Deck</span>
         <RouterLink
           to="/"
-          class="px-4 py-2 rounded transition hover:bg-red-600 text-white"
-          :class="{ 'bg-red-600 font-semibold': isActiveRoute('/') }"
+          class="px-4 py-2 rounded transition hover:bg-muted text-primary-foreground"
+          :class="{ 'bg-muted font-semibold': isActiveRoute('/') }"
         >
           Dashboard
         </RouterLink>
         <RouterLink
           to="/settings"
-          class="px-4 py-2 rounded transition hover:bg-red-600 text-white"
-          :class="{ 'bg-red-600 font-semibold': isActiveRoute('/settings') }"
+          class="px-4 py-2 rounded transition hover:bg-muted text-primary-foreground"
+          :class="{ 'bg-muted font-semibold': isActiveRoute('/settings') }"
         >
           Settings
         </RouterLink>
       </div>
-      <div class="text-xs text-red-200">v0.1.x</div>
+      <div class="text-xs text-muted-foreground">v0.1.x</div>
     </nav>
 
     <!-- Main Content -->
