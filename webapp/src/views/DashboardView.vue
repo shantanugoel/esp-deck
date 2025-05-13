@@ -31,7 +31,6 @@
     </div>
     <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex flex-col items-center mt-4">
       <div class="w-full bg-muted/40 rounded-lg p-4 flex flex-col gap-4 border border-muted">
-        <div class="font-semibold text-base mb-2">Device Settings</div>
         <div class="flex flex-col sm:flex-row gap-4">
           <div class="flex-1 flex flex-col gap-2">
             <label class="text-sm font-medium">WiFi SSID</label>
