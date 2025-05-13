@@ -131,6 +131,14 @@
       type="error"
       :show="!!(deviceStore.error || normalizedApiError)"
     />
+    <SaveSettingsModal
+      v-if="showSaveModal"
+      :changedWifi="changedWifi"
+      :changedTz="changedTz"
+      :changedMappings="changedMappings"
+      @confirm="handleSaveModalConfirm"
+      @cancel="handleSaveModalCancel"
+    />
   </div>
 </template>
 
@@ -141,6 +149,7 @@ import { useDeviceStore } from '../stores/deviceStore'
 import { useDeviceApi } from '../composables/useDeviceApi'
 import { computed, ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import SaveSettingsModal from '../components/SaveSettingsModal.vue'
 
 const deviceStore = useDeviceStore()
 const deviceApi = useDeviceApi()
@@ -182,6 +191,37 @@ const ssidInputRef = ref<HTMLInputElement | null>(null)
 const passwordInputRef = ref<HTMLInputElement | null>(null)
 const tzInputRef = ref<HTMLInputElement | null>(null)
 const showPassword = ref(false)
+
+const showSaveModal = ref(false)
+const saveModalSelection = ref<{ wifi: boolean, tz: boolean, mappings: boolean } | null>(null)
+
+// Track previous values for comparison
+const prevWifiSsid = computed(() => wifiSsid.value)
+const prevWifiPassword = computed(() => wifiPassword.value)
+const prevTimezoneOffset = computed(() => timezoneOffset.value)
+
+// For button mappings, assume deviceStore.deviceConfig?.config?.button_mappings is the source
+const prevButtonMappings = computed(() => deviceStore.deviceConfig?.config?.button_mappings || {})
+// Assume tempButtonMappings is available if you support editing mappings in this view; otherwise, use prevButtonMappings
+const tempButtonMappings = prevButtonMappings // placeholder, replace with actual temp if needed
+
+const changedWifi = computed(() => {
+  const changes: any = {}
+  if (tempSsid.value !== prevWifiSsid.value) changes.ssid = { old: prevWifiSsid.value, new: tempSsid.value }
+  if (tempPassword.value !== prevWifiPassword.value) changes.password = true
+  return Object.keys(changes).length ? changes : null
+})
+const changedTz = computed(() => {
+  if (tempTz.value !== prevTimezoneOffset.value) {
+    return { old: prevTimezoneOffset.value, new: tempTz.value }
+  }
+  return null
+})
+const changedMappings = computed(() => {
+  // Compare keys and values for changed mappings
+  // This is a placeholder; replace with actual logic if you have temp mappings
+  return []
+})
 
 watch(
   () => deviceStore.deviceConfig,
@@ -229,25 +269,41 @@ function stopEditTz() {
   isEditingTz.value = false
 }
 
-async function onSaveSettings() {
-  await saveSettings(tempSsid.value, tempPassword.value, tempTz.value)
-  // After save, temp values will be reset by watcher
+function onSaveSettings() {
+  showSaveModal.value = true
 }
 
-async function saveSettings(ssid: string, password: string, tz: number | null) {
-  const current = deviceStore.deviceConfig?.config || {}
-  const newConfig = {
-    ...current,
-    settings: {
-      ...current.settings,
-      wifi: {
-        ssid,
-        password,
-      },
-      timezone_offset: tz,
-    },
+function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean }) {
+  showSaveModal.value = false
+  const payload: any = {}
+  if (selection.wifi && changedWifi.value) {
+    payload.settings = payload.settings || {}
+    payload.settings.wifi = {
+      ssid: tempSsid.value,
+      password: tempPassword.value,
+    }
   }
-  await deviceStore.saveConfig(newConfig)
+  if (selection.tz && changedTz.value) {
+    payload.settings = payload.settings || {}
+    payload.settings.timezone_offset = tempTz.value
+  }
+  if (selection.mappings && changedMappings.value.length) {
+    payload.button_mappings = {} // TODO: fill with actual changed mappings
+  } else if (!selection.mappings) {
+    payload.button_mappings = {}
+  }
+  saveSettingsPayload(payload)
+}
+
+function handleSaveModalCancel() {
+  showSaveModal.value = false
+}
+
+async function saveSettingsPayload(payload: any) {
+  await deviceStore.saveConfig({
+    ...deviceStore.deviceConfig?.config,
+    ...payload,
+  })
   await deviceStore.fetchConfig()
 }
 
