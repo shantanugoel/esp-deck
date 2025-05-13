@@ -144,6 +144,14 @@
         >
           Backup Current Config
         </button>
+        <button
+          @click="onUploadConfig"
+          :disabled="deviceStore.loading"
+          class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Upload a config JSON file and preview/edit it before saving to the device."
+        >
+          Upload Config
+        </button>
       </div>
     </div>
     <div class="w-full max-w-4xl flex justify-center mt-4">
@@ -432,5 +440,37 @@ function onBackupCurrentConfig() {
     const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)
     downloadJson(deviceStore.deviceConfig.config, `current-config-backup-${ts}.json`)
   }
+}
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+function onUploadConfig() {
+  if (!fileInputRef.value) {
+    // Create input if not present
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.style.display = 'none'
+    input.addEventListener('change', (event: any) => {
+      const file = event.target.files && event.target.files[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const json = JSON.parse(e.target?.result as string)
+          // Accept either {config: ...} or just the config object
+          const configObj = json.config ? json.config : json
+          deviceStore.setDeviceConfig({ config: configObj })
+        } catch (err) {
+          alert('Invalid JSON file: ' + err)
+        }
+      }
+      reader.readAsText(file)
+    })
+    document.body.appendChild(input)
+    fileInputRef.value = input
+  }
+  fileInputRef.value.value = '' // reset so same file can be picked again
+  fileInputRef.value.click()
 }
 </script> 

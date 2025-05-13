@@ -80,6 +80,10 @@ export const useDeviceStore = defineStore('device', () => {
         loading.value = false
     }
 
+    function setDeviceConfig(config: DeviceConfig) {
+        deviceConfig.value = config
+    }
+
     return {
         deviceConfig: computed(() => deviceConfig.value),
         loading: computed(() => loading.value),
@@ -96,5 +100,6 @@ export const useDeviceStore = defineStore('device', () => {
         getStagedButtonMacro,
         getStagedButtonName,
         clearStagedChanges,
+        setDeviceConfig,
     }
 }) 
