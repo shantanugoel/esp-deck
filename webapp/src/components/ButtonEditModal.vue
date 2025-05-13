@@ -13,14 +13,14 @@
             v-model="form.name"
             type="text"
             maxlength="20"
-            class="input input-bordered w-full"
+            class="border border-muted rounded px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary w-full"
             placeholder="Button name or emoji"
             required
           />
         </div>
         <div class="mb-4">
           <label class="block text-sm font-medium mb-1" for="actionType">Action Type</label>
-          <select id="actionType" v-model="form.actionType" class="input input-bordered w-full">
+          <select id="actionType" v-model="form.actionType" class="border border-muted rounded px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary w-full">
             <option value="keyboard">Keyboard</option>
             <option value="mouse">Mouse</option>
             <option value="media">Media</option>
@@ -32,14 +32,14 @@
           <textarea
             id="actionDetail"
             v-model="form.actionDetail"
-            class="input input-bordered w-full"
+            class="border border-muted rounded px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary w-full"
             rows="2"
             placeholder="e.g. Ctrl+C, Play/Pause, macro script..."
           ></textarea>
         </div>
         <div class="flex justify-end gap-2 mt-6">
-          <button type="button" class="btn btn-secondary" @click="emitClose">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="px-4 py-2 rounded font-semibold transition bg-muted text-muted-foreground hover:bg-muted/80" @click="emitClose">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded font-semibold transition bg-primary text-primary-foreground hover:bg-primary/80">Save</button>
         </div>
       </form>
     </div>
@@ -83,21 +83,3 @@ function emitClose() {
   emit('close')
 }
 </script>
-
-<style scoped>
-.input {
-  @apply border rounded px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary;
-}
-.input-bordered {
-  @apply border-muted;
-}
-.btn {
-  @apply px-4 py-2 rounded font-semibold transition;
-}
-.btn-primary {
-  @apply bg-primary text-primary-foreground hover:bg-primary/80;
-}
-.btn-secondary {
-  @apply bg-muted text-muted-foreground hover:bg-muted/80;
-}
-</style> 

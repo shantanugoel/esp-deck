@@ -16,7 +16,14 @@
       >
         Connecting...
       </button>
-      <ButtonGrid :button-labels="buttonLabels" />
+      <ButtonGrid :button-labels="buttonLabels" @edit="handleEditButton" />
+      <ButtonEditModal
+        :open="isEditModalOpen"
+        :button-index="selectedButtonIndex ?? 0"
+        :button-data="selectedButtonData"
+        @save="handleModalSave"
+        @close="handleModalClose"
+      />
     </div>
     <div class="w-full max-w-4xl flex justify-center mt-4">
       <DeviceStatus
@@ -41,11 +48,12 @@
 
 <script setup lang="ts">
 import ButtonGrid from '../components/ButtonGrid.vue'
+import ButtonEditModal from '../components/ButtonEditModal.vue'
 import DeviceStatus from '../components/DeviceStatus.vue'
 import FeedbackToast from '../components/FeedbackToast.vue'
 import { useDeviceStore } from '../stores/deviceStore'
 import { useDeviceApi } from '../composables/useDeviceApi'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const deviceStore = useDeviceStore()
 const deviceApi = useDeviceApi()
@@ -73,6 +81,43 @@ const normalizedApiError = computed(() => {
   if (typeof err === 'string') return err
   return undefined
 })
+
+// --- Button Edit Modal State ---
+const isEditModalOpen = ref(false)
+const selectedButtonIndex = ref<number | null>(null)
+const selectedButtonData = ref({ name: '', actionType: 'keyboard', actionDetail: '' })
+
+function handleEditButton(idx: number) {
+  selectedButtonIndex.value = idx
+  // Get current button data from config if available
+  const config = deviceStore.deviceConfig?.config
+  const buttonNames = config?.button_names || {}
+  // For now, only name is editable; action fields are placeholders
+  selectedButtonData.value = {
+    name: buttonNames[idx] || defaultLabels[idx],
+    actionType: 'keyboard',
+    actionDetail: ''
+  }
+  isEditModalOpen.value = true
+}
+
+function handleModalSave(data: { name: string; actionType: string; actionDetail: string }) {
+  if (selectedButtonIndex.value == null) return
+  // Update button_names in config
+  const config = deviceStore.deviceConfig?.config
+  if (config) {
+    if (!config.button_names) config.button_names = {}
+    config.button_names[selectedButtonIndex.value] = data.name
+    // Optionally: update actionType/actionDetail in mappings or another field
+    // Save to device
+    deviceStore.saveConfig({ ...config })
+  }
+  isEditModalOpen.value = false
+}
+
+function handleModalClose() {
+  isEditModalOpen.value = false
+}
 
 async function connectAndFetch() {
   const result = await deviceApi.connectToDevice()
