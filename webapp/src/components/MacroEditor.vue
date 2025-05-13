@@ -9,10 +9,10 @@
         </button>
       </div>
       <div v-if="sequence.length === 0" class="text-muted-foreground text-sm mb-2">No actions yet. Add actions from above.</div>
-      <VueDraggable v-model="sequence" handle=".drag-handle" class="space-y-2">
+      <VueDraggable v-model="sequence" class="space-y-2">
         <div v-for="(act, idx) in sequence" :key="idx">
           <li class="flex items-center gap-2 bg-card rounded border border-muted px-2 py-1 shadow-sm hover:shadow transition-all">
-            <span class="drag-handle cursor-grab flex items-center pr-2 select-none text-muted-foreground">
+            <span class="cursor-grab flex items-center pr-2 select-none text-muted-foreground">
               <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01'/></svg>
             </span>
             <div class="flex-1 min-w-0">
