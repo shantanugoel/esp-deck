@@ -190,8 +190,6 @@ const buttonLabels = computed(() => {
 })
 
 const deviceStatus = computed(() => deviceStore.deviceConfig ? 'Connected' : undefined)
-const deviceWifi = computed(() => deviceStore.deviceConfig?.config?.settings?.wifi?.ssid ?? undefined)
-const deviceTime = computed(() => deviceStore.deviceConfig?.config?.device_time ?? '-')
 
 const normalizedApiError = computed(() => {
   const err = deviceApi.error

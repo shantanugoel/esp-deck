@@ -24,6 +24,11 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const debugLogs = ref<{ type: 'sent' | 'received', data: string, timestamp: Date }[]>([])
 
+let correlationCounter = 1
+function getNextCorrelationId() {
+    return correlationCounter++
+}
+
 async function connectToDevice(): Promise<ApiResult<boolean>> {
     loading.value = true
     error.value = null
@@ -60,12 +65,10 @@ function encodeCommand(payload: string): Uint8Array {
 
 async function sendCommand(payload: string): Promise<string> {
     if (!device) throw new Error('Device not connected')
-    const header = MAGIC_WORD
-    const payloadLength = payload.length
     const data = encodeCommand(payload)
     debugLogs.value.push({
         type: 'sent',
-        data: `USB Header: 0x${header.toString(16).toUpperCase()}\nPayload Length: ${payloadLength}\nPayload:\n${payload}`,
+        data: payload,
         timestamp: new Date()
     })
     await device.transferOut(ENDPOINT_OUT, data)
@@ -103,7 +106,7 @@ async function sendCommand(payload: string): Promise<string> {
         const decoded = new TextDecoder().decode(payloadBytes)
         debugLogs.value.push({
             type: 'received',
-            data: `USB Header: 0x${magic.toString(16).toUpperCase()}\nPayload Length: ${expectedPayloadLength}\nPayload:\n${decoded}`,
+            data: decoded,
             timestamp: new Date()
         })
         return decoded
@@ -115,7 +118,8 @@ async function getConfig(): Promise<ApiResult<DeviceConfig>> {
     error.value = null
     try {
         if (!isConnected.value) throw new Error('Device not connected')
-        const cmd = JSON.stringify({ type: 'GetConfig', header: { version: 65536 } })
+        const correlationId = getNextCorrelationId()
+        const cmd = JSON.stringify({ type: 'GetConfig', header: { version: 65536, correlationId } })
         const resp = await sendCommand(cmd)
         return { data: JSON.parse(resp), error: null, loading: false }
     } catch (e: any) {
@@ -131,7 +135,8 @@ async function setConfig(config: DeviceConfig): Promise<ApiResult<boolean>> {
     error.value = null
     try {
         if (!isConnected.value) throw new Error('Device not connected')
-        const cmd = JSON.stringify({ type: 'SetConfig', header: { version: 65536 }, config })
+        const correlationId = getNextCorrelationId()
+        const cmd = JSON.stringify({ type: 'SetConfig', header: { version: 65536, correlationId }, config })
         await sendCommand(cmd)
         return { data: true, error: null, loading: false }
     } catch (e: any) {
@@ -147,7 +152,8 @@ async function resetConfig(): Promise<ApiResult<boolean>> {
     error.value = null
     try {
         if (!isConnected.value) throw new Error('Device not connected')
-        const cmd = JSON.stringify({ type: 'ResetConfig', header: { version: 65536 } })
+        const correlationId = getNextCorrelationId()
+        const cmd = JSON.stringify({ type: 'ResetConfig', header: { version: 65536, correlationId } })
         await sendCommand(cmd)
         return { data: true, error: null, loading: false }
     } catch (e: any) {
@@ -163,7 +169,8 @@ async function reboot(): Promise<ApiResult<boolean>> {
     error.value = null
     try {
         if (!isConnected.value) throw new Error('Device not connected')
-        const cmd = JSON.stringify({ type: 'Reboot', header: { version: 65536 } })
+        const correlationId = getNextCorrelationId()
+        const cmd = JSON.stringify({ type: 'Reboot', header: { version: 65536, correlationId } })
         await sendCommand(cmd)
         return { data: true, error: null, loading: false }
     } catch (e: any) {
