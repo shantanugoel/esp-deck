@@ -89,27 +89,70 @@ const selectedButtonData = ref({ name: '', actionType: 'keyboard', actionDetail:
 
 function handleEditButton(idx: number) {
   selectedButtonIndex.value = idx
-  // Get current button data from config if available
   const config = deviceStore.deviceConfig?.config
   const buttonNames = config?.button_names || {}
-  // For now, only name is editable; action fields are placeholders
+  const mappings = config?.mappings || {}
+  const mappingKey = String(idx + 1)
+  const actions = mappings[mappingKey] || []
+
+  let actionType = 'keyboard'
+  let actionDetail = ''
+  // If there are multiple actions or a Sequence, treat as macro
+  if (actions.length > 1 || (actions.length > 0 && actions[0].Sequence)) {
+    actionType = 'macro'
+    actionDetail = JSON.stringify(actions, null, 2)
+  } else if (actions.length > 0) {
+    const first = actions[0]
+    if (first.KeyPress) {
+      actionType = 'keyboard'
+      actionDetail = first.KeyPress.key + (first.KeyPress.modifier ? ` + ${first.KeyPress.modifier}` : '')
+    } else if (first.MousePress) {
+      actionType = 'mouse'
+      actionDetail = String(first.MousePress.button)
+    } else if (first.ConsumerPress) {
+      actionType = 'media'
+      actionDetail = String(first.ConsumerPress.usage_id)
+    } else {
+      actionType = 'macro'
+      actionDetail = JSON.stringify(actions, null, 2)
+    }
+  }
   selectedButtonData.value = {
     name: buttonNames[idx] || defaultLabels[idx],
-    actionType: 'keyboard',
-    actionDetail: ''
+    actionType,
+    actionDetail
   }
   isEditModalOpen.value = true
 }
 
 function handleModalSave(data: { name: string; actionType: string; actionDetail: string }) {
   if (selectedButtonIndex.value == null) return
-  // Update button_names in config
   const config = deviceStore.deviceConfig?.config
   if (config) {
     if (!config.button_names) config.button_names = {}
     config.button_names[selectedButtonIndex.value] = data.name
-    // Optionally: update actionType/actionDetail in mappings or another field
-    // Save to device
+    if (!config.mappings) config.mappings = {}
+    const mappingKey = String(selectedButtonIndex.value + 1)
+    let actions: any[] = []
+    if (data.actionType === 'macro') {
+      // Raw JSON for macro sequence
+      try {
+        const seq = JSON.parse(data.actionDetail)
+        actions = Array.isArray(seq) ? seq : []
+      } catch {
+        actions = []
+      }
+    } else if (data.actionType === 'keyboard') {
+      const [key, mod] = data.actionDetail.split(' + ').map(s => s.trim())
+      actions = [{ KeyPress: { key, modifier: mod || undefined } }, { Delay: { ms: 10 } }, 'KeyRelease']
+    } else if (data.actionType === 'mouse') {
+      const button = parseInt(data.actionDetail, 10) || 1
+      actions = [{ MousePress: { button } }, { Delay: { ms: 10 } }, 'MouseRelease']
+    } else if (data.actionType === 'media') {
+      const usage_id = parseInt(data.actionDetail, 16) || 0
+      actions = [{ ConsumerPress: { usage_id } }, { Delay: { ms: 10 } }, 'ConsumerRelease']
+    }
+    config.mappings[mappingKey] = actions
     deviceStore.saveConfig({ ...config })
   }
   isEditModalOpen.value = false
