@@ -96,7 +96,7 @@ graph TD
 - [x] Set up routing (if needed)
 
 ### Phase 2: Core UI & State
-- [ ] Implement App.vue layout
+- [x] Implement App.vue layout
 - [ ] Implement Dashboard (ButtonGrid.vue)
 - [ ] Implement DeviceStatus.vue
 - [ ] Implement Sidebar.vue
