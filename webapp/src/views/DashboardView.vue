@@ -63,6 +63,54 @@
       type="error"
       :show="!!(deviceStore.error || normalizedApiError)"
     />
+    <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex flex-col items-center mt-6">
+      <div class="w-full bg-muted/40 rounded-lg p-4 flex flex-col gap-4 border border-muted">
+        <div class="font-semibold text-base mb-2">Device Settings</div>
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="flex-1 flex flex-col gap-2">
+            <label class="text-sm font-medium">WiFi SSID</label>
+            <div class="flex items-center gap-2">
+              <template v-if="!isEditingSsid">
+                <span>{{ wifiSsid || '-' }}</span>
+                <span class="ml-1 cursor-pointer text-muted-foreground hover:text-primary" @click="startEditSsid" title="Edit SSID" tabindex="0" role="button" aria-label="Edit SSID">✏️</span>
+              </template>
+              <template v-else>
+                <input ref="ssidInputRef" v-model="tempSsid" type="text" class="border rounded px-3 py-2 bg-background text-foreground w-32" maxlength="32" placeholder="WiFi SSID"
+                  @keyup.enter="saveEditSsid" @blur="saveEditSsid" />
+              </template>
+            </div>
+          </div>
+          <div class="flex-1 flex flex-col gap-2">
+            <label class="text-sm font-medium">WiFi Password</label>
+            <div class="flex items-center gap-2">
+              <template v-if="!isEditingPassword">
+                <span>{{ wifiPassword ? '••••••••' : '-' }}</span>
+                <span class="ml-1 cursor-pointer text-muted-foreground hover:text-primary" @click="startEditPassword" title="Edit Password" tabindex="0" role="button" aria-label="Edit Password">✏️</span>
+              </template>
+              <template v-else>
+                <form @submit.prevent="saveEditPassword" class="inline">
+                  <input ref="passwordInputRef" v-model="tempPassword" type="password" class="border rounded px-3 py-2 bg-background text-foreground w-32" maxlength="64" placeholder="WiFi Password"
+                    @blur="saveEditPassword" />
+                </form>
+              </template>
+            </div>
+          </div>
+          <div class="flex-1 flex flex-col gap-2">
+            <label class="text-sm font-medium">Timezone Offset</label>
+            <div class="flex items-center gap-2">
+              <template v-if="!isEditingTz">
+                <span>{{ timezoneOffset !== null && timezoneOffset !== undefined ? timezoneOffset : '-' }}</span>
+                <span class="ml-1 cursor-pointer text-muted-foreground hover:text-primary" @click="startEditTz" title="Edit Timezone Offset" tabindex="0" role="button" aria-label="Edit Timezone Offset">✏️</span>
+              </template>
+              <template v-else>
+                <input ref="tzInputRef" v-model.number="tempTz" type="number" step="0.01" class="border rounded px-3 py-2 bg-background text-foreground w-24" placeholder="e.g. -7.0, 5.5"
+                  @keyup.enter="saveEditTz" @blur="saveEditTz" />
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -71,7 +119,7 @@ import DeviceStatus from '../components/DeviceStatus.vue'
 import FeedbackToast from '../components/FeedbackToast.vue'
 import { useDeviceStore } from '../stores/deviceStore'
 import { useDeviceApi } from '../composables/useDeviceApi'
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 
 const deviceStore = useDeviceStore()
@@ -99,6 +147,86 @@ const normalizedApiError = computed(() => {
   if (typeof err === 'string') return err
   return undefined
 })
+
+const wifiSsid = ref('')
+const wifiPassword = ref('')
+const timezoneOffset = ref<number | null>(null)
+
+const isEditingSsid = ref(false)
+const isEditingPassword = ref(false)
+const isEditingTz = ref(false)
+const tempSsid = ref('')
+const tempPassword = ref('')
+const tempTz = ref<number | null>(null)
+const ssidInputRef = ref<HTMLInputElement | null>(null)
+const passwordInputRef = ref<HTMLInputElement | null>(null)
+const tzInputRef = ref<HTMLInputElement | null>(null)
+
+watch(
+  () => deviceStore.deviceConfig,
+  (config) => {
+    const wifi = config?.config?.settings?.wifi
+    wifiSsid.value = wifi?.ssid || ''
+    wifiPassword.value = wifi?.password || ''
+    timezoneOffset.value = config?.config?.settings?.timezone_offset ?? null
+    // Reset edit state on config change
+    isEditingSsid.value = false
+    isEditingPassword.value = false
+    isEditingTz.value = false
+  },
+  { immediate: true }
+)
+
+function startEditSsid() {
+  tempSsid.value = wifiSsid.value
+  isEditingSsid.value = true
+  nextTick(() => ssidInputRef.value?.focus())
+}
+function saveEditSsid() {
+  if (tempSsid.value !== wifiSsid.value) {
+    saveSettings(tempSsid.value, wifiPassword.value, timezoneOffset.value)
+  }
+  isEditingSsid.value = false
+}
+function startEditPassword() {
+  tempPassword.value = wifiPassword.value
+  isEditingPassword.value = true
+  nextTick(() => passwordInputRef.value?.focus())
+}
+function saveEditPassword() {
+  if (tempPassword.value !== wifiPassword.value) {
+    saveSettings(wifiSsid.value, tempPassword.value, timezoneOffset.value)
+  }
+  isEditingPassword.value = false
+}
+function startEditTz() {
+  tempTz.value = timezoneOffset.value
+  isEditingTz.value = true
+  nextTick(() => tzInputRef.value?.focus())
+}
+function saveEditTz() {
+  if (tempTz.value !== timezoneOffset.value) {
+    saveSettings(wifiSsid.value, wifiPassword.value, tempTz.value)
+  }
+  isEditingTz.value = false
+}
+
+async function saveSettings(ssid: string, password: string, tz: number | null) {
+  const current = deviceStore.deviceConfig?.config || {}
+  const newConfig = {
+    ...current,
+    settings: {
+      ...current.settings,
+      wifi: {
+        ssid,
+        password,
+      },
+      timezone_offset: tz,
+    },
+  }
+  await deviceStore.saveConfig(newConfig)
+  await deviceStore.fetchConfig()
+}
 
 function goToMacroEditor(idx: number) {
   router.push({ name: 'edit-macro', params: { buttonIndex: idx } })
