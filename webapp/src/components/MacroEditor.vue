@@ -117,7 +117,7 @@ function updateAction(idx: number, newAction: any) {
 // Editor components for each action type
 function getActionEditor(act: any, idx: number) {
   if (act.KeyPress) return KeyPressEditor
-  if (act.KeyRelease) return KeyReleaseEditor
+  if (act.KeyRelease || act === 'KeyRelease') return KeyReleaseEditor
   if (act.MousePress) return MousePressEditor
   if (act.MouseMove) return MouseMoveEditor
   if (act.MouseWheel) return MouseWheelEditor
