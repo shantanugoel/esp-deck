@@ -14,6 +14,9 @@
           <label class="flex items-center gap-2">
             <input type="checkbox" v-model="selected.mappings" /> Button Mappings
           </label>
+          <label v-if="selected.mappings" class="flex items-center gap-2 ml-6 text-xs">
+            <input type="checkbox" v-model="sendAllMappings" /> Send all button mappings and names (not just changed)
+          </label>
         </div>
         <div class="mb-4">
           <div v-if="selected.wifi && changedWifi">
@@ -50,7 +53,8 @@ const props = defineProps<{
 }>()
 const emit = defineEmits(['confirm', 'cancel'])
 const selected = ref({ wifi: !!props.changedWifi, tz: !!props.changedTz, mappings: !!(props.changedMappings && props.changedMappings.length) })
+const sendAllMappings = ref(false)
 function onConfirm() {
-  emit('confirm', { ...selected.value })
+  emit('confirm', { ...selected.value, sendAllMappings: sendAllMappings.value })
 }
 </script> 

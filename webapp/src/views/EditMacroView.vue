@@ -55,15 +55,8 @@ onMounted(() => {
 
 function onSave() {
   if (buttonIndex.value == null) return
-  const config = deviceStore.deviceConfig?.config
-  if (config) {
-    if (!config.button_names) config.button_names = {}
-    config.button_names[buttonIndex.value] = buttonName.value
-    if (!config.mappings) config.mappings = {}
-    const mappingKey = String(buttonIndexDisplay.value)
-    config.mappings[mappingKey] = macroSequence.value
-    deviceStore.saveConfig({ ...config })
-  }
+  deviceStore.stageButtonName(buttonIndex.value, buttonName.value)
+  deviceStore.stageButtonMacro(buttonIndex.value, macroSequence.value)
   goBack()
 }
 function goBack() {

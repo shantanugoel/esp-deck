@@ -18,7 +18,7 @@
       </button>
       <div class="w-full">
         <div class="grid grid-cols-4 gap-3 w-full mb-2">
-          <div v-for="(label, idx) in buttonLabels" :key="idx" class="flex flex-col items-center">
+          <div v-for="(label, idx) in buttonLabelsWithDirty" :key="idx" class="flex flex-col items-center">
             <button
               class="h-12 sm:h-14 md:h-16 w-full rounded-lg bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center shadow hover:bg-muted transition"
               @click="goToMacroEditor(idx)"
@@ -196,6 +196,11 @@ const buttonLabels = computed(() => {
   return defaultLabels
 })
 
+// Show * for dirty buttons
+const buttonLabelsWithDirty = computed(() =>
+  buttonLabels.value.map((label, idx) => deviceStore.isButtonDirty(idx) ? `${label} *` : label)
+)
+
 const deviceStatus = computed(() => deviceStore.deviceConfig ? 'Connected' : undefined)
 
 const normalizedApiError = computed(() => {
@@ -221,7 +226,7 @@ const tzInputRef = ref<HTMLInputElement | null>(null)
 const showPassword = ref(false)
 
 const showSaveModal = ref(false)
-const saveModalSelection = ref<{ wifi: boolean, tz: boolean, mappings: boolean } | null>(null)
+const saveModalSelection = ref<{ wifi: boolean, tz: boolean, mappings: boolean, sendAllMappings?: boolean } | null>(null)
 
 // Track previous values for comparison
 const prevWifiSsid = computed(() => wifiSsid.value)
@@ -272,7 +277,8 @@ watch(
 const hasSettingsChanged = computed(() =>
   tempSsid.value !== wifiSsid.value ||
   tempPassword.value !== wifiPassword.value ||
-  tempTz.value !== timezoneOffset.value
+  tempTz.value !== timezoneOffset.value ||
+  Object.keys(deviceStore.stagedButtonChanges).length > 0
 )
 
 function startEditSsid() {
@@ -301,12 +307,35 @@ function onSaveSettings() {
   showSaveModal.value = true
 }
 
-function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean }) {
+function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean, sendAllMappings?: boolean }) {
   showSaveModal.value = false
-  const config: any = {}
+  // Merge staged changes into config before saving
+  const config = JSON.parse(JSON.stringify(deviceStore.deviceConfig?.config || {}))
+  // Apply staged button changes
+  if (selection.mappings) {
+    if (selection.sendAllMappings) {
+      // Send all mappings and button names
+      // (config already has all current mappings and names)
+    } else {
+      // Only send changed mappings and names
+      // Remove unchanged mappings and names from config
+      const newMappings: Record<string, any[]> = {}
+      const newButtonNames: Record<number, string> = {}
+      for (let idx = 0; idx < 16; idx++) {
+        const stagedMacro = deviceStore.getStagedButtonMacro(idx)
+        const stagedName = deviceStore.getStagedButtonName(idx)
+        if (stagedMacro) newMappings[String(idx + 1)] = stagedMacro
+        if (stagedName) newButtonNames[idx] = stagedName
+      }
+      config.mappings = newMappings
+      config.button_names = Object.keys(newButtonNames).length ? newButtonNames : undefined
+    }
+  } else {
+    config.mappings = {}
+  }
   // Always include settings if any part is selected
   if (selection.wifi || selection.tz) {
-    config.settings = {}
+    config.settings = config.settings || {}
     if (selection.wifi && changedWifi.value) {
       config.settings.wifi = {
         ssid: tempSsid.value,
@@ -317,14 +346,6 @@ function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mapping
       config.settings.timezone_offset = tempTz.value
     }
   }
-  // Always include mappings (empty if not updating)
-  if (selection.mappings && changedMappings.value.length) {
-    config.mappings = {} // TODO: fill with actual changed mappings
-  } else {
-    config.mappings = {}
-  }
-  // Only include button_names if you support editing them
-  // config.button_names = ...
   saveSettingsPayload(config)
 }
 
@@ -335,6 +356,7 @@ function handleSaveModalCancel() {
 async function saveSettingsPayload(config: any) {
   await deviceStore.saveConfig(config)
   await deviceStore.fetchConfig()
+  deviceStore.clearStagedChanges()
 }
 
 function goToMacroEditor(idx: number) {

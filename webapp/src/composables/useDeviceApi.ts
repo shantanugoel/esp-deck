@@ -53,9 +53,9 @@ async function connectToDevice(): Promise<ApiResult<boolean>> {
 function encodeCommand(payload: string): Uint8Array {
     const header = new Uint8Array(4)
     new DataView(header.buffer).setUint32(0, MAGIC_WORD, false)
-    const length = new Uint8Array(4)
-    new DataView(length.buffer).setUint32(0, payload.length, false)
     const body = new TextEncoder().encode(payload)
+    const length = new Uint8Array(4)
+    new DataView(length.buffer).setUint32(0, body.length, false)
     const result = new Uint8Array(header.length + length.length + body.length)
     result.set(header, 0)
     result.set(length, header.length)
