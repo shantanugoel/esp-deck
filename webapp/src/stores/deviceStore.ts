@@ -11,6 +11,7 @@ type StagedButtonChange = {
 }
 
 export const useDeviceStore = defineStore('device', () => {
+    const lastFetchedConfig = ref<DeviceConfig | null>(null)
     const deviceConfig = ref<DeviceConfig | null>(null)
     const loading = ref(false)
     const error = ref<string | null>(null)
@@ -24,6 +25,7 @@ export const useDeviceStore = defineStore('device', () => {
         loading.value = true
         error.value = null
         const result = await getConfig()
+        lastFetchedConfig.value = result.data
         deviceConfig.value = result.data
         error.value = result.error
         loading.value = false
@@ -38,6 +40,7 @@ export const useDeviceStore = defineStore('device', () => {
         loading.value = false
         if (!result.error) {
             deviceConfig.value = config
+            lastFetchedConfig.value = config
             stagedButtonChanges.value = {} // clear staged changes on save
         }
     }
@@ -86,6 +89,7 @@ export const useDeviceStore = defineStore('device', () => {
 
     return {
         deviceConfig: computed(() => deviceConfig.value),
+        lastFetchedConfig: computed(() => lastFetchedConfig.value),
         loading: computed(() => loading.value),
         error: computed(() => error.value),
         fetchConfig,

@@ -302,11 +302,26 @@ watch(
   { immediate: true }
 )
 
+function deepEqual(a: any, b: any): boolean {
+  if (a === b) return true
+  if (typeof a !== typeof b) return false
+  if (a && b && typeof a === 'object') {
+    if (Array.isArray(a)) {
+      if (!Array.isArray(b) || a.length !== b.length) return false
+      for (let i = 0; i < a.length; i++) if (!deepEqual(a[i], b[i])) return false
+      return true
+    }
+    const aKeys = Object.keys(a)
+    const bKeys = Object.keys(b)
+    if (aKeys.length !== bKeys.length) return false
+    for (const key of aKeys) if (!deepEqual(a[key], b[key])) return false
+    return true
+  }
+  return false
+}
+
 const hasSettingsChanged = computed(() =>
-  tempSsid.value !== wifiSsid.value ||
-  tempPassword.value !== wifiPassword.value ||
-  tempTz.value !== timezoneOffset.value ||
-  Object.keys(deviceStore.stagedButtonChanges).length > 0
+  !deepEqual(deviceStore.deviceConfig, deviceStore.lastFetchedConfig)
 )
 
 function startEditSsid() {
@@ -337,44 +352,24 @@ function onSaveSettings() {
 
 function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean, sendAllMappings?: boolean }) {
   showSaveModal.value = false
-  // Merge staged changes into config before saving
-  const config = JSON.parse(JSON.stringify(deviceStore.deviceConfig?.config || {}))
-  // Apply staged button changes
-  if (selection.mappings) {
-    if (selection.sendAllMappings) {
-      // Send all mappings and button names
-      // (config already has all current mappings and names)
-    } else {
-      // Only send changed mappings and names
-      // Remove unchanged mappings and names from config
-      const newMappings: Record<string, any[]> = {}
-      const newButtonNames: Record<number, string> = {}
-      for (let idx = 0; idx < 16; idx++) {
-        const stagedMacro = deviceStore.getStagedButtonMacro(idx)
-        const stagedName = deviceStore.getStagedButtonName(idx)
-        if (stagedMacro) newMappings[String(idx + 1)] = stagedMacro
-        if (stagedName) newButtonNames[idx] = stagedName
-      }
-      config.mappings = newMappings
-      config.button_names = Object.keys(newButtonNames).length ? newButtonNames : undefined
+  // Always send the current config as the payload
+  if (!deviceStore.deviceConfig || !deviceStore.deviceConfig.config) return
+  let configToSend = JSON.parse(JSON.stringify(deviceStore.deviceConfig.config))
+  // If user chose to send only changed mappings, filter mappings/button_names
+  if (selection.mappings && !selection.sendAllMappings) {
+    // Only send changed mappings and button_names
+    const newMappings: Record<string, any[]> = {}
+    const newButtonNames: Record<number, string> = {}
+    for (let idx = 0; idx < 16; idx++) {
+      const stagedMacro = deviceStore.getStagedButtonMacro(idx)
+      const stagedName = deviceStore.getStagedButtonName(idx)
+      if (stagedMacro) newMappings[String(idx + 1)] = stagedMacro
+      if (stagedName) newButtonNames[idx] = stagedName
     }
-  } else {
-    config.mappings = {}
+    configToSend.mappings = newMappings
+    configToSend.button_names = Object.keys(newButtonNames).length ? newButtonNames : undefined
   }
-  // Always include settings if any part is selected
-  if (selection.wifi || selection.tz) {
-    config.settings = config.settings || {}
-    if (selection.wifi && changedWifi.value) {
-      config.settings.wifi = {
-        ssid: tempSsid.value,
-        password: tempPassword.value,
-      }
-    }
-    if (selection.tz && changedTz.value) {
-      config.settings.timezone_offset = tempTz.value
-    }
-  }
-  saveSettingsPayload(config)
+  saveSettingsPayload(configToSend)
 }
 
 function handleSaveModalCancel() {
