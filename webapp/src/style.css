@@ -182,30 +182,6 @@ button:focus-visible {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-.dark {
-  --background: #181a20;
-  --foreground: #f0f4ff;
-  --primary: #6366f1;
-  --primary-foreground: #fff;
-  --accent: #06b6d4;
-  --accent-foreground: #fff;
-  --muted: #312e81;
-  --muted-foreground: #ede9fe;
-  --card: #23263a;
-  --card-foreground: #f0f4ff;
-  --border: #312e81;
-  --input: #312e81;
-  --ring: #6366f1;
-  --sidebar: #23263a;
-  --sidebar-foreground: #f0f4ff;
-  --sidebar-primary: #6366f1;
-  --sidebar-primary-foreground: #fff;
-  --sidebar-accent: #06b6d4;
-  --sidebar-accent-foreground: #fff;
-  --sidebar-border: #312e81;
-  --sidebar-ring: #6366f1;
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
