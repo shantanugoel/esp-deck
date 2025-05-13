@@ -71,12 +71,12 @@
             <label class="text-sm font-medium">WiFi SSID</label>
             <div class="flex items-center gap-2">
               <template v-if="!isEditingSsid">
-                <span>{{ wifiSsid || '-' }}</span>
+                <span>{{ tempSsid !== wifiSsid ? tempSsid : (wifiSsid || '-') }}</span>
                 <span class="ml-1 cursor-pointer text-muted-foreground hover:text-primary" @click="startEditSsid" title="Edit SSID" tabindex="0" role="button" aria-label="Edit SSID">✏️</span>
               </template>
               <template v-else>
                 <input ref="ssidInputRef" v-model="tempSsid" type="text" class="border rounded px-3 py-2 bg-background text-foreground w-32" maxlength="32" placeholder="WiFi SSID"
-                  @keyup.enter="saveEditSsid" @blur="saveEditSsid" />
+                  @keyup.enter="stopEditSsid" @blur="stopEditSsid" />
               </template>
             </div>
           </div>
@@ -84,13 +84,30 @@
             <label class="text-sm font-medium">WiFi Password</label>
             <div class="flex items-center gap-2">
               <template v-if="!isEditingPassword">
-                <span>{{ wifiPassword ? '••••••••' : '-' }}</span>
+                <span>{{ tempPassword !== wifiPassword ? (tempPassword ? '••••••••' : '-') : (wifiPassword ? '••••••••' : '-') }}</span>
                 <span class="ml-1 cursor-pointer text-muted-foreground hover:text-primary" @click="startEditPassword" title="Edit Password" tabindex="0" role="button" aria-label="Edit Password">✏️</span>
               </template>
               <template v-else>
-                <form @submit.prevent="saveEditPassword" class="inline">
-                  <input ref="passwordInputRef" v-model="tempPassword" type="password" class="border rounded px-3 py-2 bg-background text-foreground w-32" maxlength="64" placeholder="WiFi Password"
-                    @blur="saveEditPassword" />
+                <form @submit.prevent="stopEditPassword" class="inline flex items-center gap-2">
+                  <input
+                    ref="passwordInputRef"
+                    v-model="tempPassword"
+                    :type="showPassword ? 'text' : 'password'"
+                    class="border rounded px-3 py-2 bg-background text-foreground w-32"
+                    maxlength="64"
+                    placeholder="WiFi Password"
+                    @blur="stopEditPassword"
+                  />
+                  <button
+                    type="button"
+                    @mousedown.prevent.stop
+                    @click.prevent.stop="showPassword = !showPassword"
+                    tabindex="0"
+                    aria-label="Toggle password visibility"
+                    class="ml-1 text-muted-foreground hover:text-primary focus:outline-none"
+                  >
+                    {{ showPassword ? '🙈' : '👁️' }}
+                  </button>
                 </form>
               </template>
             </div>
@@ -99,15 +116,24 @@
             <label class="text-sm font-medium">Timezone Offset</label>
             <div class="flex items-center gap-2">
               <template v-if="!isEditingTz">
-                <span>{{ timezoneOffset !== null && timezoneOffset !== undefined ? timezoneOffset : '-' }}</span>
+                <span>{{ tempTz !== timezoneOffset ? (tempTz ?? '-') : (timezoneOffset !== null && timezoneOffset !== undefined ? timezoneOffset : '-') }}</span>
                 <span class="ml-1 cursor-pointer text-muted-foreground hover:text-primary" @click="startEditTz" title="Edit Timezone Offset" tabindex="0" role="button" aria-label="Edit Timezone Offset">✏️</span>
               </template>
               <template v-else>
                 <input ref="tzInputRef" v-model.number="tempTz" type="number" step="0.01" class="border rounded px-3 py-2 bg-background text-foreground w-24" placeholder="e.g. -7.0, 5.5"
-                  @keyup.enter="saveEditTz" @blur="saveEditTz" />
+                  @keyup.enter="stopEditTz" @blur="stopEditTz" />
               </template>
             </div>
           </div>
+        </div>
+        <div class="flex justify-end mt-4">
+          <button
+            @click="onSaveSettings"
+            :disabled="!hasSettingsChanged || deviceStore.loading"
+            class="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/80 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            Save Settings
+          </button>
         </div>
       </div>
     </div>
@@ -161,6 +187,7 @@ const tempTz = ref<number | null>(null)
 const ssidInputRef = ref<HTMLInputElement | null>(null)
 const passwordInputRef = ref<HTMLInputElement | null>(null)
 const tzInputRef = ref<HTMLInputElement | null>(null)
+const showPassword = ref(false)
 
 watch(
   () => deviceStore.deviceConfig,
@@ -169,46 +196,48 @@ watch(
     wifiSsid.value = wifi?.ssid || ''
     wifiPassword.value = wifi?.password || ''
     timezoneOffset.value = config?.config?.settings?.timezone_offset ?? null
-    // Reset edit state on config change
+    // Reset edit state and temp values on config change
     isEditingSsid.value = false
     isEditingPassword.value = false
     isEditingTz.value = false
+    tempSsid.value = wifiSsid.value
+    tempPassword.value = wifiPassword.value
+    tempTz.value = timezoneOffset.value
   },
   { immediate: true }
 )
 
+const hasSettingsChanged = computed(() =>
+  tempSsid.value !== wifiSsid.value ||
+  tempPassword.value !== wifiPassword.value ||
+  tempTz.value !== timezoneOffset.value
+)
+
 function startEditSsid() {
-  tempSsid.value = wifiSsid.value
   isEditingSsid.value = true
   nextTick(() => ssidInputRef.value?.focus())
 }
-function saveEditSsid() {
-  if (tempSsid.value !== wifiSsid.value) {
-    saveSettings(tempSsid.value, wifiPassword.value, timezoneOffset.value)
-  }
+function stopEditSsid() {
   isEditingSsid.value = false
 }
 function startEditPassword() {
-  tempPassword.value = wifiPassword.value
   isEditingPassword.value = true
   nextTick(() => passwordInputRef.value?.focus())
 }
-function saveEditPassword() {
-  if (tempPassword.value !== wifiPassword.value) {
-    saveSettings(wifiSsid.value, tempPassword.value, timezoneOffset.value)
-  }
+function stopEditPassword() {
   isEditingPassword.value = false
 }
 function startEditTz() {
-  tempTz.value = timezoneOffset.value
   isEditingTz.value = true
   nextTick(() => tzInputRef.value?.focus())
 }
-function saveEditTz() {
-  if (tempTz.value !== timezoneOffset.value) {
-    saveSettings(wifiSsid.value, wifiPassword.value, tempTz.value)
-  }
+function stopEditTz() {
   isEditingTz.value = false
+}
+
+async function onSaveSettings() {
+  await saveSettings(tempSsid.value, tempPassword.value, tempTz.value)
+  // After save, temp values will be reset by watcher
 }
 
 async function saveSettings(ssid: string, password: string, tz: number | null) {
