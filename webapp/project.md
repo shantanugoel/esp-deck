@@ -104,7 +104,7 @@ graph TD
 ### Phase 3: Device Communication
 - [x] Create composables for device protocol (fetch/set/reset/reboot)
 - [x] Integrate Pinia store with API composables
-- [ ] Implement feedback (toasts, loaders)
+- [x] Implement feedback (toasts, loaders)
 
 ### Phase 4: Button Configuration
 - [ ] Implement ButtonEditModal.vue
