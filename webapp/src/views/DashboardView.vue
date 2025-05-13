@@ -1,15 +1,16 @@
 <template>
+
   <div class="w-full min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center pt-8 relative">
     <div class="w-full max-w-4xl bg-card/80 rounded-2xl shadow-lg p-4 flex flex-col items-center justify-center">
       <button
-        v-if="!deviceStore.deviceConfig && !deviceStore.loading"
-        @click="deviceStore.fetchConfig()"
+        v-if="!deviceApi.isConnected && !deviceApi.loading"
+        @click="connectAndFetch"
         class="mb-6 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/80 transition"
       >
         Connect to Device
       </button>
       <button
-        v-if="!deviceStore.deviceConfig && deviceStore.loading"
+        v-if="!deviceApi.isConnected && deviceApi.loading"
         disabled
         class="mb-6 px-6 py-2 rounded-lg bg-muted text-muted-foreground font-semibold shadow cursor-not-allowed"
       >
@@ -30,10 +31,10 @@
       <span class="text-muted-foreground">Loading...</span>
     </div>
     <FeedbackToast
-      v-if="deviceStore.error"
-      :message="deviceStore.error"
+      v-if="deviceStore.error || (deviceApi.error && (typeof deviceApi.error === 'string' ? deviceApi.error : deviceApi.error.value))"
+      :message="deviceStore.error || (typeof deviceApi.error === 'string' ? deviceApi.error : deviceApi.error.value) || ''"
       type="error"
-      :show="!!deviceStore.error"
+      :show="!!(deviceStore.error || (typeof deviceApi.error === 'string' ? deviceApi.error : deviceApi.error.value))"
     />
   </div>
 </template>
@@ -43,9 +44,11 @@ import ButtonGrid from '../components/ButtonGrid.vue'
 import DeviceStatus from '../components/DeviceStatus.vue'
 import FeedbackToast from '../components/FeedbackToast.vue'
 import { useDeviceStore } from '../stores/deviceStore'
+import { useDeviceApi } from '../composables/useDeviceApi'
 import { computed } from 'vue'
 
 const deviceStore = useDeviceStore()
+const deviceApi = useDeviceApi()
 
 const defaultLabels = Array.from({ length: 16 }, (_, i) => `Button ${i + 1}`)
 
@@ -58,4 +61,11 @@ const buttonLabels = computed(() => {
   }
   return defaultLabels
 })
+
+async function connectAndFetch() {
+  const result = await deviceApi.connectToDevice()
+  if (result.data) {
+    await deviceStore.fetchConfig()
+  }
+}
 </script> 
