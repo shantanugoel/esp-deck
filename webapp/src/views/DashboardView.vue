@@ -100,6 +100,7 @@
           @click="onSaveSettings"
           :disabled="!hasSettingsChanged || deviceStore.loading"
           class="px-4 py-2 rounded bg-primary text-primary-foreground font-semibold shadow hover:bg-primary/80 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Save all pending changes (WiFi, timezone, macros, button names) to the device."
         >
           Save Settings
         </button>
@@ -107,6 +108,7 @@
           @click="deviceStore.fetchConfig"
           :disabled="deviceStore.loading || !deviceApi.isConnected"
           class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Reload the latest config from the device, discarding any unsaved changes."
         >
           Reload Settings
         </button>
@@ -114,6 +116,7 @@
           @click="onResetConfig"
           :disabled="deviceApi.loading"
           class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Reset the device config to factory defaults."
         >
           Reset Settings
         </button>
@@ -121,8 +124,25 @@
           @click="onReboot"
           :disabled="deviceApi.loading"
           class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Reboot the device."
         >
           Reboot Device
+        </button>
+        <button
+          @click="onBackupDeviceConfig"
+          :disabled="deviceStore.loading || !deviceApi.isConnected"
+          class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Download the latest config from the device as a JSON backup."
+        >
+          Backup Device Config
+        </button>
+        <button
+          @click="onBackupCurrentConfig"
+          :disabled="!deviceStore.deviceConfig"
+          class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Download the currently loaded config (including unsaved changes) as a JSON backup."
+        >
+          Backup Current Config
         </button>
       </div>
     </div>
@@ -383,4 +403,34 @@ async function onReboot() {
 
 const showDebug = ref(false)
 function toggleDebug() { showDebug.value = !showDebug.value }
+
+function downloadJson(obj: any, filename: string) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => {
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, 100)
+}
+
+async function onBackupDeviceConfig() {
+  // Fetch latest config from device
+  const result = await deviceApi.getConfig()
+  if (result.data && result.data.config) {
+    const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)
+    downloadJson(result.data.config, `device-config-backup-${ts}.json`)
+  }
+}
+
+function onBackupCurrentConfig() {
+  if (deviceStore.deviceConfig && deviceStore.deviceConfig.config) {
+    const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)
+    downloadJson(deviceStore.deviceConfig.config, `current-config-backup-${ts}.json`)
+  }
+}
 </script> 
