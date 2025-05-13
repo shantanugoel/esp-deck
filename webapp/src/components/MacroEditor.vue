@@ -1,39 +1,47 @@
 <template>
-  <div v-if="open" class="w-full">
-    <div class="mb-4">
-      <h3 class="text-lg font-bold mb-2">Macro Sequence Editor</h3>
-      <div class="flex flex-wrap gap-2 mb-4">
+  <div v-if="open" class="w-full mx-auto p-4">
+    <h3 class="text-lg font-bold mb-4">Macro Sequence Editor</h3>
+    <div class="flex flex-col sm:flex-row gap-4">
+      <!-- Sidebar: Action Palette -->
+      <div class="flex flex-row sm:flex-col gap-2 min-w-[140px] max-w-[180px]">
         <button v-for="action in actionPalette" :key="action.type" @click="addAction(action.type)"
-          class="px-3 py-1 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm">
+          class="px-3 py-1 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm w-full">
           + {{ action.label }}
         </button>
       </div>
-      <div v-if="sequence.length === 0" class="text-muted-foreground text-sm mb-2">No actions yet. Add actions from above.</div>
-      <VueDraggable v-model="sequence" class="space-y-2">
-        <div v-for="(act, idx) in sequence" :key="idx">
-          <li class="flex items-center gap-2 bg-card rounded border border-muted px-2 py-1 shadow-sm hover:shadow transition-all">
-            <span class="cursor-grab flex items-center pr-2 select-none text-muted-foreground">
-              <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01'/></svg>
-            </span>
-            <div class="flex-1 min-w-0">
-              <div class="font-mono text-xs text-primary flex items-center gap-2">
-                <span v-html="getActionSummary(act)"></span>
+      <!-- Macro Sequence List -->
+      <div class="flex-1 min-w-0">
+        <div class="relative">
+          <div v-if="sequence.length === 0" class="text-muted-foreground text-sm mb-2">No actions yet. Add actions from the left.</div>
+          <div class="max-h-[60vh] overflow-y-auto pr-1">
+            <VueDraggable v-model="sequence" class="space-y-2">
+              <div v-for="(act, idx) in sequence" :key="idx">
+                <li class="flex items-center gap-2 bg-card rounded border border-muted px-2 py-1 shadow-sm hover:shadow transition-all">
+                  <span class="cursor-grab flex items-center pr-2 select-none text-muted-foreground">
+                    <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01'/></svg>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-mono text-xs text-primary flex items-center gap-2">
+                      <span v-html="getActionSummary(act)"></span>
+                    </div>
+                    <component :is="getActionEditor(act, idx)" :action="act" @update="updateAction(idx, $event)" />
+                  </div>
+                  <span
+                    @click="removeAction(idx)"
+                    tabindex="0"
+                    class="ml-2 w-8 h-8 flex items-center justify-center text-xl text-destructive hover:text-destructive/80 cursor-pointer focus-visible:ring focus-visible:ring-destructive/40 rounded"
+                    role="button"
+                    aria-label="Delete"
+                    title="Delete"
+                  >
+                    🗑️
+                  </span>
+                </li>
               </div>
-              <component :is="getActionEditor(act, idx)" :action="act" @update="updateAction(idx, $event)" />
-            </div>
-            <span
-              @click="removeAction(idx)"
-              tabindex="0"
-              class="ml-2 w-8 h-8 flex items-center justify-center text-xl text-destructive hover:text-destructive/80 cursor-pointer focus-visible:ring focus-visible:ring-destructive/40 rounded"
-              role="button"
-              aria-label="Delete"
-              title="Delete"
-            >
-              🗑️
-            </span>
-          </li>
+            </VueDraggable>
+          </div>
         </div>
-      </VueDraggable>
+      </div>
     </div>
   </div>
 </template>
