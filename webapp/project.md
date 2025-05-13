@@ -97,10 +97,9 @@ graph TD
 
 ### Phase 2: Core UI & State
 - [x] Implement App.vue layout
-- [ ] Implement Dashboard (ButtonGrid.vue)
-- [ ] Implement DeviceStatus.vue
-- [ ] Implement Sidebar.vue
-- [ ] Implement Settings.vue
+- [x] Implement Dashboard (ButtonGrid.vue)
+- [x] Implement DeviceStatus.vue
+- [x] Implement Settings.vue
 
 ### Phase 3: Device Communication
 - [ ] Create composables for device protocol (fetch/set/reset/reboot)
