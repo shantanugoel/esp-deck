@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { defineProps, defineEmits } from 'vue'
+import { keyCodes } from '../keycodes'
 const props = defineProps<{ action: any }>()
 const emit = defineEmits(['update'])
 const isEditingKey = ref<number | null>(null)
@@ -48,6 +49,15 @@ function saveEditMod() {
   emit('update', { ...props.action, KeyPress: { keys: props.action.KeyPress.keys, modifier: tempMod.value } })
   isEditingMod.value = false
 }
+function toggleModifier(mod: string) {
+  let mods = (props.action.KeyPress.modifier || '').split(' ').filter(Boolean)
+  if (mods.includes(mod)) {
+    mods = mods.filter((m: string) => m !== mod)
+  } else {
+    mods.push(mod)
+  }
+  emit('update', { ...props.action, KeyPress: { keys: props.action.KeyPress.keys, modifier: mods.join(' ') } })
+}
 
 watch(isEditingKey, (val) => {
   if (val !== null) nextTick(() => keyInputRef.value?.focus())
@@ -60,28 +70,14 @@ watch(isEditingMod, (val) => {
   <div v-if="isValidKeyPress" class="flex flex-col gap-2">
     <div v-for="(k, idx) in props.action.KeyPress.keys" :key="idx" class="flex gap-2 items-center">
       <span class="font-mono">Key{{ props.action.KeyPress.keys.length > 1 ? ` ${idx + 1}` : '' }}:</span>
-      <template v-if="isEditingKey !== idx">
-        <span>{{ k || '<key>' }}</span>
-        <span
-          class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
-          @click="startEditKey(idx)"
-          title="Edit"
-          tabindex="0"
-          role="button"
-          aria-label="Edit"
-        >✏️</span>
-        <span v-if="props.action.KeyPress.keys.length > 1" @click="removeKey(idx)" class="ml-1 cursor-pointer text-destructive hover:text-destructive/80" title="Remove" tabindex="0" role="button" aria-label="Remove">🗑️</span>
-      </template>
-      <template v-else>
-        <input
-          ref="keyInputRef"
-          v-model="tempKey"
-          class="border rounded px-2 py-1 w-20"
-          placeholder="Key"
-          @keyup.enter="saveEditKey(idx)"
-          @blur="saveEditKey(idx)"
-        />
-      </template>
+      <select
+        v-model="props.action.KeyPress.keys[idx]"
+        class="border rounded px-2 py-1 w-36"
+        @change="emit('update', { ...props.action, KeyPress: { keys: props.action.KeyPress.keys, modifier: props.action.KeyPress.modifier } })"
+      >
+        <option v-for="kc in keyCodes" :key="kc.code" :value="kc.code">{{ kc.label }}</option>
+      </select>
+      <span v-if="props.action.KeyPress.keys.length > 1" @click="removeKey(idx)" class="ml-1 cursor-pointer text-destructive hover:text-destructive/80" title="Remove" tabindex="0" role="button" aria-label="Remove">🗑️</span>
     </div>
     <button
       v-if="props.action.KeyPress.keys.length < 6"
@@ -92,28 +88,19 @@ watch(isEditingMod, (val) => {
       + Add Key
     </button>
     <div class="flex gap-2 items-center mt-2">
-      <span class="font-mono">Modifier:</span>
-      <template v-if="!isEditingMod">
-        <span>{{ props.action.KeyPress.modifier || '-' }}</span>
-        <span
-          class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
-          @click="startEditMod"
-          title="Edit Modifier"
-          tabindex="0"
-          role="button"
-          aria-label="Edit Modifier"
-        >✏️</span>
-      </template>
-      <template v-else>
-        <input
-          ref="modInputRef"
-          v-model="tempMod"
-          class="border rounded px-2 py-1 w-20"
-          placeholder="Modifier"
-          @keyup.enter="saveEditMod"
-          @blur="saveEditMod"
-        />
-      </template>
+      <span class="font-mono">Modifiers:</span>
+      <label class="flex items-center gap-1">
+        <input type="checkbox" :checked="props.action.KeyPress.modifier?.includes('ControlLeft')" @change="toggleModifier('ControlLeft')" /> Ctrl
+      </label>
+      <label class="flex items-center gap-1">
+        <input type="checkbox" :checked="props.action.KeyPress.modifier?.includes('ShiftLeft')" @change="toggleModifier('ShiftLeft')" /> Shift
+      </label>
+      <label class="flex items-center gap-1">
+        <input type="checkbox" :checked="props.action.KeyPress.modifier?.includes('AltLeft')" @change="toggleModifier('AltLeft')" /> Alt
+      </label>
+      <label class="flex items-center gap-1">
+        <input type="checkbox" :checked="props.action.KeyPress.modifier?.includes('MetaLeft')" @change="toggleModifier('MetaLeft')" /> Meta
+      </label>
     </div>
   </div>
   <div v-else class="text-destructive text-sm p-2 border border-destructive rounded bg-destructive/10">
