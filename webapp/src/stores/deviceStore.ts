@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useDeviceApi } from '../composables/useDeviceApi'
 
 // Types for device config (expand as needed)
@@ -48,9 +48,9 @@ export const useDeviceStore = defineStore('device', () => {
     }
 
     return {
-        deviceConfig,
-        loading,
-        error,
+        deviceConfig: computed(() => deviceConfig.value),
+        loading: computed(() => loading.value),
+        error: computed(() => error.value),
         fetchConfig,
         saveConfig,
         resetDeviceConfig,

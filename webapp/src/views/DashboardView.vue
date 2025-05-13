@@ -21,8 +21,8 @@
     <div class="w-full max-w-4xl flex justify-center mt-4">
       <DeviceStatus
         :status="deviceStore.deviceConfig ? 'Connected' : undefined"
-        :wifi="deviceStore.deviceConfig?.settings?.wifi?.ssid ?? undefined"
-        :time="deviceStore.deviceConfig ? '12:34' : undefined" />
+        :wifi="deviceStore.deviceConfig?.config?.settings?.wifi?.ssid ?? undefined"
+        :time="deviceStore.deviceConfig?.config?.device_time ?? '-'" />
     </div>
     <div class="w-full max-w-4xl flex justify-center mt-2">
       <div class="text-xs text-muted-foreground font-mono">Time: Synced</div>
@@ -31,10 +31,10 @@
       <span class="text-muted-foreground">Loading...</span>
     </div>
     <FeedbackToast
-      v-if="deviceStore.error || (deviceApi.error && (typeof deviceApi.error === 'string' ? deviceApi.error : deviceApi.error.value))"
-      :message="deviceStore.error || (typeof deviceApi.error === 'string' ? deviceApi.error : deviceApi.error.value) || ''"
+      v-if="deviceStore.error || normalizedApiError"
+      :message="deviceStore.error || normalizedApiError || ''"
       type="error"
-      :show="!!(deviceStore.error || (typeof deviceApi.error === 'string' ? deviceApi.error : deviceApi.error.value))"
+      :show="!!(deviceStore.error || normalizedApiError)"
     />
   </div>
 </template>
@@ -53,7 +53,8 @@ const deviceApi = useDeviceApi()
 const defaultLabels = Array.from({ length: 16 }, (_, i) => `Button ${i + 1}`)
 
 const buttonLabels = computed(() => {
-  const names = deviceStore.deviceConfig?.button_names
+  const names = deviceStore.deviceConfig?.config?.button_names
+  console.log('[DEBUG] buttonLabels computed, deviceConfig:', deviceStore.deviceConfig)
   if (Array.isArray(names) && names.length === 16) return names
   if (names && typeof names === 'object') {
     // If button_names is an object (from backend), map to array
@@ -62,10 +63,19 @@ const buttonLabels = computed(() => {
   return defaultLabels
 })
 
+const normalizedApiError = computed(() => {
+  const err = deviceApi.error
+  if (!err) return undefined
+  if (typeof err === 'string') return err
+  return undefined
+})
+
 async function connectAndFetch() {
   const result = await deviceApi.connectToDevice()
+  console.log('[DEBUG] connectAndFetch result:', result)
   if (result.data) {
     await deviceStore.fetchConfig()
+    console.log('[DEBUG] after fetchConfig, deviceConfig:', deviceStore.deviceConfig)
   }
 }
 </script> 
