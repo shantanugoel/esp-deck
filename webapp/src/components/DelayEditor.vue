@@ -1,12 +1,48 @@
 <script setup lang="ts">
+import { ref, watch, nextTick } from 'vue'
 import { defineProps, defineEmits } from 'vue'
 const props = defineProps<{ action: any }>()
 const emit = defineEmits(['update'])
+const isEditing = ref(false)
+const tempValue = ref(props.action.Delay.ms)
+const inputRef = ref<HTMLInputElement | null>(null)
+
+function startEdit() {
+  tempValue.value = props.action.Delay.ms
+  isEditing.value = true
+}
+function saveEdit() {
+  emit('update', { ...props.action, Delay: { ms: tempValue.value } })
+  isEditing.value = false
+}
+
+watch(isEditing, (val) => {
+  if (val) nextTick(() => inputRef.value?.focus())
+})
 </script>
 <template>
   <div class="flex gap-2 items-center">
     <span class="font-mono">Delay (ms):</span>
-    <input v-model.number="props.action.Delay.ms" type="number" class="border rounded px-2 py-1 w-20" />
-    <button @click="emit('update', props.action)">✔</button>
+    <template v-if="!isEditing">
+      <span>{{ props.action.Delay.ms }}</span>
+      <span
+        class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
+        @click="startEdit"
+        title="Edit"
+        tabindex="0"
+        role="button"
+        aria-label="Edit"
+      >✏️</span>
+    </template>
+    <template v-else>
+      <input
+        ref="inputRef"
+        v-model.number="tempValue"
+        type="number"
+        class="border rounded px-2 py-1 w-20"
+        @blur="saveEdit"
+        @keyup.enter="saveEdit"
+      />
+    </template>
   </div>
 </template> 

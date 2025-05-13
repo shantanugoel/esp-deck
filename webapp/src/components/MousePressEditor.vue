@@ -1,16 +1,57 @@
 <script setup lang="ts">
+import { ref, watch, nextTick } from 'vue'
 import { defineProps, defineEmits } from 'vue'
 const props = defineProps<{ action: any }>()
 const emit = defineEmits(['update'])
+const isEditing = ref(false)
+const tempButton = ref(props.action.MousePress.button)
+const selectRef = ref<HTMLSelectElement | null>(null)
+
+function startEdit() {
+  tempButton.value = props.action.MousePress.button
+  isEditing.value = true
+}
+function saveEdit() {
+  emit('update', { ...props.action, MousePress: { button: tempButton.value } })
+  isEditing.value = false
+}
+function buttonLabel(val: number) {
+  if (val === 1) return 'Left'
+  if (val === 2) return 'Right'
+  if (val === 4) return 'Middle'
+  return val
+}
+
+watch(isEditing, (val) => {
+  if (val) nextTick(() => selectRef.value?.focus())
+})
 </script>
 <template>
   <div class="flex gap-2 items-center">
     <span class="font-mono">Button:</span>
-    <select v-model.number="props.action.MousePress.button" class="border rounded px-2 py-1">
-      <option :value="1">Left</option>
-      <option :value="2">Right</option>
-      <option :value="4">Middle</option>
-    </select>
-    <button @click="emit('update', props.action)">✔</button>
+    <template v-if="!isEditing">
+      <span>{{ buttonLabel(props.action.MousePress.button) }}</span>
+      <span
+        class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
+        @click="startEdit"
+        title="Edit"
+        tabindex="0"
+        role="button"
+        aria-label="Edit"
+      >✏️</span>
+    </template>
+    <template v-else>
+      <select
+        ref="selectRef"
+        v-model.number="tempButton"
+        class="border rounded px-2 py-1"
+        @blur="saveEdit"
+        @change="saveEdit"
+      >
+        <option :value="1">Left</option>
+        <option :value="2">Right</option>
+        <option :value="4">Middle</option>
+      </select>
+    </template>
   </div>
 </template> 
