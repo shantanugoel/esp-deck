@@ -27,7 +27,11 @@
             <option value="macro">Macro</option>
           </select>
         </div>
-        <div class="mb-4">
+        <div class="mb-4" v-if="form.actionType === 'macro'">
+          <label class="block text-sm font-medium mb-1">Macro Sequence</label>
+          <MacroEditor v-model="macroSequence" :open="true" />
+        </div>
+        <div class="mb-4" v-else>
           <label class="block text-sm font-medium mb-1" for="actionDetail">Action Details</label>
           <textarea
             id="actionDetail"
@@ -48,6 +52,7 @@
 
 <script setup lang="ts">
 import { ref, watch, defineProps, defineEmits } from 'vue'
+import MacroEditor from './MacroEditor.vue'
 
 type ButtonData = {
   name: string
@@ -72,9 +77,29 @@ const form = ref<ButtonData>({
   actionDetail: ''
 })
 
+// Macro sequence state for macro editor
+const macroSequence = ref<any[]>([])
+
 watch(() => props.buttonData, (val) => {
-  if (val) form.value = { ...val }
+  if (val) {
+    form.value = { ...val }
+    if (val.actionType === 'macro') {
+      try {
+        macroSequence.value = JSON.parse(val.actionDetail)
+      } catch {
+        macroSequence.value = []
+      }
+    } else {
+      macroSequence.value = []
+    }
+  }
 }, { immediate: true })
+
+watch(macroSequence, (val) => {
+  if (form.value.actionType === 'macro') {
+    form.value.actionDetail = JSON.stringify(val)
+  }
+}, { deep: true })
 
 function onSave() {
   emit('save', { ...form.value })

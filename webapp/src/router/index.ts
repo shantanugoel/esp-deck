@@ -12,6 +12,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Settings',
         component: () => import('../views/SettingsView.vue'),
     },
+    {
+        path: '/edit-macro/:buttonIndex',
+        name: 'edit-macro',
+        component: () => import('../views/EditMacroView.vue'),
+        props: true,
+    },
 ]
 
 export const router = createRouter({

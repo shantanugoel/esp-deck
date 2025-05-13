@@ -16,14 +16,18 @@
       >
         Connecting...
       </button>
-      <ButtonGrid :button-labels="buttonLabels" @edit="handleEditButton" />
-      <ButtonEditModal
-        :open="isEditModalOpen"
-        :button-index="selectedButtonIndex ?? 0"
-        :button-data="selectedButtonData"
-        @save="handleModalSave"
-        @close="handleModalClose"
-      />
+      <div class="w-full">
+        <div class="grid grid-cols-4 gap-3 w-full mb-2">
+          <div v-for="(label, idx) in buttonLabels" :key="idx" class="flex flex-col items-center">
+            <button
+              class="h-12 sm:h-14 md:h-16 w-full rounded-lg bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center shadow hover:bg-muted transition"
+              @click="goToMacroEditor(idx)"
+            >
+              {{ label }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="w-full max-w-4xl flex justify-center mt-4">
       <DeviceStatus
@@ -47,25 +51,23 @@
 </template>
 
 <script setup lang="ts">
-import ButtonGrid from '../components/ButtonGrid.vue'
-import ButtonEditModal from '../components/ButtonEditModal.vue'
 import DeviceStatus from '../components/DeviceStatus.vue'
 import FeedbackToast from '../components/FeedbackToast.vue'
 import { useDeviceStore } from '../stores/deviceStore'
 import { useDeviceApi } from '../composables/useDeviceApi'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 const deviceStore = useDeviceStore()
 const deviceApi = useDeviceApi()
+const router = useRouter()
 
 const defaultLabels = Array.from({ length: 16 }, (_, i) => `Button ${i + 1}`)
 
 const buttonLabels = computed(() => {
   const names = deviceStore.deviceConfig?.config?.button_names
-  console.log('[DEBUG] buttonLabels computed, deviceConfig:', deviceStore.deviceConfig)
   if (Array.isArray(names) && names.length === 16) return names
   if (names && typeof names === 'object') {
-    // If button_names is an object (from backend), map to array
     return Array.from({ length: 16 }, (_, i) => names[i] || defaultLabels[i])
   }
   return defaultLabels
@@ -82,92 +84,14 @@ const normalizedApiError = computed(() => {
   return undefined
 })
 
-// --- Button Edit Modal State ---
-const isEditModalOpen = ref(false)
-const selectedButtonIndex = ref<number | null>(null)
-const selectedButtonData = ref({ name: '', actionType: 'keyboard', actionDetail: '' })
-
-function handleEditButton(idx: number) {
-  selectedButtonIndex.value = idx
-  const config = deviceStore.deviceConfig?.config
-  const buttonNames = config?.button_names || {}
-  const mappings = config?.mappings || {}
-  const mappingKey = String(idx + 1)
-  const actions = mappings[mappingKey] || []
-
-  let actionType = 'keyboard'
-  let actionDetail = ''
-  // If there are multiple actions or a Sequence, treat as macro
-  if (actions.length > 1 || (actions.length > 0 && actions[0].Sequence)) {
-    actionType = 'macro'
-    actionDetail = JSON.stringify(actions, null, 2)
-  } else if (actions.length > 0) {
-    const first = actions[0]
-    if (first.KeyPress) {
-      actionType = 'keyboard'
-      actionDetail = first.KeyPress.key + (first.KeyPress.modifier ? ` + ${first.KeyPress.modifier}` : '')
-    } else if (first.MousePress) {
-      actionType = 'mouse'
-      actionDetail = String(first.MousePress.button)
-    } else if (first.ConsumerPress) {
-      actionType = 'media'
-      actionDetail = String(first.ConsumerPress.usage_id)
-    } else {
-      actionType = 'macro'
-      actionDetail = JSON.stringify(actions, null, 2)
-    }
-  }
-  selectedButtonData.value = {
-    name: buttonNames[idx] || defaultLabels[idx],
-    actionType,
-    actionDetail
-  }
-  isEditModalOpen.value = true
-}
-
-function handleModalSave(data: { name: string; actionType: string; actionDetail: string }) {
-  if (selectedButtonIndex.value == null) return
-  const config = deviceStore.deviceConfig?.config
-  if (config) {
-    if (!config.button_names) config.button_names = {}
-    config.button_names[selectedButtonIndex.value] = data.name
-    if (!config.mappings) config.mappings = {}
-    const mappingKey = String(selectedButtonIndex.value + 1)
-    let actions: any[] = []
-    if (data.actionType === 'macro') {
-      // Raw JSON for macro sequence
-      try {
-        const seq = JSON.parse(data.actionDetail)
-        actions = Array.isArray(seq) ? seq : []
-      } catch {
-        actions = []
-      }
-    } else if (data.actionType === 'keyboard') {
-      const [key, mod] = data.actionDetail.split(' + ').map(s => s.trim())
-      actions = [{ KeyPress: { key, modifier: mod || undefined } }, { Delay: { ms: 10 } }, 'KeyRelease']
-    } else if (data.actionType === 'mouse') {
-      const button = parseInt(data.actionDetail, 10) || 1
-      actions = [{ MousePress: { button } }, { Delay: { ms: 10 } }, 'MouseRelease']
-    } else if (data.actionType === 'media') {
-      const usage_id = parseInt(data.actionDetail, 16) || 0
-      actions = [{ ConsumerPress: { usage_id } }, { Delay: { ms: 10 } }, 'ConsumerRelease']
-    }
-    config.mappings[mappingKey] = actions
-    deviceStore.saveConfig({ ...config })
-  }
-  isEditModalOpen.value = false
-}
-
-function handleModalClose() {
-  isEditModalOpen.value = false
+function goToMacroEditor(idx: number) {
+  router.push({ name: 'edit-macro', params: { buttonIndex: idx } })
 }
 
 async function connectAndFetch() {
   const result = await deviceApi.connectToDevice()
-  console.log('[DEBUG] connectAndFetch result:', result)
   if (result.data) {
     await deviceStore.fetchConfig()
-    console.log('[DEBUG] after fetchConfig, deviceConfig:', deviceStore.deviceConfig)
   }
 }
 </script> 
