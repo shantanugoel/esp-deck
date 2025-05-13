@@ -35,6 +35,22 @@
         :wifi="deviceWifi"
         :time="deviceTime" />
     </div>
+    <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex justify-center mt-4 gap-4">
+      <button
+        @click="onResetConfig"
+        :disabled="deviceApi.loading"
+        class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        Reset Config
+      </button>
+      <button
+        @click="onReboot"
+        :disabled="deviceApi.loading"
+        class="px-4 py-2 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        Reboot Device
+      </button>
+    </div>
     <div class="w-full max-w-4xl flex justify-center mt-2">
       <div class="text-xs text-muted-foreground font-mono">Time: Synced</div>
     </div>
@@ -93,5 +109,16 @@ async function connectAndFetch() {
   if (result.data) {
     await deviceStore.fetchConfig()
   }
+}
+
+async function onResetConfig() {
+  const result = await deviceApi.resetConfig()
+  if (result.data) {
+    deviceStore.fetchConfig()
+  }
+}
+
+async function onReboot() {
+  await deviceApi.reboot()
 }
 </script> 
