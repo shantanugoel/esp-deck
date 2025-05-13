@@ -9,7 +9,6 @@
         </button>
       </div>
       <div v-if="sequence.length === 0" class="text-muted-foreground text-sm mb-2">No actions yet. Add actions from above.</div>
-      <div>sequence: {{ sequence }}</div>
       <VueDraggable v-model="sequence" class="space-y-2">
         <div v-for="(act, idx) in sequence" :key="idx">
           <li class="flex items-center gap-2 bg-card rounded border border-muted px-2 py-1 shadow-sm hover:shadow transition-all">
