@@ -1,6 +1,6 @@
 <template>
   <div class="w-full min-h-screen flex flex-col items-center bg-background py-8">
-    <div class="w-full max-w-2xl bg-card rounded-2xl shadow-lg p-6 flex flex-col items-center">
+    <div class="w-full bg-card rounded-2xl shadow-lg p-6 flex flex-col items-center">
       <h1 class="text-2xl font-bold mb-4 text-center">Edit Macro for Button {{ buttonIndexDisplay }}</h1>
       <div class="w-full mb-4">
         <label class="block text-sm font-medium mb-1">Button Name</label>
