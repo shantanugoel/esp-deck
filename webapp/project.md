@@ -102,8 +102,8 @@ graph TD
 - [x] Implement Settings.vue
 
 ### Phase 3: Device Communication
-- [ ] Create composables for device protocol (fetch/set/reset/reboot)
-- [ ] Integrate Pinia store with API composables
+- [x] Create composables for device protocol (fetch/set/reset/reboot)
+- [x] Integrate Pinia store with API composables
 - [ ] Implement feedback (toasts, loaders)
 
 ### Phase 4: Button Configuration
