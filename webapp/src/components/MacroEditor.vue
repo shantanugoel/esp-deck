@@ -9,24 +9,39 @@
         </button>
       </div>
       <div v-if="sequence.length === 0" class="text-muted-foreground text-sm mb-2">No actions yet. Add actions from above.</div>
-      <ul class="space-y-2">
-        <li v-for="(act, idx) in sequence" :key="idx" class="flex items-center gap-2 bg-card rounded p-2">
-          <div class="flex-1">
-            <component :is="getActionEditor(act, idx)" :action="act" @update="updateAction(idx, $event)" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <button @click="moveUp(idx)" :disabled="idx === 0" class="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80">↑</button>
-            <button @click="moveDown(idx)" :disabled="idx === sequence.length - 1" class="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80">↓</button>
-            <button @click="removeAction(idx)" class="text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/80">✕</button>
-          </div>
-        </li>
-      </ul>
+      <VueDraggable v-model="sequence" handle=".drag-handle" class="space-y-2">
+        <div v-for="(act, idx) in sequence" :key="idx">
+          <li class="flex items-center gap-2 bg-card rounded border border-muted px-2 py-1 shadow-sm hover:shadow transition-all">
+            <span class="drag-handle cursor-grab flex items-center pr-2 select-none text-muted-foreground">
+              <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01'/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="font-mono text-xs text-primary flex items-center gap-2">
+                <span v-html="getActionSummary(act)"></span>
+              </div>
+              <component :is="getActionEditor(act, idx)" :action="act" @update="updateAction(idx, $event)" />
+            </div>
+            <button @click="removeAction(idx)" class="ml-2 p-1 rounded text-destructive hover:text-destructive/80" title="Delete">
+              <svg xmlns='http://www.w3.org/2000/svg' class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M3 6h18M8 6v12a2 2 0 002 2h4a2 2 0 002-2V6m-6 0V4a2 2 0 012-2h0a2 2 0 012 2v2'/></svg>
+            </button>
+          </li>
+        </div>
+      </VueDraggable>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, defineProps, defineEmits } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus';
+import KeyPressEditor from './KeyPressEditor.vue'
+import MousePressEditor from './MousePressEditor.vue'
+import MouseMoveEditor from './MouseMoveEditor.vue'
+import MouseWheelEditor from './MouseWheelEditor.vue'
+import ConsumerPressEditor from './ConsumerPressEditor.vue'
+import DelayEditor from './DelayEditor.vue'
+import SequenceEditor from './SequenceEditor.vue'
+import UnknownEditor from './UnknownEditor.vue'
 
 // Action type definitions
 const actionPalette = [
@@ -98,80 +113,35 @@ function getActionEditor(act: any, idx: number) {
   return UnknownEditor
 }
 
-// --- Inline editors for each action type ---
-const KeyPressEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='flex gap-2 items-center'>
-    <span class='font-mono'>Key:</span>
-    <input v-model="action.KeyPress.key" class='border rounded px-2 py-1 w-20' placeholder='Key' />
-    <span class='font-mono'>Mod:</span>
-    <input v-model="action.KeyPress.modifier" class='border rounded px-2 py-1 w-20' placeholder='Modifier' />
-    <button @click="$emit('update', action)">✔</button>
-  </div>`
-}
-const MousePressEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='flex gap-2 items-center'>
-    <span class='font-mono'>Button:</span>
-    <select v-model.number="action.MousePress.button" class='border rounded px-2 py-1'>
-      <option :value="1">Left</option>
-      <option :value="2">Right</option>
-      <option :value="4">Middle</option>
-    </select>
-    <button @click="$emit('update', action)">✔</button>
-  </div>`
-}
-const MouseMoveEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='flex gap-2 items-center'>
-    <span class='font-mono'>dx:</span>
-    <input v-model.number="action.MouseMove.dx" type='number' class='border rounded px-2 py-1 w-14' />
-    <span class='font-mono'>dy:</span>
-    <input v-model.number="action.MouseMove.dy" type='number' class='border rounded px-2 py-1 w-14' />
-    <button @click="$emit('update', action)">✔</button>
-  </div>`
-}
-const MouseWheelEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='flex gap-2 items-center'>
-    <span class='font-mono'>Amount:</span>
-    <input v-model.number="action.MouseWheel.amount" type='number' class='border rounded px-2 py-1 w-14' />
-    <button @click="$emit('update', action)">✔</button>
-  </div>`
-}
-const ConsumerPressEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='flex gap-2 items-center'>
-    <span class='font-mono'>Usage ID:</span>
-    <input v-model.number="action.ConsumerPress.usage_id" type='number' class='border rounded px-2 py-1 w-20' />
-    <button @click="$emit('update', action)">✔</button>
-  </div>`
-}
-const DelayEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='flex gap-2 items-center'>
-    <span class='font-mono'>Delay (ms):</span>
-    <input v-model.number="action.Delay.ms" type='number' class='border rounded px-2 py-1 w-20' />
-    <button @click="$emit('update', action)">✔</button>
-  </div>`
-}
-const SequenceEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='flex flex-col gap-1'>
-    <span class='font-mono'>Nested Sequence:</span>
-    <MacroEditor :model-value="action.Sequence" :open="true" @update:modelValue="$emit('update', { Sequence: $event })" />
-  </div>`
-}
-const UnknownEditor = {
-  props: ['action'],
-  emits: ['update'],
-  template: `<div class='text-destructive'>Unknown action</div>`
+// Move getActionSummary above the template so it is available for template usage
+function getActionSummary(act: any): string {
+  if (act.KeyPress) {
+    const key = act.KeyPress.key || '<key>'
+    const mod = act.KeyPress.modifier ? ` + ${act.KeyPress.modifier}` : ''
+    return `<b>KeyPress:</b> ${key}${mod}`
+  }
+  if (act.MousePress) {
+    const btn = act.MousePress.button === 1 ? 'Left' : act.MousePress.button === 2 ? 'Right' : 'Middle'
+    return `<b>MousePress:</b> ${btn}`
+  }
+  if (act.MouseMove) {
+    return `<b>MouseMove:</b> dx=${act.MouseMove.dx}, dy=${act.MouseMove.dy}`
+  }
+  if (act.MouseWheel) {
+    return `<b>MouseWheel:</b> amount=${act.MouseWheel.amount}`
+  }
+  if (act.ConsumerPress) {
+    return `<b>Media Key:</b> usage_id=0x${act.ConsumerPress.usage_id.toString(16).toUpperCase()}`
+  }
+  if (act.Delay) {
+    return `<b>Delay:</b> ${act.Delay.ms}ms`
+  }
+  if (act.Sequence) {
+    return `<b>Nested Sequence</b>`
+  }
+  if (typeof act === 'string') {
+    return `<b>${act}</b>`
+  }
+  return '<b>Unknown</b>'
 }
 </script> 

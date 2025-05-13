@@ -67,6 +67,6 @@ function onSave() {
   goBack()
 }
 function goBack() {
-  router.push({ name: 'dashboard' })
+  router.push({ name: 'Dashboard' })
 }
 </script> 
