@@ -45,7 +45,7 @@ pub enum AppEvent {
     UsbUpdate(UsbStatus),
     UsbHidCommand(UsbHidCommand),
     ButtonPressed(i32),
-    MappingUpdated(Box<MappingConfiguration>),
+    MappingUpdated(MappingConfiguration),
 }
 
 // Represents a single primitive HID action or delay

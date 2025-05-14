@@ -173,7 +173,7 @@ impl<'a> ProtocolManager<'a> {
                     Ok(_) => {
                         if self
                             .actor_tx
-                            .send(AppEvent::MappingUpdated(Box::new(new_config.mappings)))
+                            .send(AppEvent::MappingUpdated(new_config.mappings.clone()))
                             .is_err()
                         {
                             log::error!("Error sending mapping updated event. Will need to reboot for updated mappings to take effect");
