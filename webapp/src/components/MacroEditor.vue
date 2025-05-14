@@ -88,7 +88,7 @@ function addAction(type: string) {
   if (type === 'KeyPress')
     action = { KeyPress: { keys: [''], modifier: '' } }
   else if (type === 'KeyRelease')
-    action = { KeyRelease: true }
+    action = 'KeyRelease'
   else if (type === 'MousePress') action = { MousePress: { button: 1 } }
   else if (type === 'MouseMove') action = { MouseMove: { dx: 0, dy: 0 } }
   else if (type === 'MouseWheel') action = { MouseWheel: { amount: 1 } }
