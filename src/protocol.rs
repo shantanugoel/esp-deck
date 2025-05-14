@@ -139,9 +139,13 @@ impl<'a> ProtocolManager<'a> {
                 let mut config_updated_for = ConfigUpdatedFor::default();
                 let response = match self.config.save(&new_config, &mut config_updated_for) {
                     Ok(_) => {
-                        self.actor_tx
+                        if self
+                            .actor_tx
                             .send(AppEvent::MappingUpdated(Box::new(new_config.mappings)))
-                            .unwrap();
+                            .is_err()
+                        {
+                            log::error!("Error sending mapping updated event. Will need to reboot for updated mappings to take effect");
+                        }
                         let response = AckResponse {
                             header: response_header,
                             message: "Config set successfully".to_string(),
