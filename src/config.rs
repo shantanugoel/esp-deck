@@ -168,7 +168,7 @@ impl Configurator {
             config_updated_for.wifi = true;
         }
         if let Some(new_timezone_offset) = &new_config.settings.timezone_offset {
-            old_config.settings.timezone_offset = Some(new_timezone_offset.clone());
+            old_config.settings.timezone_offset = Some(*new_timezone_offset);
             config_updated_for.timezone_offset = true;
         }
         for (key, new_actions) in &new_config.mappings {
@@ -222,7 +222,7 @@ impl Configurator {
 
     pub fn get_timezone_offset(&self) -> Option<f32> {
         let config = self.config_data.lock().unwrap();
-        config.settings.timezone_offset.clone()
+        config.settings.timezone_offset
     }
 
     pub fn get_mappings(&self) -> Option<MappingConfiguration> {

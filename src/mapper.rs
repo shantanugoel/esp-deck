@@ -499,7 +499,7 @@ impl Mapper {
                     let mut keycodes = [0u8; 6];
                     let mut mod_bits = 0u8;
                     for (idx, key) in keys.iter().take(6).enumerate() {
-                        let (mb, key_code) = Self::translate_key(&key, modifier.as_deref());
+                        let (mb, key_code) = Self::translate_key(key, modifier.as_deref());
                         keycodes[idx] = key_code;
                         mod_bits |= mb;
                     }

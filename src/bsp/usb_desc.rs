@@ -170,7 +170,7 @@ pub const TUSB_DESC_CONFIGURATION: [u8; CONFIG_DESC_TOTAL_LEN as usize] = [
     0x01,                                       // bConfigurationValue: Configuration value 1
     CONFIG_STRING_INDEX,                        // iConfiguration: Index of string descriptor (0 = None)
     USB_CONFIG_ATTR,                            // bmAttributes: (e.g., 0xA0 = Bus powered + Remote Wakeup)
-    (USB_MAX_POWER_MA / 2) as u8,               // bMaxPower: Max power in 2mA units (e.g., 100mA -> 50)
+    (USB_MAX_POWER_MA / 2),               // bMaxPower: Max power in 2mA units (e.g., 100mA -> 50)
 
     // HID Interface: Interface 0
     // --- Interface Descriptor (9 bytes) ---

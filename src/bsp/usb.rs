@@ -58,7 +58,7 @@ extern "C" fn tud_hid_descriptor_report_cb(instance: u8) -> *const u8 {
         "tud_hid_descriptor_report_cb called (instance={})",
         instance
     );
-    return TUSB_DESC_HID_REPORT.as_ptr();
+    TUSB_DESC_HID_REPORT.as_ptr()
 }
 
 #[allow(unused_variables)]
@@ -77,7 +77,7 @@ extern "C" fn tud_hid_get_report_cb(
         report_type,
         reqlen
     );
-    return 0;
+    0
 }
 
 #[allow(unused_variables)]
@@ -261,9 +261,9 @@ fn process_rx_buffer() -> bool {
                 if data.len() >= 4 {
                     // Peek at the first 4 bytes to look for the magic word
                     // without consuming them
-                    let magic_word: u32 = (data[0] as u32) << 24
-                        | (data[1] as u32) << 16
-                        | (data[2] as u32) << 8
+                    let magic_word: u32 = ((data[0] as u32) << 24)
+                        | ((data[1] as u32) << 16)
+                        | ((data[2] as u32) << 8)
                         | (data[3] as u32);
                     // let magic_word = u32::from_le_bytes(magic_word_bytes);
                     if magic_word == MAGIC_WORD {
@@ -291,9 +291,9 @@ fn process_rx_buffer() -> bool {
                 if data.len() >= 4 {
                     // Peek at the first 4 bytes to look for the payload length
                     // without consuming them
-                    let payload_length: u32 = (data[0] as u32) << 24
-                        | (data[1] as u32) << 16
-                        | (data[2] as u32) << 8
+                    let payload_length: u32 = ((data[0] as u32) << 24)
+                        | ((data[1] as u32) << 16)
+                        | ((data[2] as u32) << 8)
                         | (data[3] as u32);
                     if payload_length > 0 && payload_length <= MAX_PAYLOAD_LENGTH as u32 {
                         log::info!(
@@ -367,7 +367,7 @@ extern "C" fn tud_vendor_tx_cb(itf: u8, len: u16) {
 #[no_mangle]
 extern "C" fn tud_descriptor_bos_cb() -> *const u8 {
     log::info!("tud_descriptor_bos_cb called");
-    return TUSB_DESC_BOS.as_ptr();
+    TUSB_DESC_BOS.as_ptr()
 }
 
 #[no_mangle]
@@ -423,9 +423,7 @@ pub extern "C" fn tud_vendor_control_xfer_cb(
                         len_to_send
                     );
 
-                    return unsafe {
-                        tud_control_xfer(rhport, request, url_ptr as *mut _, len_to_send)
-                    };
+                    unsafe { tud_control_xfer(rhport, request, url_ptr as *mut _, len_to_send) }
                 }
 
                 crate::bsp::usb_desc::VENDOR_REQUEST_MICROSOFT => {
@@ -444,19 +442,17 @@ pub extern "C" fn tud_vendor_control_xfer_cb(
                             len_to_send
                         );
 
-                        return unsafe {
-                            tud_control_xfer(rhport, request, desc as *mut _, len_to_send)
-                        };
+                        unsafe { tud_control_xfer(rhport, request, desc as *mut _, len_to_send) }
                     } else {
                         log::info!("Unhandled MS OS 2.0 request");
-                        return false; // Not handled
+                        false // Not handled
                     }
                 }
 
                 _ => {
                     // Unknown vendor request
                     log::info!("Unknown vendor request: {}", req.bRequest);
-                    return false; // Not handled
+                    false // Not handled
                 }
             }
         }
@@ -466,12 +462,12 @@ pub extern "C" fn tud_vendor_control_xfer_cb(
             if req.bRequest == 0x22 {
                 log::info!("WebUSB interface connected");
             }
-            return unsafe { tud_control_status(rhport, request) };
+            unsafe { tud_control_status(rhport, request) }
         }
 
         _ => {
             log::info!("Unknown request type {}", request_type);
-            return false; // Not handled
+            false // Not handled
         }
     }
 }
