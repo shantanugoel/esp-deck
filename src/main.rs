@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Load configuration - This will likely fail if VFS isn't mounted
-    let mut config = Configurator::load_or_create_default_config(CONFIG_PATH)?;
+    let config = Configurator::load_or_create_default_config(CONFIG_PATH)?;
 
     let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
@@ -159,7 +159,7 @@ fn main() -> anyhow::Result<()> {
 
     threads.push(thread::spawn(move || {
         let protocol_manager =
-            ProtocolManager::new(usb_message_rx, main_wifi_time_init_tx, &mut config);
+            ProtocolManager::new(usb_message_rx, main_wifi_time_init_tx, &config);
         protocol_manager.run();
     }));
 

@@ -487,11 +487,11 @@ impl Mapper {
             .cloned() // Clone the sequence to avoid borrowing issues
             .unwrap_or_default(); // Return empty sequence if neither found
 
-        self.translate_sequence(config_sequence)
+        Self::translate_sequence(config_sequence)
     }
 
     /// Recursively translates a sequence of ConfigActions into HidActions.
-    fn translate_sequence(&self, config_actions: Vec<ConfigAction>) -> Vec<HidAction> {
+    fn translate_sequence(config_actions: Vec<ConfigAction>) -> Vec<HidAction> {
         let mut hid_actions = Vec::new();
         for action in config_actions {
             match action {
@@ -524,7 +524,7 @@ impl Mapper {
                     hid_actions.push(HidAction::Delay(Duration::from_millis(ms)))
                 }
                 ConfigAction::Sequence(sub_sequence) => {
-                    hid_actions.extend(self.translate_sequence(sub_sequence));
+                    hid_actions.extend(Self::translate_sequence(sub_sequence));
                 }
             }
         }

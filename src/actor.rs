@@ -36,9 +36,11 @@ impl Actor {
                             log::debug!("Actor executing action: {:?}", action);
                             match action {
                                 HidAction::KeyPress(modifier_bits, keycodes) => {
-                                    let mut report = KeyboardReport::default();
-                                    report.modifier = modifier_bits;
-                                    report.keys = keycodes;
+                                    let report = KeyboardReport {
+                                        modifier: modifier_bits,
+                                        keys: keycodes,
+                                        ..Default::default()
+                                    };
                                     log::debug!(
                                         "Actor sending KeyboardReport: modifier={:#04x}, keys={:?}",
                                         report.modifier,

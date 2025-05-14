@@ -216,7 +216,7 @@ extern "C" fn tud_resume_cb() {
 extern "C" fn tud_vendor_rx_cb(itf: u8, buffer: *const u8, len: u16) {
     log::info!("tud_vendor_rx_cb called with {} bytes", len);
 
-    let new_data_slice = unsafe { std::slice::from_raw_parts(buffer as *const u8, len as usize) };
+    let new_data_slice = unsafe { std::slice::from_raw_parts(buffer, len as usize) };
 
     match USB_RX_BUFFER.lock() {
         Ok(mut buffer_guard) => {
@@ -377,8 +377,12 @@ pub extern "C" fn tud_descriptor_webusb_url_cb() -> *const u8 {
     crate::bsp::usb_desc::TUSB_DESC_WEBUSB_URL.as_ptr()
 }
 
+/// # Safety
+/// This function is unsafe because it dereferences the request pointer
+/// however, this is not an issue because it is never called from rust code
+/// only as a callback from the tinyusb library
 #[no_mangle]
-pub extern "C" fn tud_vendor_control_xfer_cb(
+pub unsafe extern "C" fn tud_vendor_control_xfer_cb(
     rhport: u8,
     stage: u8,
     request: *const tusb_control_request_t,

@@ -143,10 +143,7 @@ impl slint::platform::Platform for EspPlatform {
                     b1 as *mut Rgb565Pixel,
                     DISPLAY_WIDTH * DISPLAY_HEIGHT,
                 ),
-                core::slice::from_raw_parts_mut(
-                    b2 as *mut Rgb565Pixel,
-                    DISPLAY_WIDTH * DISPLAY_HEIGHT,
-                ),
+                core::slice::from_raw_parts_mut(b2, DISPLAY_WIDTH * DISPLAY_HEIGHT),
             )
         };
 
