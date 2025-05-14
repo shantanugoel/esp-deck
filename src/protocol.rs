@@ -101,7 +101,13 @@ impl<'a> ProtocolManager<'a> {
 
     pub fn run(&self) {
         loop {
-            let message = self.message_rx.recv().unwrap();
+            let message = match self.message_rx.recv() {
+                Ok(msg) => msg,
+                Err(e) => {
+                    log::error!("ProtocolManager channel closed: {}", e);
+                    break;
+                }
+            };
             match serde_json::from_slice::<Command>(&message) {
                 Ok(command) => {
                     log::info!("Received command: {:?}", command);
@@ -122,11 +128,37 @@ impl<'a> ProtocolManager<'a> {
                         version: PROTOCOL_VERSION,
                         correlation_id: command.header.correlation_id,
                     },
-
-                    // TODO: Check error here
-                    config: self.config.get_config().unwrap(),
+                    config: match self.config.get_config() {
+                        Ok(cfg) => cfg,
+                        Err(e) => {
+                            log::error!("Failed to get config: {}", e);
+                            let error_response = ErrorResponse {
+                                header: ProtocolHeader {
+                                    version: PROTOCOL_VERSION,
+                                    correlation_id: command.header.correlation_id,
+                                },
+                                message: format!("Failed to get config: {}", e),
+                                error_code: 2,
+                            };
+                            let response_message = serde_json::to_vec(&error_response)
+                                .unwrap_or_else(|_| b"{}".to_vec());
+                            send_response(response_message);
+                            return;
+                        }
+                    },
                 };
-                let response_message = serde_json::to_vec(&response).unwrap();
+                let response_message = match serde_json::to_vec(&response) {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        log::error!("Failed to serialize GetConfigResponse: {}", e);
+                        let error_response = ErrorResponse {
+                            header: response.header,
+                            message: format!("Failed to serialize response: {}", e),
+                            error_code: 3,
+                        };
+                        serde_json::to_vec(&error_response).unwrap_or_else(|_| b"{}".to_vec())
+                    }
+                };
                 send_response(response_message);
             }
 
@@ -151,7 +183,19 @@ impl<'a> ProtocolManager<'a> {
                             message: "Config set successfully".to_string(),
                             success: true,
                         };
-                        serde_json::to_vec(&response).unwrap()
+                        match serde_json::to_vec(&response) {
+                            Ok(msg) => msg,
+                            Err(e) => {
+                                log::error!("Failed to serialize AckResponse: {}", e);
+                                let error_response = ErrorResponse {
+                                    header: response.header,
+                                    message: format!("Failed to serialize response: {}", e),
+                                    error_code: 3,
+                                };
+                                serde_json::to_vec(&error_response)
+                                    .unwrap_or_else(|_| b"{}".to_vec())
+                            }
+                        }
                     }
                     Err(e) => {
                         log::error!("Error saving config: {}", e);
@@ -160,14 +204,23 @@ impl<'a> ProtocolManager<'a> {
                             message: e.to_string(),
                             error_code: 1,
                         };
-                        serde_json::to_vec(&response).unwrap()
+                        match serde_json::to_vec(&response) {
+                            Ok(msg) => msg,
+                            Err(e) => {
+                                log::error!("Failed to serialize ErrorResponse: {}", e);
+                                b"{}".to_vec()
+                            }
+                        }
                     }
                 };
                 send_response(response);
                 if config_updated_for.wifi {
-                    self.main_wifi_time_init_tx
+                    if let Err(e) = self
+                        .main_wifi_time_init_tx
                         .send(self.config.get_wifi_settings())
-                        .unwrap();
+                    {
+                        log::error!("Failed to send wifi settings after config update: {}", e);
+                    }
                 }
             }
 
@@ -191,7 +244,13 @@ impl<'a> ProtocolManager<'a> {
                         response.success = false;
                     }
                 }
-                let response_message = serde_json::to_vec(&response).unwrap();
+                let response_message = match serde_json::to_vec(&response) {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        log::error!("Failed to serialize AckResponse: {}", e);
+                        b"{}".to_vec()
+                    }
+                };
                 send_response(response_message);
             }
 
@@ -206,7 +265,13 @@ impl<'a> ProtocolManager<'a> {
                 };
                 response.message = "Device will reboot".to_string();
                 response.success = true;
-                let response_message = serde_json::to_vec(&response).unwrap();
+                let response_message = match serde_json::to_vec(&response) {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        log::error!("Failed to serialize AckResponse: {}", e);
+                        b"{}".to_vec()
+                    }
+                };
                 send_response(response_message);
                 esp_restart();
             }

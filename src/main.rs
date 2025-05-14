@@ -33,8 +33,20 @@ const PARTITION_LABEL: &str = "storage";
 fn init_vfs() -> anyhow::Result<()> {
     log::info!("Initializing VFS and mounting LittleFS via sys API...");
 
-    let base_path = CString::new(VFS_BASE_PATH).unwrap();
-    let partition_label = CString::new(PARTITION_LABEL).unwrap();
+    let base_path = match CString::new(VFS_BASE_PATH) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("Failed to create CString for base_path: {}", e);
+            return Err(anyhow::anyhow!("Invalid base_path for VFS"));
+        }
+    };
+    let partition_label = match CString::new(PARTITION_LABEL) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("Failed to create CString for partition_label: {}", e);
+            return Err(anyhow::anyhow!("Invalid partition_label for VFS"));
+        }
+    };
 
     // Rely entirely on Default, assuming it sets reasonable values or the C func handles it.
     let mut conf = esp_vfs_littlefs_conf_t {
@@ -101,41 +113,57 @@ fn main() -> anyhow::Result<()> {
     let wifi_timer = timer_service.clone();
     let peripheral_update_tx = ui_updates_tx.clone();
     let wifi_modem = peripherals.modem;
-    // Send a signal beforehand to ensure the wifi driver is initialized
-    main_wifi_time_init_tx.send(wifi_settings).unwrap();
+    if let Err(e) = main_wifi_time_init_tx.send(wifi_settings) {
+        log::error!("Failed to send wifi settings: {}", e);
+    }
 
     threads.push(thread::spawn(move || {
-        let mut wifi_driver = block_on(Wifi::init(
+        let mut wifi_driver = match block_on(Wifi::init(
             wifi_modem,
             wifi_sys_loop,
             wifi_nvs,
             wifi_timer,
             peripheral_update_tx.clone(),
-        ))
-        .unwrap();
-
+        )) {
+            Ok(driver) => driver,
+            Err(e) => {
+                log::error!("Failed to initialize WiFi: {}", e);
+                return;
+            }
+        };
         loop {
             match main_wifi_time_init_rx.recv() {
                 Ok(wifi_settings) => match block_on(wifi_driver.connect(wifi_settings)) {
                     Ok(_) => {
-                        let _ = block_on(time::init(peripheral_update_tx.clone())).unwrap();
-                        log::info!("NTP set up");
+                        if let Err(e) = block_on(time::init(peripheral_update_tx.clone())) {
+                            log::error!("NTP setup failed: {}", e);
+                        } else {
+                            log::info!("NTP set up");
+                        }
                     }
                     Err(e) => {
                         log::error!("Wi-Fi connection failed: {}", e);
-                        peripheral_update_tx
+                        if let Err(e2) = peripheral_update_tx
                             .send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))
-                            .unwrap();
+                        {
+                            log::error!("Failed to send WiFi error update: {}", e2);
+                        }
                     }
                 },
-                _ => {
+                Err(_) => {
                     log::error!("Received spurious error signal from main_wifi_time_init_rx");
                 }
             }
         }
     }));
 
-    let actor_mappings = config.get_mappings().unwrap();
+    let actor_mappings = match config.get_mappings() {
+        Some(m) => m,
+        None => {
+            log::error!("Failed to get mappings");
+            return Err(anyhow::anyhow!("Failed to get mappings"));
+        }
+    };
     let actor_mapper = Mapper::new(actor_mappings);
     let actor_usb_hid_tx = usb_hid_tx.clone();
     threads.push(thread::spawn(move || {
@@ -147,9 +175,13 @@ fn main() -> anyhow::Result<()> {
     let usb_message_tx = usb_message_tx.clone();
     threads.push(thread::spawn(move || {
         let _usb = Usb::new(usb_updates_tx.clone(), usb_message_tx.clone());
-        UsbHidClient::run(usb_hid_rx).unwrap();
+        if let Err(e) = UsbHidClient::run(usb_hid_rx) {
+            log::error!("UsbHidClient::run failed: {}", e);
+        }
     }));
-    ThreadSpawnConfiguration::default().set().unwrap();
+    if let Err(e) = ThreadSpawnConfiguration::default().set() {
+        log::error!("Failed to set thread spawn configuration: {}", e);
+    }
 
     // Get the TZ offset here because we move the config into the ProtocolManager past this point
     let tz_offset = config.get_timezone_offset().unwrap_or(TZ_OFFSET);
@@ -178,7 +210,9 @@ fn main() -> anyhow::Result<()> {
     let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, tz_offset, button_names);
 
     for thread in threads {
-        thread.join().unwrap();
+        if let Err(e) = thread.join() {
+            log::error!("Thread panicked: {:?}", e);
+        }
     }
 
     Ok(())

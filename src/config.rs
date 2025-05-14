@@ -98,7 +98,13 @@ impl Configurator {
         };
         log::info!("Creating default configuration file at {}", config_path);
 
-        let dir_path = std::path::Path::new(config_path).parent().unwrap();
+        let dir_path = match std::path::Path::new(config_path).parent() {
+            Some(p) => p,
+            None => {
+                log::error!("No parent directory for config_path: {}", config_path);
+                return Err(anyhow::anyhow!("No parent directory for config_path"));
+            }
+        };
         if let Err(e) = std::fs::create_dir_all(dir_path) {
             log::warn!(
                 "Failed to create directory {}: {} (continuing anyway)",
@@ -128,7 +134,13 @@ impl Configurator {
         log::info!("Updating configuration");
 
         // Save the new config
-        let mut old_config = self.config_data.lock().unwrap();
+        let mut old_config = match self.config_data.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to lock config_data: {}", e);
+                return Err(anyhow::anyhow!("Failed to lock config_data: {}", e));
+            }
+        };
         Self::merge_configs(&mut old_config, config, config_updated_for);
         let json_data = serde_json::to_vec_pretty(&old_config.clone())?;
 
@@ -196,7 +208,13 @@ impl Configurator {
     }
 
     pub fn reset_config(&self) -> Result<()> {
-        let mut config = self.config_data.lock().unwrap();
+        let mut config = match self.config_data.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to lock config_data: {}", e);
+                return Err(anyhow::anyhow!("Failed to lock config_data: {}", e));
+            }
+        };
         match Self::create_and_save_default_config(&self.config_path) {
             Ok(default_config) => {
                 *config = default_config;
@@ -210,27 +228,33 @@ impl Configurator {
     }
 
     pub fn get_config(&self) -> Result<DeviceConfig> {
-        let config = self.config_data.lock().unwrap();
+        let config = match self.config_data.lock() {
+            Ok(guard) => guard,
+            Err(e) => {
+                log::error!("Failed to lock config_data: {}", e);
+                return Err(anyhow::anyhow!("Failed to lock config_data: {}", e));
+            }
+        };
         Ok(config.clone())
     }
 
     pub fn get_wifi_settings(&self) -> Option<WifiSettings> {
-        let config = self.config_data.lock().unwrap();
+        let config = self.config_data.lock().ok()?;
         config.settings.wifi.clone()
     }
 
     pub fn get_timezone_offset(&self) -> Option<f32> {
-        let config = self.config_data.lock().unwrap();
+        let config = self.config_data.lock().ok()?;
         config.settings.timezone_offset
     }
 
     pub fn get_mappings(&self) -> Option<MappingConfiguration> {
-        let config = self.config_data.lock().unwrap();
+        let config = self.config_data.lock().ok()?;
         Some(config.mappings.clone())
     }
 
     pub fn get_button_names(&self) -> Option<HashMap<usize, String>> {
-        let config = self.config_data.lock().unwrap();
+        let config = self.config_data.lock().ok()?;
         config.button_names.clone()
     }
 }

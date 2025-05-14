@@ -26,13 +26,19 @@ pub fn deframe_message(frame_bytes: &[u8]) -> Result<DeFramedMessage> {
         return Err(anyhow::anyhow!("Frame is too short"));
     }
 
-    let magic_word = u32::from_le_bytes(frame_bytes[0..4].try_into().unwrap());
+    let magic_word = match u32::from_le_bytes(frame_bytes[0..4].try_into()) {
+        Ok(word) => word,
+        Err(_) => return Err(anyhow::anyhow!("Failed to parse magic word")),
+    };
 
     if magic_word != MAGIC_WORD {
         return Err(anyhow::anyhow!("Invalid magic word"));
     }
 
-    let payload_length = usize::from_le_bytes(frame_bytes[4..8].try_into().unwrap());
+    let payload_length = match usize::from_le_bytes(frame_bytes[4..8].try_into()) {
+        Ok(len) => len,
+        Err(_) => return Err(anyhow::anyhow!("Failed to parse payload length")),
+    };
 
     if frame_bytes.len() < HEADER_SIZE + payload_length {
         return Err(anyhow::anyhow!("Frame is too short"));

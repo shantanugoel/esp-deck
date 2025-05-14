@@ -80,7 +80,9 @@ impl EspPlatform {
 
         // Setup the touch
         let touch = Gt911::default();
-        touch.init(&mut i2c).unwrap();
+        if let Err(e) = touch.init(&mut i2c) {
+            log::error!("Failed to initialize touch: {:?}", e);
+        }
 
         // Setup the window
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
@@ -91,12 +93,26 @@ impl EspPlatform {
             DISPLAY_HEIGHT as u32,
         ));
 
+        let timer = match esp_idf_svc::timer::EspTimerService::new() {
+            Ok(t) => t,
+            Err(e) => {
+                log::error!("Failed to create EspTimerService: {}", e);
+                return std::boxed::Box::new(Self {
+                    panel_handle,
+                    touch,
+                    i2c: i2c.into(),
+                    window,
+                    timer: unsafe { std::mem::zeroed() },
+                    queue: Default::default(),
+                });
+            }
+        };
         std::boxed::Box::new(Self {
             panel_handle,
             touch,
             i2c: i2c.into(),
             window,
-            timer: esp_idf_svc::timer::EspTimerService::new().unwrap(),
+            timer,
             queue: Default::default(),
         })
     }
@@ -249,7 +265,11 @@ struct EspEventLoopProxy {
 }
 impl slint::platform::EventLoopProxy for EspEventLoopProxy {
     fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
-        self.queue.lock().unwrap().push(Event::Quit);
+        if let Ok(mut q) = self.queue.lock() {
+            (&mut *q).push(Event::Quit);
+        } else {
+            log::error!("Failed to lock event queue for quit_event_loop");
+        }
         Ok(())
     }
 
@@ -257,13 +277,20 @@ impl slint::platform::EventLoopProxy for EspEventLoopProxy {
         &self,
         event: Box<dyn FnOnce() + Send>,
     ) -> Result<(), slint::EventLoopError> {
-        self.queue.lock().unwrap().push(Event::Invoke(event));
+        if let Ok(mut q) = self.queue.lock() {
+            (&mut *q).push(Event::Invoke(event));
+        } else {
+            log::error!("Failed to lock event queue for invoke_from_event_loop");
+        }
         Ok(())
     }
 }
 
 pub fn init(i2c: I2C) {
-    slint::platform::set_platform(EspPlatform::new(i2c)).unwrap();
+    if let Err(e) = slint::platform::set_platform(EspPlatform::new(i2c)) {
+        log::error!("Failed to set slint platform: {}", e);
+        return;
+    }
 }
 
 static VSYNC: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);

@@ -157,13 +157,25 @@ fn handle_events(
 fn update_time(window: &Weak<MainWindow>, tz_offset: f32) {
     let time: DateTime<Utc> = std::time::SystemTime::now().into();
     let seconds_offset = tz_offset * 3600.0;
-    let fixed_offset = FixedOffset::east_opt(seconds_offset as i32).unwrap();
+    let fixed_offset = match FixedOffset::east_opt(seconds_offset as i32) {
+        Some(offset) => offset,
+        None => {
+            log::error!("Invalid timezone offset: {}", tz_offset);
+            FixedOffset::east_opt(0).unwrap() // fallback to UTC
+        }
+    };
     let time_str = SharedString::from(
         time.with_timezone(&fixed_offset)
             .format("%H:%M")
             .to_string(),
     );
-    let window = window.upgrade().unwrap();
+    let window = match window.upgrade() {
+        Some(w) => w,
+        None => {
+            log::error!("Failed to upgrade window weak reference");
+            return;
+        }
+    };
     if window.get_current_time() != time_str {
         window.set_current_time(time_str);
     }
