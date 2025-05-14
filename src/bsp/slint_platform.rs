@@ -266,7 +266,7 @@ struct EspEventLoopProxy {
 impl slint::platform::EventLoopProxy for EspEventLoopProxy {
     fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
         if let Ok(mut q) = self.queue.lock() {
-            (&mut *q).push(Event::Quit);
+            (*q).push(Event::Quit);
         } else {
             log::error!("Failed to lock event queue for quit_event_loop");
         }
@@ -278,7 +278,7 @@ impl slint::platform::EventLoopProxy for EspEventLoopProxy {
         event: Box<dyn FnOnce() + Send>,
     ) -> Result<(), slint::EventLoopError> {
         if let Ok(mut q) = self.queue.lock() {
-            (&mut *q).push(Event::Invoke(event));
+            (*q).push(Event::Invoke(event));
         } else {
             log::error!("Failed to lock event queue for invoke_from_event_loop");
         }
@@ -289,7 +289,6 @@ impl slint::platform::EventLoopProxy for EspEventLoopProxy {
 pub fn init(i2c: I2C) {
     if let Err(e) = slint::platform::set_platform(EspPlatform::new(i2c)) {
         log::error!("Failed to set slint platform: {}", e);
-        return;
     }
 }
 
