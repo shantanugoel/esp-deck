@@ -58,6 +58,8 @@ import DelayEditor from './DelayEditor.vue'
 import SequenceEditor from './SequenceEditor.vue'
 import UnknownEditor from './UnknownEditor.vue'
 import KeyReleaseEditor from './KeyReleaseEditor.vue'
+import SendStringEditor from './SendStringEditor.vue'
+import { stringToKeyCodes, keyCodesToString } from '../keycodes'
 
 // Action type definitions
 const actionPalette = [
@@ -69,6 +71,7 @@ const actionPalette = [
   { type: 'ConsumerPress', label: 'Media Key' },
   { type: 'Delay', label: 'Delay' },
   { type: 'Sequence', label: 'Nested Sequence' },
+  { type: 'SendString', label: 'Send String' },
 ]
 
 const props = defineProps<{
@@ -80,8 +83,28 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: any[]): void }>()
 const sequence = ref<any[]>([])
 
 watch(() => props.modelValue, (val) => {
-  sequence.value = Array.isArray(val) ? JSON.parse(JSON.stringify(val)) : []
+  sequence.value = Array.isArray(val)
+    ? JSON.parse(JSON.stringify(val)).map((act: any) => {
+        if (act.SendString && Array.isArray(act.SendString.keys) && Array.isArray(act.SendString.modifiers)) {
+          // Convert backend format to frontend format
+          return { SendString: { text: keyCodesToString(act.SendString.keys, act.SendString.modifiers) } }
+        }
+        return act
+      })
+    : []
 }, { immediate: true })
+
+function emitSequence() {
+  // Convert frontend SendString {text} to backend {keys, modifiers}
+  const backendSeq = sequence.value.map((act: any) => {
+    if (act.SendString && typeof act.SendString.text === 'string') {
+      const { keys, modifiers } = stringToKeyCodes(act.SendString.text)
+      return { SendString: { keys, modifiers } }
+    }
+    return act
+  })
+  emit('update:modelValue', backendSeq)
+}
 
 function addAction(type: string) {
   let action: any = {}
@@ -95,30 +118,31 @@ function addAction(type: string) {
   else if (type === 'ConsumerPress') action = { ConsumerPress: { usage_id: 0xE9 } }
   else if (type === 'Delay') action = { Delay: { ms: 100 } }
   else if (type === 'Sequence') action = { Sequence: [] }
+  else if (type === 'SendString') action = { SendString: { text: '' } }
   sequence.value.push(action)
-  emit('update:modelValue', sequence.value)
+  emitSequence()
 }
 function removeAction(idx: number) {
   sequence.value.splice(idx, 1)
-  emit('update:modelValue', sequence.value)
+  emitSequence()
 }
 function moveUp(idx: number) {
   if (idx === 0) return
   const temp = sequence.value[idx - 1]
   sequence.value[idx - 1] = sequence.value[idx]
   sequence.value[idx] = temp
-  emit('update:modelValue', sequence.value)
+  emitSequence()
 }
 function moveDown(idx: number) {
   if (idx === sequence.value.length - 1) return
   const temp = sequence.value[idx + 1]
   sequence.value[idx + 1] = sequence.value[idx]
   sequence.value[idx] = temp
-  emit('update:modelValue', sequence.value)
+  emitSequence()
 }
 function updateAction(idx: number, newAction: any) {
   sequence.value[idx] = newAction
-  emit('update:modelValue', sequence.value)
+  emitSequence()
 }
 
 // Editor components for each action type
@@ -131,6 +155,7 @@ function getActionEditor(act: any, idx: number) {
   if (act.ConsumerPress) return ConsumerPressEditor
   if (act.Delay) return DelayEditor
   if (act.Sequence) return SequenceEditor
+  if (act.SendString) return SendStringEditor
   return UnknownEditor
 }
 
@@ -141,6 +166,19 @@ function getActionSummary(act: any): string {
     const keyLabel = keys.length > 0 ? keys.map((k: string) => k || '<key>').join(' + ') : '<key>'
     const mod = act.KeyPress.modifier ? ` + ${act.KeyPress.modifier}` : ''
     return `<b>KeyPress:</b> ${keyLabel}${mod}`
+  }
+  if (act.SendString) {
+    if (typeof act.SendString.text === 'string') {
+      return `<b>SendString:</b> ${act.SendString.text || '<string>'}`
+    }
+    if (Array.isArray(act.SendString.keys) && Array.isArray(act.SendString.modifiers)) {
+      const keys = act.SendString.keys.map((k: string, i: number) => {
+        const mod = act.SendString.modifiers[i]
+        return mod ? `${mod} + ${k}` : k
+      }).join(', ')
+      return `<b>SendString:</b> ${keys || '<string>'}`
+    }
+    return '<b>SendString</b>'
   }
   if (act.MousePress) {
     const btn = act.MousePress.button === 1 ? 'Left' : act.MousePress.button === 2 ? 'Right' : 'Middle'
