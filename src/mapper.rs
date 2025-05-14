@@ -33,6 +33,10 @@ pub enum ConfigAction {
     Delay {
         ms: u64,
     },
+    SendString {
+        keys: Vec<String>,
+        modifiers: Vec<String>,
+    },
     Sequence(Vec<ConfigAction>), // Represents a macro
 }
 
@@ -111,39 +115,22 @@ impl Mapper {
         // Button 3: Type a short string "Hello"
         config.insert(
             "3".to_string(),
-            vec![
-                // H
-                ConfigAction::KeyPress {
-                    keys: vec!["KeyH".to_string()],
-                    modifier: Some("ShiftLeft".to_string()),
-                },
-                ConfigAction::Delay { ms: 5 },
-                // e
-                ConfigAction::KeyPress {
-                    keys: vec!["KeyE".to_string()],
-                    modifier: None,
-                },
-                ConfigAction::Delay { ms: 5 },
-                // l
-                ConfigAction::KeyPress {
-                    keys: vec!["KeyL".to_string()],
-                    modifier: None,
-                },
-                ConfigAction::Delay { ms: 5 },
-                // l
-                ConfigAction::KeyPress {
-                    keys: vec!["KeyL".to_string()],
-                    modifier: None,
-                },
-                ConfigAction::Delay { ms: 5 },
-                // o
-                ConfigAction::KeyPress {
-                    keys: vec!["KeyO".to_string()],
-                    modifier: None,
-                },
-                ConfigAction::Delay { ms: 5 },
-                ConfigAction::KeyRelease,
-            ],
+            vec![ConfigAction::SendString {
+                keys: vec![
+                    "KeyH".to_string(),
+                    "KeyE".to_string(),
+                    "KeyL".to_string(),
+                    "KeyL".to_string(),
+                    "KeyO".to_string(),
+                ],
+                modifiers: vec![
+                    "ShiftLeft".to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                ],
+            }],
         );
 
         // Button 4: Function Key F5
@@ -522,6 +509,18 @@ impl Mapper {
                 ConfigAction::ConsumerRelease => hid_actions.push(HidAction::ConsumerRelease),
                 ConfigAction::Delay { ms } => {
                     hid_actions.push(HidAction::Delay(Duration::from_millis(ms)))
+                }
+                ConfigAction::SendString { keys, modifiers } => {
+                    for (key, modifier) in keys.iter().zip(modifiers.iter()) {
+                        let modifier = if !modifier.is_empty() {
+                            Some(modifier.as_str())
+                        } else {
+                            None
+                        };
+                        let (mb, key_code) = Self::translate_key(key, modifier);
+                        hid_actions.push(HidAction::KeyPress(mb, [key_code, 0, 0, 0, 0, 0]));
+                        hid_actions.push(HidAction::KeyRelease);
+                    }
                 }
                 ConfigAction::Sequence(sub_sequence) => {
                     hid_actions.extend(Self::translate_sequence(sub_sequence));

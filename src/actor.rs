@@ -32,6 +32,7 @@ impl Actor {
                     if let AppEvent::ButtonPressed(button_id) = app_event {
                         log::info!("Actor received ButtonPressed: {}", button_id);
                         let action_sequence = self.mapper.get_action_sequence(button_id);
+                        log::info!("Actor received action sequence: {:?}", action_sequence);
                         for action in action_sequence {
                             log::debug!("Actor executing action: {:?}", action);
                             match action {
