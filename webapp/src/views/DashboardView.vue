@@ -320,6 +320,9 @@ function deepEqual(a: any, b: any): boolean {
 }
 
 const hasSettingsChanged = computed(() =>
+  tempSsid.value !== wifiSsid.value ||
+  tempPassword.value !== wifiPassword.value ||
+  tempTz.value !== timezoneOffset.value ||
   !deepEqual(deviceStore.deviceConfig, deviceStore.lastFetchedConfig) ||
   Object.keys(deviceStore.stagedButtonChanges).length > 0
 )
@@ -352,24 +355,45 @@ function onSaveSettings() {
 
 function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean, sendAllMappings?: boolean }) {
   showSaveModal.value = false
-  // Always send the current config as the payload
-  if (!deviceStore.deviceConfig || !deviceStore.deviceConfig.config) return
-  let configToSend = JSON.parse(JSON.stringify(deviceStore.deviceConfig.config))
-  // If user chose to send only changed mappings, filter mappings/button_names
-  if (selection.mappings && !selection.sendAllMappings) {
-    // Only send changed mappings and button_names
-    const newMappings: Record<string, any[]> = {}
-    const newButtonNames: Record<number, string> = {}
-    for (let idx = 0; idx < 16; idx++) {
-      const stagedMacro = deviceStore.getStagedButtonMacro(idx)
-      const stagedName = deviceStore.getStagedButtonName(idx)
-      if (stagedMacro) newMappings[String(idx + 1)] = stagedMacro
-      if (stagedName) newButtonNames[idx] = stagedName
+  const config = JSON.parse(JSON.stringify(deviceStore.deviceConfig?.config || {}))
+
+  // Handle mappings
+  if (selection.mappings) {
+    if (selection.sendAllMappings) {
+      // Send all mappings and button names (config already has them)
+    } else {
+      // Only send changed mappings and names
+      const newMappings: Record<string, any[]> = {}
+      const newButtonNames: Record<number, string> = {}
+      for (let idx = 0; idx < 16; idx++) {
+        const stagedMacro = deviceStore.getStagedButtonMacro(idx)
+        const stagedName = deviceStore.getStagedButtonName(idx)
+        if (stagedMacro) newMappings[String(idx + 1)] = stagedMacro
+        if (stagedName) newButtonNames[idx] = stagedName
+      }
+      config.mappings = newMappings
+      config.button_names = Object.keys(newButtonNames).length ? newButtonNames : undefined
     }
-    configToSend.mappings = newMappings
-    configToSend.button_names = Object.keys(newButtonNames).length ? newButtonNames : undefined
+  } else {
+    config.mappings = {}
+    config.button_names = {}
   }
-  saveSettingsPayload(configToSend)
+
+  // Handle settings
+  if (selection.wifi || selection.tz) {
+    config.settings = config.settings || {}
+    if (selection.wifi && changedWifi.value) {
+      config.settings.wifi = {
+        ssid: tempSsid.value,
+        password: tempPassword.value,
+      }
+    }
+    if (selection.tz && changedTz.value) {
+      config.settings.timezone_offset = tempTz.value
+    }
+  }
+
+  saveSettingsPayload(config)
 }
 
 function handleSaveModalCancel() {
