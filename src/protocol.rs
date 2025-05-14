@@ -1,7 +1,8 @@
-use std::sync::mpsc::{Receiver, SyncSender};
+use std::sync::mpsc::{Receiver, Sender, SyncSender};
 
 use crate::bsp::usb::{send_usb_message, UsbMessageError};
 use crate::config::{ConfigUpdatedFor, Configurator, DeviceConfig, WifiSettings};
+use crate::events::AppEvent;
 use serde::{Deserialize, Serialize};
 
 //Major version: 1, Minor version: 0
@@ -79,6 +80,7 @@ pub struct AckResponse {
 pub struct ProtocolManager<'a> {
     message_rx: Receiver<Vec<u8>>,
     main_wifi_time_init_tx: SyncSender<Option<WifiSettings>>,
+    actor_tx: Sender<AppEvent>,
     config: &'a Configurator,
 }
 
@@ -86,11 +88,13 @@ impl<'a> ProtocolManager<'a> {
     pub fn new(
         message_rx: Receiver<Vec<u8>>,
         main_wifi_time_init_tx: SyncSender<Option<WifiSettings>>,
+        actor_tx: Sender<AppEvent>,
         config: &'a Configurator,
     ) -> Self {
         Self {
             message_rx,
             main_wifi_time_init_tx,
+            actor_tx,
             config,
         }
     }
@@ -135,6 +139,9 @@ impl<'a> ProtocolManager<'a> {
                 let mut config_updated_for = ConfigUpdatedFor::default();
                 let response = match self.config.save(&new_config, &mut config_updated_for) {
                     Ok(_) => {
+                        self.actor_tx
+                            .send(AppEvent::MappingUpdated(Box::new(new_config.mappings)))
+                            .unwrap();
                         let response = AckResponse {
                             header: response_header,
                             message: "Config set successfully".to_string(),

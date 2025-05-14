@@ -139,7 +139,7 @@ fn main() -> anyhow::Result<()> {
     let actor_mapper = Mapper::new(actor_mappings);
     let actor_usb_hid_tx = usb_hid_tx.clone();
     threads.push(thread::spawn(move || {
-        let actor = Actor::new(actor_rx, actor_usb_hid_tx, actor_mapper);
+        let mut actor = Actor::new(actor_rx, actor_usb_hid_tx, actor_mapper);
         actor.run();
     }));
 
@@ -157,9 +157,14 @@ fn main() -> anyhow::Result<()> {
     // Get the button names here because we move the config into the ProtocolManager past this point
     let button_names = config.get_button_names();
 
+    let actor_protocol_tx = actor_tx.clone();
     threads.push(thread::spawn(move || {
-        let protocol_manager =
-            ProtocolManager::new(usb_message_rx, main_wifi_time_init_tx, &config);
+        let protocol_manager = ProtocolManager::new(
+            usb_message_rx,
+            main_wifi_time_init_tx,
+            actor_protocol_tx,
+            &config,
+        );
         protocol_manager.run();
     }));
 

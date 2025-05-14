@@ -58,6 +58,10 @@ impl Mapper {
         Self { config }
     }
 
+    pub fn update_mapping_config(&mut self, config: Box<MappingConfiguration>) {
+        self.config = *config;
+    }
+
     pub fn get_default_button_names() -> Vec<&'static str> {
         vec![
             "A 🅰️",            // Button 1: Key A

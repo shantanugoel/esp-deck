@@ -177,9 +177,8 @@ impl Configurator {
             } else {
                 log::warn!("Key {} not found in old config, skipping", key);
             }
+            config_updated_for.mappings = true;
         }
-        // This is not needed for the config to be updated, but it's nice to know
-        config_updated_for.mappings = true;
 
         // Merge button_names as a map, only update provided keys
         if let Some(new_names) = &new_config.button_names {

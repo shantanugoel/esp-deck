@@ -22,7 +22,7 @@ impl Actor {
         }
     }
 
-    pub fn run(&self) {
+    pub fn run(&mut self) {
         log::info!("Starting Actor");
         let mut current_mouse_report = MouseReport::default();
 
@@ -118,6 +118,8 @@ impl Actor {
                                 }
                             }
                         }
+                    } else if let AppEvent::MappingUpdated(mapping_config) = app_event {
+                        self.mapper.update_mapping_config(mapping_config);
                     } else {
                         log::warn!("Actor received unexpected event: {:?}", app_event);
                     }
