@@ -1,8 +1,9 @@
 // Import new components
-import { HeaderView } from "./HeaderView.slint";
+import { FooterView } from "./FooterView.slint";
 import { ButtonGridView } from "./ButtonGridView.slint";
 import { LogListView } from "./LogListView.slint";
-import { StatusBarView } from "./StatusBarView.slint";
+// import { StatusBarView } from "./StatusBarView.slint"; // No longer needed
+import { TabWidget } from "std-widgets.slint"; // Import TabWidget
 
 export component MainWindow inherits Window {
     // --- Theme Colors ---
@@ -12,15 +13,17 @@ export component MainWindow inherits Window {
     property <color> color-accent: #007acc;           // Accent color (e.g., button hover/focus)
     property <color> color-button: #333333;            // Button background
     property <color> color-button-text: #eeeeee;       // Button text
-    property <color> color-statusbar-bg: #111111; // Added status bar background color
+    // property <color> color-statusbar-bg: #111111; // No longer needed for status bar
     property <length> button-border-radius: 8px;
+    // Removed TabWidget specific colors here, as they are not directly settable on the widget
+    // For theming, one would typically adjust global theme colors or create a custom widget.
     width: 800px;
     height: 480px;
     background: color-background; // Apply main background color
 
     // --- State Properties ---
     in-out property <string> status_text: "Ready"; // Added status text property
-    property <bool> show-list-view: false; // State to toggle views
+    in-out property <bool> show-list-view: false; // State to toggle views
     in property <[string]> list-items: []; // Data for the list view
     in-out property <string> fact: "";
     callback update-fact();
@@ -28,6 +31,7 @@ export component MainWindow inherits Window {
     in-out property <string> current_time: "00:00";
     in-out property <string> wifi_symbol: "🛜❌";
     in-out property <[string]> button-names: [];
+    in-out property <int> current_tab_index: 0; // For TabWidget
     
     // This is just to embed these glyphs into the build
     Text {
@@ -38,44 +42,58 @@ export component MainWindow inherits Window {
     VerticalLayout {
         padding: 15px;
         spacing: 10px;
+        TabWidget {
+            vertical-stretch: 1;
+            horizontal-stretch: 1;
+            current-index <=> root.current_tab_index;
+            Tab {
+                title: "Grid";
+                // This VerticalLayout will contain either ButtonGrid or LogList based on show-list-view
+                VerticalLayout {
+                    vertical-stretch: 1;
+                    alignment: LayoutAlignment.stretch;
+                    horizontal-stretch: 1;
+                    padding-top: 10px;
+                    if !root.show-list-view: ButtonGridView {
+                        color-button: root.color-button;
+                        color-button-text: root.color-button-text;
+                        color-accent: root.color-accent;
+                        button-border-radius: root.button-border-radius;
+                        button-names: root.button-names;
+                        button-pressed(idx) => {
+                            root.button-pressed(idx);
+                        }
+                    }
+                    if root.show-list-view: LogListView {
+                        color-text: root.color-text;
+                        color-text-muted: root.color-text-muted;
+                        list-items: root.list-items;
+                    }
+                }
+            }
 
-        // --- Header ---
-        HeaderView {
+            Tab {
+                title: "Dashboard";
+                // Placeholder for Dashboard content
+                Rectangle {
+                    background: #2a2a2a;
+                    Text {
+                        text: "Dashboard Content (Coming Soon)";
+                        color: root.color-text-muted;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        FooterView {
             color-text: root.color-text;
             color-text-muted: root.color-text-muted;
             wifi_symbol: root.wifi_symbol;
             current_time: root.current_time;
             status_text: root.status_text;
             show-list-view <=> root.show-list-view; // Two-way binding
-        }
-
-        // --- Main Content Container ---
-        // This container stretches vertically
-        // It will hold either the ButtonGridView or LogListView
-        VerticalLayout {
-            vertical-stretch: 1;
-            horizontal-stretch: 1;
-            if !root.show-list-view: ButtonGridView {
-                color-button: root.color-button;
-                color-button-text: root.color-button-text;
-                color-accent: root.color-accent;
-                button-border-radius: root.button-border-radius;
-                button-names: root.button-names;
-                button-pressed(idx) => {
-                    root.button-pressed(idx);
-                }
-            }
-            if root.show-list-view: LogListView {
-                color-text: root.color-text;
-                color-text-muted: root.color-text-muted;
-                list-items: root.list-items;
-            }
-        }
-
-        // --- Status Bar ---
-        StatusBarView {
-            color-statusbar-bg: root.color-statusbar-bg;
-            color-text-muted: root.color-text-muted;
         }
     }
 }
