@@ -1,39 +1,31 @@
-// Import new components
 import { FooterView } from "./FooterView.slint";
 import { ButtonGridView } from "./ButtonGridView.slint";
 import { LogListView } from "./LogListView.slint";
-// import { StatusBarView } from "./StatusBarView.slint"; // No longer needed
-import { TabWidget } from "std-widgets.slint"; // Import TabWidget
+import { TabWidget } from "std-widgets.slint"; 
+import {Palette, StyleMetrics} from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     // --- Theme Colors ---
-    property <color> color-background: #1e1e1e;       // Dark background
-    property <color> color-text: #eeeeee;              // Light text
-    property <color> color-text-muted: #aaaaaa;        // Muted text (e.g., time)
-    property <color> color-accent: #007acc;           // Accent color (e.g., button hover/focus)
-    property <color> color-button: #333333;            // Button background
-    property <color> color-button-text: #eeeeee;       // Button text
-    // property <color> color-statusbar-bg: #111111; // No longer needed for status bar
+    property <color> color-background: Palette.background;
+    property <color> color-text: Palette.foreground;
+    property <color> color-text-muted: Palette.alternate-foreground;
+    property <color> color-accent: Palette.accent-foreground;
+    property <color> color-button: Palette.alternate-background;
+    property <color> color-button-text: Palette.foreground;
     property <length> button-border-radius: 8px;
-    // Removed TabWidget specific colors here, as they are not directly settable on the widget
-    // For theming, one would typically adjust global theme colors or create a custom widget.
     width: 800px;
     height: 480px;
-    background: color-background; // Apply main background color
-
-    // --- State Properties ---
-    in-out property <string> status_text: "Ready"; // Added status text property
-    in-out property <bool> show-list-view: false; // State to toggle views
-    in property <[string]> list-items: []; // Data for the list view
+    background: color-background;
+    in-out property <string> status_text: "Ready";
+    in-out property <bool> show-list-view: false;
+    in property <[string]> list-items: [];
     in-out property <string> fact: "";
     callback update-fact();
     callback button-pressed(int);
     in-out property <string> current_time: "00:00";
     in-out property <string> wifi_symbol: "🛜❌";
     in-out property <[string]> button-names: [];
-    in-out property <int> current_tab_index: 0; // For TabWidget
-    
-    // This is just to embed these glyphs into the build
+    in-out property <int> current_tab_index: 0;
     Text {
         text: "⌨️ 🅰️ 🔠 🔡 ↩️ ⏎ ⌫ ⌦ 🔢 🔤 🔣 🖱️ 🖲️ ⏯️ ⏸️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ 🔊 🔉 🔇 📋 ✂️ 📝 🗑️ 🖥️ 💻 🧑‍💻 🔒 🔓 🔁 🔀 🛑 ⬆️ ⬇️ ⬅️ ➡️ ↔️ ↕️ 🔄 🌐 🦊 🧭 🧩 🗂️ 🗃️ 🗄️ 🗒️ 🗓️ 🕒 📨 📧 🖨️ 👋 🏠 🏁 🏃 💤 🔔 🛠️ 🏷️ ⭐ 🏆 🧹 🧲 🧰 🧪 🚀 🧭";
         visible: false;
@@ -48,7 +40,6 @@ export component MainWindow inherits Window {
             current-index <=> root.current_tab_index;
             Tab {
                 title: "Grid";
-                // This VerticalLayout will contain either ButtonGrid or LogList based on show-list-view
                 VerticalLayout {
                     vertical-stretch: 1;
                     alignment: LayoutAlignment.stretch;
@@ -74,7 +65,6 @@ export component MainWindow inherits Window {
 
             Tab {
                 title: "Dashboard";
-                // Placeholder for Dashboard content
                 Rectangle {
                     background: #2a2a2a;
                     Text {
@@ -93,7 +83,7 @@ export component MainWindow inherits Window {
             wifi_symbol: root.wifi_symbol;
             current_time: root.current_time;
             status_text: root.status_text;
-            show-list-view <=> root.show-list-view; // Two-way binding
+            show-list-view <=> root.show-list-view;
         }
     }
 }

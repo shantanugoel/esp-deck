@@ -1,34 +1,26 @@
 export component FooterView inherits Rectangle {
-    // --- Theme Colors (passed from parent) ---
     in property <color> color-text;
     in property <color> color-text-muted;
-
-    // --- State Properties (passed from parent) ---
     in-out property <string> status_text;
-    in-out property <bool> show-list-view; // To toggle on click
+    in-out property <bool> show-list-view;
     in property <string> wifi_symbol;
     in property <string> current_time;
     height: 30px;
-    background: transparent; // Header itself doesn't need a background if main window has one
-
+    background: transparent;
     HorizontalLayout {
         alignment: center;
         height: 100%;
         spacing: 15px;
-
-        // Status Text
         TouchArea {
             clicked => {
                 root.show-list-view = !root.show-list-view;
             }
-            // Take available horizontal space
             horizontal-stretch: 1;
-            // Ensure it's centered vertically within the status bar
-            Rectangle { // Use a Rectangle for positioning and stretching
+            Rectangle {
                 height: 100%;
                 horizontal-stretch: 1;
-                background: transparent; // Make it invisible
-                Text { // Status Text inside TouchArea, centered within the Rectangle
+                background: transparent;
+                Text {
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     text: root.status_text;
@@ -42,15 +34,12 @@ export component FooterView inherits Rectangle {
         alignment: end;
         height: 100%;
         spacing: 15px;
-
-        // Wifi Symbol
         Text {
             text: root.wifi_symbol;
             vertical-alignment: center;
             color: root.color-text;
         }
 
-        // Time display
         Text {
             text: root.current_time;
             vertical-alignment: center;

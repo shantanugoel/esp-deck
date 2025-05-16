@@ -1,13 +1,10 @@
 import { StyledButton } from "./styled_button.slint";
 
 export component ButtonGridView inherits VerticalLayout {
-    // --- Theme Colors (passed from parent) ---
     in property <color> color-button;
     in property <color> color-button-text;
     in property <color> color-accent;
     in property <length> button-border-radius;
-
-    // --- State Properties (passed from parent) ---
     in property <[string]> button-names;
     callback button-pressed(int);
     spacing: 10px;
