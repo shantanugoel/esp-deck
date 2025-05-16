@@ -3,6 +3,7 @@ import { ButtonGridView } from "./ButtonGridView.slint";
 import { LogListView } from "./LogListView.slint";
 import { TabWidget } from "std-widgets.slint"; 
 import {Palette, StyleMetrics} from "std-widgets.slint";
+import { Dashboard } from "Dashboard.slint";
 
 export component MainWindow inherits Window {
     // --- Theme Colors ---
@@ -65,14 +66,8 @@ export component MainWindow inherits Window {
 
             Tab {
                 title: "Dashboard";
-                Rectangle {
-                    background: #2a2a2a;
-                    Text {
-                        text: "Dashboard Content (Coming Soon)";
-                        color: root.color-text-muted;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                Dashboard {
+                    color-button: root.color-button;
                 }
             }
         }

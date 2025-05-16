@@ -1,0 +1,50 @@
+export component Dashboard inherits Rectangle {
+    in property <color> color-button;
+    VerticalLayout {
+        vertical-stretch: 1;
+        alignment: stretch;
+        horizontal-stretch: 1;
+        padding: 10px;
+        HorizontalLayout {
+            spacing: 5px;
+            padding: 10px;
+            Rectangle {
+                background: color-button;
+            }
+
+            Rectangle {
+                background: color-button;
+                min-width: 10px;
+            }
+
+            Rectangle {
+                background: color-button;
+                horizontal-stretch: 1;
+            }
+
+            Rectangle {
+                background: color-button;
+                horizontal-stretch: 1;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 5px;
+            padding: 10px;
+            Rectangle {
+                background: color-button;
+                width: 50px;
+            }
+
+            Rectangle {
+                background: color-button;
+                min-width: 10px;
+            }
+
+            Rectangle {
+                background: color-button;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+}
