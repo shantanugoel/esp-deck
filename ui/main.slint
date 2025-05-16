@@ -45,6 +45,8 @@ export component MainWindow inherits Window {
             color-text-muted: root.color-text-muted;
             wifi_symbol: root.wifi_symbol;
             current_time: root.current_time;
+            status_text: root.status_text;
+            show-list-view <=> root.show-list-view; // Two-way binding
         }
 
         // --- Main Content Container ---
@@ -74,8 +76,6 @@ export component MainWindow inherits Window {
         StatusBarView {
             color-statusbar-bg: root.color-statusbar-bg;
             color-text-muted: root.color-text-muted;
-            status_text: root.status_text;
-            show-list-view <=> root.show-list-view; // Two-way binding
         }
     }
 }

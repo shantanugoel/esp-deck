@@ -4,10 +4,39 @@ export component HeaderView inherits Rectangle {
     in property <color> color-text-muted;
 
     // --- State Properties (passed from parent) ---
+    in-out property <string> status_text;
+    in-out property <bool> show-list-view; // To toggle on click
     in property <string> wifi_symbol;
     in property <string> current_time;
-    height: 30px; // Match original layout
+    height: 30px;
     background: transparent; // Header itself doesn't need a background if main window has one
+
+    HorizontalLayout {
+        alignment: center;
+        height: 100%;
+        spacing: 15px;
+
+        // Status Text
+        TouchArea {
+            clicked => {
+                root.show-list-view = !root.show-list-view;
+            }
+            // Take available horizontal space
+            horizontal-stretch: 1;
+            // Ensure it's centered vertically within the status bar
+            Rectangle { // Use a Rectangle for positioning and stretching
+                height: 100%;
+                horizontal-stretch: 1;
+                background: transparent; // Make it invisible
+                Text { // Status Text inside TouchArea, centered within the Rectangle
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    text: root.status_text;
+                    color: root.color-text-muted;
+                }
+            }
+        }
+    }
 
     HorizontalLayout {
         alignment: end;
