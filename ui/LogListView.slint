@@ -1,0 +1,35 @@
+import { ScrollView } from "std-widgets.slint";
+
+export component LogListView inherits VerticalLayout {
+    // --- Theme Colors (passed from parent) ---
+    in property <color> color-text;
+    in property <color> color-text-muted;
+
+    // --- State Properties (passed from parent) ---
+    in property <[string]> list-items;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        VerticalLayout {
+            spacing: 5px;
+            padding: 10px;
+            // Iterate forwards, but access items in reverse using calculated index
+            for idx in root.list-items.length: Text {
+                property <int> reverse-idx: root.list-items.length - 1 - idx;
+                text: root.list-items[reverse-idx]; // Access item by reverse index
+                horizontal-alignment: left;
+                color: root.color-text;
+                wrap: word-wrap;
+                height: 20px;
+            }
+            if root.list-items.length == 0: Text {
+                text: "No updates yet!";
+                color: root.color-text-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

@@ -1,0 +1,30 @@
+import { StyledButton } from "./styled_button.slint";
+
+export component ButtonGridView inherits VerticalLayout {
+    // --- Theme Colors (passed from parent) ---
+    in property <color> color-button;
+    in property <color> color-button-text;
+    in property <color> color-accent;
+    in property <length> button-border-radius;
+
+    // --- State Properties (passed from parent) ---
+    in property <[string]> button-names;
+    callback button-pressed(int);
+    spacing: 10px;
+    vertical-stretch: 1;
+    horizontal-stretch: 1;
+    for row in 4: HorizontalLayout {
+        spacing: 10px;
+        for col in 4: StyledButton {
+            text: root.button-names.length > (row * 4 + col) ? root.button-names[row * 4 + col] : ("Button " + (row * 4 + col + 1));
+            base-background: root.color-button;
+            text-color: root.color-button-text;
+            border-radius: root.button-border-radius;
+            hover-background: root.color-accent;
+            pressed-background: root.color-accent;
+            clicked => {
+                root.button-pressed(row * 4 + col + 1);
+            }
+        }
+    }
+}

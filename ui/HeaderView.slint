@@ -1,0 +1,32 @@
+export component HeaderView inherits Rectangle {
+    // --- Theme Colors (passed from parent) ---
+    in property <color> color-text;
+    in property <color> color-text-muted;
+
+    // --- State Properties (passed from parent) ---
+    in property <string> wifi_symbol;
+    in property <string> current_time;
+    height: 30px; // Match original layout
+    background: transparent; // Header itself doesn't need a background if main window has one
+
+    HorizontalLayout {
+        alignment: end;
+        height: 100%;
+        spacing: 15px;
+
+        // Wifi Symbol
+        Text {
+            text: root.wifi_symbol;
+            vertical-alignment: center;
+            color: root.color-text;
+        }
+
+        // Time display
+        Text {
+            text: root.current_time;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            color: root.color-text-muted;
+        }
+    }
+}
