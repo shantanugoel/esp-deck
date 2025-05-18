@@ -21,7 +21,7 @@ struct WeatherMain {
 #[derive(Deserialize, Debug)]
 struct WeatherInfo {
     // id: i32,
-    main: String, // e.g., "Clear", "Clouds", "Rain"
+    // main: String, // e.g., "Clear", "Clouds", "Rain"
     description: String,
     icon: String, // Icon code, e.g., "01d", "10n"
 }
