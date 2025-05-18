@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use crate::{http_client::HttpClient, ui::ui::MainWindow};
+use crate::{http_client::HttpClient, ui::window::MainWindow};
 
 #[derive(Deserialize, Debug)]
 struct GatusResultItem {

@@ -5,7 +5,7 @@ use esp_deck::{
     events::{AppEvent, WifiStatus},
     mapper::Mapper,
     protocol::ProtocolManager,
-    ui::ui::Window,
+    ui::window::Window,
     usb_hid_client::UsbHidClient,
 };
 use esp_idf_svc::sys::{self as idf_sys, esp_vfs_littlefs_conf_t};
