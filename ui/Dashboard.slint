@@ -1,3 +1,4 @@
+import { ScrollView } from "std-widgets.slint";
 export component Dashboard inherits Rectangle {
     in property <color> color-button;
     in property <string> gatus: "N/A";
@@ -6,31 +7,67 @@ export component Dashboard inherits Rectangle {
         alignment: stretch;
         horizontal-stretch: 1;
         padding: 10px;
-        HorizontalLayout {
-            spacing: 5px;
+        ScrollView {
+            horizontal-scrollbar-policy: always-on;
+            vertical-scrollbar-policy: always-off;
             padding: 10px;
-            Rectangle {
-                background: color-button;
-                horizontal-stretch: 1;
-                vertical-stretch: 1;
-                Text {
-                    text: root.gatus;
+            HorizontalLayout {
+                spacing: 5px;
+                Rectangle {
+                    background: color-button;
+                    width: 150px;
+                    height: 150px;
+                    VerticalLayout {
+                        padding-top: 10px;
+                        Text {
+                            text: "ACT Status";
+                            vertical-alignment: top;
+                            horizontal-alignment: center;
+                            stroke: burlywood;
+                        }
+
+                        Text {
+                            text: root.gatus;
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                            vertical-stretch: 1;
+                        }
+                    }
                 }
-            }
 
-            Rectangle {
-                background: color-button;
-                min-width: 10px;
-            }
+                Rectangle {
+                    background: color-button;
+                    width: 150px;
+                    height: 150px;
+                }
 
-            Rectangle {
-                background: color-button;
-                horizontal-stretch: 1;
-            }
+                Rectangle {
+                    background: color-button;
+                    width: 150px;
+                    height: 150px;
+                    horizontal-stretch: 1;
+                }
 
-            Rectangle {
-                background: color-button;
-                horizontal-stretch: 1;
+                Rectangle {
+                    background: color-button;
+                    width: 150px;
+                    height: 150px;
+                    horizontal-stretch: 1;
+                }
+
+                Rectangle {
+                    background: color-button;
+                    width: 150px;
+                    height: 150px;
+                    horizontal-stretch: 1;
+                }
+
+                Rectangle {
+                    background: color-button;
+                    width: 150px;
+                    height: 150px;
+                    horizontal-stretch: 1;
+                }
             }
         }
 
