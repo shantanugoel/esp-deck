@@ -12,48 +12,52 @@ export component Dashboard inherits Rectangle {
             horizontal-scrollbar-policy: always-on;
             vertical-scrollbar-policy: always-off;
             padding: 10px;
-            HorizontalLayout {
-                spacing: 5px;
-                WidgetMediumSquare {
-                    bgcolor: color-button;
-                    value: gatus;
-                    title: "ACT Status";
-                }
+            height: 170px;
+            Flickable {
+                HorizontalLayout {
+                    spacing: 5px;
+                    alignment: center;
+                    WidgetMediumSquare {
+                        bgcolor: color-button;
+                        value: gatus;
+                        title: "ACT Status";
+                    }
 
-                WidgetMediumSquare {
-                    bgcolor: color-button;
-                    value: "100%";
-                    title: "Memory Usage";
-                }
+                    WidgetMediumSquare {
+                        bgcolor: color-button;
+                        value: "100%";
+                        title: "Memory Usage";
+                    }
 
-                WidgetMediumSquare {
-                    bgcolor: color-button;
-                    value: "100%";
-                    title: "CPU Usage";
-                }
+                    WidgetMediumSquare {
+                        bgcolor: color-button;
+                        value: "100%";
+                        title: "CPU Usage";
+                    }
 
-                WidgetMediumSquare {
-                    bgcolor: color-button;
-                    value: "100%";
-                    title: "Disk Usage";
-                }
+                    WidgetMediumSquare {
+                        bgcolor: color-button;
+                        value: "100%";
+                        title: "Disk Usage";
+                    }
 
-                WidgetMediumSquare {
-                    bgcolor: color-button;
-                    value: "100%";
-                    title: "Network Usage";
-                }
+                    WidgetMediumSquare {
+                        bgcolor: color-button;
+                        value: "100%";
+                        title: "Network Usage";
+                    }
 
-                WidgetMediumSquare {
-                    bgcolor: color-button;
-                    value: "100%";
-                    title: "Disk Usage";
-                }
+                    WidgetMediumSquare {
+                        bgcolor: color-button;
+                        value: "100%";
+                        title: "Disk Usage";
+                    }
 
-                WidgetMediumSquare {
-                    bgcolor: color-button;
-                    value: "100%";
-                    title: "Disk Usage";
+                    WidgetMediumSquare {
+                        bgcolor: color-button;
+                        value: "100%";
+                        title: "Disk Usage";
+                    }
                 }
             }
         }
