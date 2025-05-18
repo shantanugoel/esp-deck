@@ -2,6 +2,7 @@ pub mod actor;
 pub mod bsp;
 pub mod config;
 pub mod events;
+pub mod http_client;
 pub mod mapper;
 pub mod protocol;
 pub mod ui;

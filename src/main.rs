@@ -3,9 +3,10 @@ use esp_deck::{
     bsp::{time, usb::Usb, wifi::Wifi},
     config::{Configurator, WifiSettings},
     events::{AppEvent, WifiStatus},
+    http_client::HttpClient,
     mapper::Mapper,
     protocol::ProtocolManager,
-    ui::Window,
+    ui::ui::Window,
     usb_hid_client::UsbHidClient,
 };
 use esp_idf_svc::sys::{self as idf_sys, esp_vfs_littlefs_conf_t};
@@ -18,7 +19,10 @@ use esp_idf_svc::{
     nvs::EspDefaultNvsPartition,
     timer::EspTaskTimerService,
 };
-use std::ffi::CString;
+use std::{
+    ffi::CString,
+    sync::{Arc, Mutex},
+};
 use std::{
     sync::mpsc::{self, Receiver, Sender, SyncSender},
     thread,
@@ -98,6 +102,9 @@ fn main() -> anyhow::Result<()> {
         SyncSender<Option<WifiSettings>>,
         Receiver<Option<WifiSettings>>,
     ) = mpsc::sync_channel(1);
+
+    // Http Client - Shared between threads
+    let http_client = Arc::new(Mutex::new(HttpClient::new()?));
 
     ThreadSpawnConfiguration {
         stack_size: 4096,
@@ -207,7 +214,15 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, tz_offset, button_names);
+    let http_client_ui = Arc::clone(&http_client);
+    let _ = Window::init(
+        touch_i2c,
+        ui_updates_rx,
+        actor_tx,
+        tz_offset,
+        button_names,
+        http_client_ui,
+    );
 
     for thread in threads {
         if let Err(e) = thread.join() {

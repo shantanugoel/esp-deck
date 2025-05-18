@@ -1,5 +1,6 @@
 export component Dashboard inherits Rectangle {
     in property <color> color-button;
+    in property <string> gatus: "N/A";
     VerticalLayout {
         vertical-stretch: 1;
         alignment: stretch;
@@ -10,6 +11,11 @@ export component Dashboard inherits Rectangle {
             padding: 10px;
             Rectangle {
                 background: color-button;
+                Text {
+                    text: root.gatus;
+                    min-width: 100px;
+                    min-height: 100px;
+                }
             }
 
             Rectangle {

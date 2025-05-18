@@ -4,13 +4,18 @@ use esp_idf_svc::hal::i2c::I2cDriver;
 use slint::{SharedString, Weak};
 use std::{
     collections::HashMap,
-    sync::mpsc::{Receiver, Sender},
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 
 use crate::{
     bsp::slint_platform,
     events::{AppEvent, TimeStatus, UsbStatus, WifiStatus},
+    http_client::HttpClient,
+    ui::widgets::gatus::gatus_widget_update,
 };
 
 slint::include_modules!();
@@ -23,6 +28,7 @@ impl Window {
         actor_tx: Sender<AppEvent>,
         tz_offset: f32,
         button_names: Option<HashMap<usize, String>>,
+        http_client: Arc<Mutex<HttpClient>>,
     ) -> Result<()> {
         slint_platform::init(touch_i2c);
         let window = MainWindow::new()
@@ -55,6 +61,14 @@ impl Window {
             log::info!("Button {} pressed in UI! Sending to Actor.", button_id);
             let _ = button_actor_tx.send(AppEvent::ButtonPressed(button_id));
         });
+
+        let weak_window_gatus_updates = window.as_weak();
+        let timer_gatus_updates = slint::Timer::default();
+        timer_gatus_updates.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(1000),
+            move || gatus_widget_update(&weak_window_gatus_updates, http_client.clone()),
+        );
 
         window
             .run()

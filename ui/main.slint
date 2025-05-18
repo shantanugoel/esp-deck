@@ -27,6 +27,7 @@ export component MainWindow inherits Window {
     in-out property <string> wifi_symbol: "🛜❌";
     in-out property <[string]> button-names: [];
     in-out property <int> current_tab_index: 0;
+    in-out property <string> gatus: "N/A";
     Text {
         text: "⌨️ 🅰️ 🔠 🔡 ↩️ ⏎ ⌫ ⌦ 🔢 🔤 🔣 🖱️ 🖲️ ⏯️ ⏸️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ 🔊 🔉 🔇 📋 ✂️ 📝 🗑️ 🖥️ 💻 🧑‍💻 🔒 🔓 🔁 🔀 🛑 ⬆️ ⬇️ ⬅️ ➡️ ↔️ ↕️ 🔄 🌐 🦊 🧭 🧩 🗂️ 🗃️ 🗄️ 🗒️ 🗓️ 🕒 📨 📧 🖨️ 👋 🏠 🏁 🏃 💤 🔔 🛠️ 🏷️ ⭐ 🏆 🧹 🧲 🧰 🧪 🚀 🧭";
         visible: false;
@@ -68,6 +69,7 @@ export component MainWindow inherits Window {
                 title: "Dashboard";
                 Dashboard {
                     color-button: root.color-button;
+                    gatus: root.gatus;
                 }
             }
         }
