@@ -1,47 +1,74 @@
 use serde::Deserialize;
 use serde_json;
-use slint::{SharedString, Weak};
-use std::sync::{Arc, Mutex};
+use slint::{SharedString, Timer, Weak};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 use crate::{http_client::HttpClient, ui::ui::MainWindow};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct GatusResultItem {
     duration: u64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct GatusResponse {
     results: Vec<GatusResultItem>,
 }
 
-pub fn gatus_widget_update(window: &Weak<MainWindow>, http_client: Arc<Mutex<HttpClient>>) {
-    let mut client = http_client.lock().unwrap();
-    let gatus_display_string = match client.get(
-        "https://status.shantanugoel.com/api/v1/endpoints/internet_act-status/statuses",
-        None,
-    ) {
-        Ok(json_string) => match serde_json::from_str::<GatusResponse>(&json_string) {
-            Ok(parsed_response) => {
-                if let Some(first_result) = parsed_response.results.get(0) {
-                    format!("{}ms", first_result.duration / 1000000)
-                } else {
-                    log::warn!("Gatus response had no results in the 'results' array.");
-                    "N/A (no data)".to_string()
+fn fetch_and_process_gatus_status(url: &str) -> String {
+    match HttpClient::new() {
+        Ok(mut client) => match client.get(url, None) {
+            Ok(json_string) => match serde_json::from_str::<GatusResponse>(&json_string) {
+                Ok(parsed_response) => {
+                    if let Some(first_result) = parsed_response.results.get(0) {
+                        format!("{}ms", first_result.duration / 1_000_000)
+                    } else {
+                        log::warn!("Gatus: No results in the 'results' array.");
+                        "N/A (no data)".to_string()
+                    }
                 }
-            }
-            Err(parse_err) => {
-                log::error!("Failed to parse Gatus JSON response: {}", parse_err);
-                "N/A (parse error)".to_string()
+                Err(parse_err) => {
+                    log::error!("Gatus: Failed to parse JSON response: {}", parse_err);
+                    "N/A (parse error)".to_string()
+                }
+            },
+            Err(http_err) => {
+                log::error!("Gatus: HTTP GET request failed: {}", http_err);
+                "N/A (HTTP error)".to_string()
             }
         },
-        Err(http_err) => {
-            log::error!("Failed to get gatus status via HTTP: {}", http_err);
-            "N/A (HTTP error)".to_string()
+        Err(client_init_err) => {
+            log::error!("Gatus: Failed to create HttpClient: {}", client_init_err);
+            "N/A (client init)".to_string()
         }
-    };
-    window
-        .upgrade()
-        .unwrap()
-        .set_gatus(SharedString::from(gatus_display_string));
+    }
+}
+
+pub fn start_gatus_service(
+    window_weak: Weak<MainWindow>,
+    gatus_url: Arc<String>,
+    update_interval: Duration,
+) {
+    let timer = Timer::default();
+    timer.start(slint::TimerMode::Repeated, update_interval, move || {
+        let window_clone = window_weak.clone();
+        let url_clone = Arc::clone(&gatus_url);
+
+        thread::spawn(move || {
+            let display_string = fetch_and_process_gatus_status(&url_clone);
+
+            slint::invoke_from_event_loop(move || {
+                if let Some(window) = window_clone.upgrade() {
+                    window.set_gatus(SharedString::from(display_string));
+                } else {
+                    log::warn!("Gatus: Slint window was dropped before status could be updated.");
+                }
+            })
+            .expect("Gatus: Failed to schedule UI update on Slint event loop");
+        });
+    });
+
+    Box::leak(Box::new(timer));
 }

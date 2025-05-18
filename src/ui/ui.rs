@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     sync::{
         mpsc::{Receiver, Sender},
-        Arc, Mutex,
+        Arc,
     },
     time::Duration,
 };
@@ -14,9 +14,9 @@ use std::{
 use crate::{
     bsp::slint_platform,
     events::{AppEvent, TimeStatus, UsbStatus, WifiStatus},
-    http_client::HttpClient,
-    ui::widgets::gatus::gatus_widget_update,
 };
+
+use super::widgets::gatus::start_gatus_service;
 
 slint::include_modules!();
 pub struct Window;
@@ -28,7 +28,6 @@ impl Window {
         actor_tx: Sender<AppEvent>,
         tz_offset: f32,
         button_names: Option<HashMap<usize, String>>,
-        http_client: Arc<Mutex<HttpClient>>,
     ) -> Result<()> {
         slint_platform::init(touch_i2c);
         let window = MainWindow::new()
@@ -62,13 +61,12 @@ impl Window {
             let _ = button_actor_tx.send(AppEvent::ButtonPressed(button_id));
         });
 
-        let weak_window_gatus_updates = window.as_weak();
-        let timer_gatus_updates = slint::Timer::default();
-        timer_gatus_updates.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(1000),
-            move || gatus_widget_update(&weak_window_gatus_updates, http_client.clone()),
+        let gatus_url_arc = Arc::new(
+            "https://status.shantanugoel.com/api/v1/endpoints/internet_act-status/statuses"
+                .to_string(),
         );
+        let update_interval = Duration::from_secs(30);
+        start_gatus_service(window.as_weak(), gatus_url_arc, update_interval);
 
         window
             .run()
