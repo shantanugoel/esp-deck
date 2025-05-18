@@ -17,6 +17,7 @@ use crate::{
 };
 
 use super::widgets::gatus::start_gatus_service;
+use super::widgets::weather::start_weather_service;
 
 slint::include_modules!();
 pub struct Window;
@@ -47,12 +48,12 @@ impl Window {
             },
         );
 
-        let weak_window_time_updates = window.as_weak();
-        let timer_time_updates = slint::Timer::default();
-        timer_time_updates.start(
+        let weak_window_time_date_updates = window.as_weak();
+        let timer_time_date_updates = slint::Timer::default();
+        timer_time_date_updates.start(
             slint::TimerMode::Repeated,
-            Duration::from_millis(2000),
-            move || update_time(&weak_window_time_updates, tz_offset),
+            Duration::from_secs(1),
+            move || update_time_and_date(&weak_window_time_date_updates, tz_offset),
         );
 
         let button_actor_tx = actor_tx.clone();
@@ -65,8 +66,19 @@ impl Window {
             "https://status.shantanugoel.com/api/v1/endpoints/internet_act-status/statuses"
                 .to_string(),
         );
-        let update_interval = Duration::from_secs(30);
-        start_gatus_service(window.as_weak(), gatus_url_arc, update_interval);
+        let gatus_update_interval = Duration::from_secs(30);
+        start_gatus_service(window.as_weak(), gatus_url_arc, gatus_update_interval);
+
+        let weather_api_url_arc = Arc::new(
+            "https://api.openweathermap.org/data/2.5/weather?q=London&appid=YOUR_OPENWEATHERMAP_API_KEY&units=metric"
+                .to_string(),
+        );
+        let weather_update_interval = Duration::from_secs(10 * 60);
+        start_weather_service(
+            window.as_weak(),
+            weather_api_url_arc,
+            weather_update_interval,
+        );
 
         window
             .run()
@@ -107,11 +119,8 @@ fn handle_events(
     rx: &Receiver<AppEvent>,
     status_list_items: &mut Vec<SharedString>,
 ) {
-    // Only proceed if the window still exists
     if let Some(window) = window.upgrade() {
-        // Process a new event if one is available
         if let Ok(event) = rx.try_recv() {
-            // let mut list_updated = false; // Flag removed
             let text = match event {
                 AppEvent::WifiUpdate(status) => {
                     let text = match status {
@@ -158,7 +167,6 @@ fn handle_events(
                 log::info!("{}", text);
                 window.set_status_text(text.clone());
                 status_list_items.push(text);
-                // Update list model immediately after modifying the source Vec
                 let model = (&status_list_items[..]).into();
                 window.set_list_items(model);
             }
@@ -166,29 +174,30 @@ fn handle_events(
     }
 }
 
-fn update_time(window: &Weak<MainWindow>, tz_offset: f32) {
-    let time: DateTime<Utc> = std::time::SystemTime::now().into();
-    let seconds_offset = tz_offset * 3600.0;
-    let fixed_offset = match FixedOffset::east_opt(seconds_offset as i32) {
+fn update_time_and_date(window: &Weak<MainWindow>, tz_offset: f32) {
+    let now_utc: DateTime<Utc> = std::time::SystemTime::now().into();
+    let seconds_offset = (tz_offset * 3600.0) as i32;
+    let fixed_offset = match FixedOffset::east_opt(seconds_offset) {
         Some(offset) => offset,
         None => {
             log::error!("Invalid timezone offset: {}", tz_offset);
-            FixedOffset::east_opt(0).unwrap() // fallback to UTC
+            FixedOffset::east_opt(0).unwrap()
         }
     };
-    let time_str = SharedString::from(
-        time.with_timezone(&fixed_offset)
-            .format("%H:%M")
-            .to_string(),
-    );
-    let window = match window.upgrade() {
-        Some(w) => w,
-        None => {
-            log::error!("Failed to upgrade window weak reference");
-            return;
+    let local_time = now_utc.with_timezone(&fixed_offset);
+
+    let time_str_detailed = SharedString::from(local_time.format("%H:%M:%S").to_string());
+    let date_str_detailed =
+        SharedString::from(local_time.format("%a, %b %d").to_string().to_uppercase());
+
+    if let Some(window_strong) = window.upgrade() {
+        if window_strong.get_current_time() != time_str_detailed {
+            window_strong.set_current_time(time_str_detailed);
         }
-    };
-    if window.get_current_time() != time_str {
-        window.set_current_time(time_str);
+        if window_strong.get_current_date() != date_str_detailed {
+            window_strong.set_current_date(date_str_detailed);
+        }
+    } else {
+        log::error!("Failed to upgrade window weak reference in update_time_and_date");
     }
 }
