@@ -1,0 +1,24 @@
+export component WidgetMediumSquare inherits Rectangle {
+    in property <color> bgcolor;
+    in property <string> value: "N/A";
+    in property <string> title: "N/A";
+    background: bgcolor;
+    width: 150px;
+    height: 150px;
+    VerticalLayout {
+        Text {
+            text: title;
+            vertical-alignment: top;
+            horizontal-alignment: center;
+            stroke: burlywood;
+            padding-top: 10px;
+        }
+
+        Text {
+            text: value;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            vertical-stretch: 1;
+        }
+    }
+}
