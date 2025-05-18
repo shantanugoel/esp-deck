@@ -58,7 +58,7 @@ fn fetch_and_process_weather_status(url: &str) -> (SharedString, SharedString, S
             Ok(json_string) => {
                 match serde_json::from_str::<WeatherResponse>(&json_string) {
                     Ok(parsed_response) => {
-                        if let Some(weather_info) = parsed_response.weather.get(0) {
+                        if let Some(weather_info) = parsed_response.weather.first() {
                             let temp_str = format!("{:.0}°C", parsed_response.main.temp);
                             let desc_str = weather_info.description.to_string();
                             // Capitalize first letter of description

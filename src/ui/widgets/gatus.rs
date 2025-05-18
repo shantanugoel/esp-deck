@@ -22,7 +22,7 @@ fn fetch_and_process_gatus_status(url: &str) -> String {
         Ok(mut client) => match client.get(url, None) {
             Ok(json_string) => match serde_json::from_str::<GatusResponse>(&json_string) {
                 Ok(parsed_response) => {
-                    if let Some(first_result) = parsed_response.results.get(0) {
+                    if let Some(first_result) = parsed_response.results.first() {
                         format!("{}ms", first_result.duration / 1_000_000)
                     } else {
                         log::warn!("Gatus: No results in the 'results' array.");
