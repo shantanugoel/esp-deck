@@ -1,5 +1,5 @@
 import { LineEdit, VerticalBox } from "std-widgets.slint";
-import "./PixelifySans-VariableFont_wght.ttf";
+import "./fonts/MatrixtypeDisplay.ttf";
 
 export component NowView inherits Rectangle {
     in-out property <string> current-date: "MON, JAN 01";
@@ -14,6 +14,7 @@ export component NowView inherits Rectangle {
     property <color> pixel-fg-date: #A0A0A0;
     property <color> pixel-fg-weather: #C0C0C0;
     property <color> pixel-accent-weather: #FFD700;
+    property <string> font-family: "MatrixType Display";
     background: pixel-bg;
     padding: 5px;
     GridLayout {
@@ -29,7 +30,7 @@ export component NowView inherits Rectangle {
                     text: root.current-date;
                     color: pixel-fg-date;
                     font-size: 20px;
-                    font-family: "Pixelify Sans";
+                    font-family: root.font-family;
                     font-weight: 400;
                     horizontal-alignment: center;
                 }
@@ -38,7 +39,7 @@ export component NowView inherits Rectangle {
                     text: root.current-time;
                     color: pixel-fg-time;
                     font-size: 72px;
-                    font-family: "Pixelify Sans";
+                    font-family: root.font-family;
                     font-weight: 400;
                     horizontal-alignment: center;
                 }
@@ -48,7 +49,7 @@ export component NowView inherits Rectangle {
                 width: 30%;
                 text: root.user-status-icon;
                 font-size: 28px;
-                font-family: "Pixelify Sans";
+                font-family: root.font-family;
                 font-weight: 400;
                 horizontal-alignment: center;
             }
@@ -75,7 +76,7 @@ export component NowView inherits Rectangle {
                             text: root.weather-temp;
                             color: pixel-accent-weather;
                             font-size: 20px;
-                            font-family: "Pixelify Sans";
+                            font-family: root.font-family;
                             font-weight: 400;
                             horizontal-alignment: center;
                         }
@@ -84,7 +85,7 @@ export component NowView inherits Rectangle {
                             text: root.weather-desc;
                             color: pixel-fg-weather;
                             font-size: 12px;
-                            font-family: "Pixelify Sans";
+                            font-family: root.font-family;
                             font-weight: 400;
                             wrap: word-wrap;
                             horizontal-alignment: center;
