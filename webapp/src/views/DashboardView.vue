@@ -91,6 +91,10 @@
             </div>
           </div>
         </div>
+        <!-- API Key Manager -->
+        <div class="mt-4">
+          <ApiKeyManager v-model="stagedApiKey" />
+        </div>
       </div>
     </div>
     <div v-if="deviceApi.isConnected" class="w-full max-w-4xl flex justify-center mt-4">
@@ -193,6 +197,7 @@
       :changedWifi="changedWifi"
       :changedTz="changedTz"
       :changedMappings="changedMappings"
+      :changed-api-key="changedApiKey"
       @confirm="handleSaveModalConfirm"
       @cancel="handleSaveModalCancel"
     />
@@ -202,6 +207,7 @@
 <script setup lang="ts">
 import DeviceStatus from '../components/DeviceStatus.vue'
 import FeedbackToast from '../components/FeedbackToast.vue'
+import ApiKeyManager from '../components/ApiKeyManager.vue'
 import { useDeviceStore } from '../stores/deviceStore'
 import { useDeviceApi } from '../composables/useDeviceApi'
 import { computed, ref, watch, nextTick } from 'vue'
@@ -240,6 +246,8 @@ const normalizedApiError = computed(() => {
 const wifiSsid = ref('')
 const wifiPassword = ref('')
 const timezoneOffset = ref<number | null>(null)
+const originalApiKey = ref<string | null>(null)
+const stagedApiKey = ref<string | null>(null)
 
 const isEditingSsid = ref(false)
 const isEditingPassword = ref(false)
@@ -253,7 +261,7 @@ const tzInputRef = ref<HTMLInputElement | null>(null)
 const showPassword = ref(false)
 
 const showSaveModal = ref(false)
-const saveModalSelection = ref<{ wifi: boolean, tz: boolean, mappings: boolean, sendAllMappings?: boolean } | null>(null)
+const saveModalSelection = ref<{ wifi: boolean, tz: boolean, mappings: boolean, apiKey?: boolean, sendAllMappings?: boolean } | null>(null)
 
 // Track previous values for comparison
 const prevWifiSsid = computed(() => wifiSsid.value)
@@ -277,6 +285,12 @@ const changedTz = computed(() => {
   }
   return null
 })
+const changedApiKey = computed(() => {
+  if (stagedApiKey.value !== originalApiKey.value) {
+    return { oldValue: originalApiKey.value, newValue: stagedApiKey.value }
+  }
+  return null
+})
 const changedMappings = computed(() => {
   // Compare keys and values for changed mappings
   // This is a placeholder; replace with actual logic if you have temp mappings
@@ -286,10 +300,13 @@ const changedMappings = computed(() => {
 watch(
   () => deviceStore.deviceConfig,
   (config) => {
-    const wifi = config?.config?.settings?.wifi
-    wifiSsid.value = wifi?.ssid || ''
-    wifiPassword.value = wifi?.password || ''
-    timezoneOffset.value = config?.config?.settings?.timezone_offset ?? null
+    const settings = config?.config?.settings
+    wifiSsid.value = settings?.wifi?.ssid || ''
+    wifiPassword.value = settings?.wifi?.password || ''
+    timezoneOffset.value = settings?.timezone_offset ?? null
+    originalApiKey.value = settings?.api_key || null
+    stagedApiKey.value = originalApiKey.value
+
     // Reset edit state and temp values on config change
     isEditingSsid.value = false
     isEditingPassword.value = false
@@ -323,6 +340,7 @@ const hasSettingsChanged = computed(() =>
   tempSsid.value !== wifiSsid.value ||
   tempPassword.value !== wifiPassword.value ||
   tempTz.value !== timezoneOffset.value ||
+  !!changedApiKey.value ||
   !deepEqual(deviceStore.deviceConfig, deviceStore.lastFetchedConfig) ||
   Object.keys(deviceStore.stagedButtonChanges).length > 0
 )
@@ -353,9 +371,13 @@ function onSaveSettings() {
   showSaveModal.value = true
 }
 
-function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean, sendAllMappings?: boolean }) {
+function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mappings: boolean, apiKey?: boolean, sendAllMappings?: boolean }) {
   showSaveModal.value = false
+  saveModalSelection.value = selection
   const config = JSON.parse(JSON.stringify(deviceStore.deviceConfig?.config || {}))
+
+  // Ensure settings object exists
+  config.settings = config.settings || {};
 
   // Handle mappings
   if (selection.mappings) {
@@ -380,7 +402,7 @@ function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mapping
   }
 
   // Handle settings
-  if (selection.wifi || selection.tz) {
+  if (selection.wifi || selection.tz || selection.apiKey) {
     config.settings = config.settings || {}
     if (selection.wifi && changedWifi.value) {
       config.settings.wifi = {
@@ -390,6 +412,13 @@ function handleSaveModalConfirm(selection: { wifi: boolean, tz: boolean, mapping
     }
     if (selection.tz && changedTz.value) {
       config.settings.timezone_offset = tempTz.value
+    }
+    if (selection.apiKey && changedApiKey.value) {
+      config.settings.api_key = changedApiKey.value.newValue;
+    } else if (changedApiKey.value) {
+      config.settings.api_key = originalApiKey.value;
+    } else {
+      config.settings.api_key = originalApiKey.value;
     }
   }
 

@@ -14,6 +14,9 @@
           <label class="flex items-center gap-2">
             <input type="checkbox" v-model="selected.mappings" /> Button Mappings
           </label>
+          <label v-if="props.changedApiKey" class="flex items-center gap-2">
+            <input type="checkbox" v-model="selected.apiKey" /> API Key
+          </label>
           <label v-if="selected.mappings" class="flex items-center gap-2 ml-6 text-xs">
             <input type="checkbox" v-model="sendAllMappings" /> Send all button mappings and names (not just changed)
           </label>
@@ -34,6 +37,14 @@
             <div class="font-medium">Button Mappings Changed:</div>
             <div class="ml-4">Buttons: <span class="font-mono">{{ changedMappings.join(', ') }}</span></div>
           </div>
+          <div v-if="selected.apiKey && props.changedApiKey" class="mt-2">
+            <div class="font-medium">API Key Change:</div>
+            <ul class="ml-4 list-disc">
+              <li v-if="!props.changedApiKey.oldValue && props.changedApiKey.newValue">Will be set.</li>
+              <li v-if="props.changedApiKey.oldValue && !props.changedApiKey.newValue">Will be cleared.</li>
+              <li v-if="props.changedApiKey.oldValue && props.changedApiKey.newValue">Will be changed.</li>
+            </ul>
+          </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">
           <button type="button" @click="$emit('cancel')" class="px-4 py-2 rounded bg-muted text-muted-foreground font-semibold hover:bg-muted/80">Cancel</button>
@@ -46,13 +57,24 @@
 
 <script setup lang="ts">
 import { ref, defineProps, defineEmits } from 'vue'
+
+type ApiKeyChange = { oldValue: string | null; newValue: string | null } | null;
+
 const props = defineProps<{
   changedWifi: { ssid?: { old: string, new: string }, password?: boolean } | null,
   changedTz: { old: number|null, new: number|null } | null,
-  changedMappings: number[]
+  changedMappings: number[],
+  changedApiKey: ApiKeyChange
 }>()
 const emit = defineEmits(['confirm', 'cancel'])
-const selected = ref({ wifi: !!props.changedWifi, tz: !!props.changedTz, mappings: !!(props.changedMappings && props.changedMappings.length) })
+
+const selected = ref({
+  wifi: !!props.changedWifi,
+  tz: !!props.changedTz,
+  mappings: !!(props.changedMappings && props.changedMappings.length),
+  apiKey: !!props.changedApiKey
+})
+
 const sendAllMappings = ref(false)
 function onConfirm() {
   emit('confirm', { ...selected.value, sendAllMappings: sendAllMappings.value })
