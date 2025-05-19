@@ -8,7 +8,7 @@ export component NowView inherits Rectangle {
     in-out property <string> weather-temp: "--°C";
     in-out property <string> weather-desc: "Weather: N/A";
     in-out property <string> user-status-icon: "🧑‍💻";
-    in-out property <string> user-status-text: "Online";
+    in-out property <string> user-status-text: "Custom Status, Updated via API or automatically goes here!";
     property <color> pixel-bg: #000000;
     property <color> pixel-fg-time: #FFFFFF;
     property <color> pixel-fg-date: #A0A0A0;
@@ -16,91 +16,61 @@ export component NowView inherits Rectangle {
     property <color> pixel-accent-weather: #FFD700;
     property <string> font-family: "MatrixType Display";
     background: pixel-bg;
-    padding: 5px;
-    GridLayout {
-        padding: 10px;
-        spacing: 15px;
+    VerticalLayout {
 
-        // Row 1: Main Time and Status Icon
-        Row {
-            VerticalLayout {
-                width: 70%;
-                spacing: 2px;
-                Text {
-                    text: root.current-date;
-                    color: pixel-fg-date;
-                    font-size: 20px;
-                    font-family: root.font-family;
-                    font-weight: 400;
-                    horizontal-alignment: center;
-                }
+        // Date
+        Text {
+            text: root.current-date;
+            color: pixel-fg-date;
+            font-size: 15px;
+            font-family: root.font-family;
+            font-weight: 400;
+            horizontal-alignment: center;
+        }
 
-                Text {
-                    text: root.current-time;
-                    color: pixel-fg-time;
-                    font-size: 72px;
-                    font-family: root.font-family;
-                    font-weight: 400;
-                    horizontal-alignment: center;
-                }
+        // Weather
+        HorizontalLayout {
+            alignment: center;
+            Text {
+                text: root.weather-icon;
+                color: pixel-accent-weather;
+                font-size: 20px;
             }
 
             Text {
-                width: 30%;
-                text: root.user-status-icon;
-                font-size: 28px;
+                text: root.weather-temp;
+                color: pixel-accent-weather;
+                font-size: 20px;
                 font-family: root.font-family;
                 font-weight: 400;
                 horizontal-alignment: center;
             }
         }
 
-        // Row 2: Weather Information (spans across)
-        Row {
-            Rectangle {
-                horizontal-stretch: 1;
-                border-radius: 3px;
-                border-width: 1px;
-                padding: 8px;
-                HorizontalLayout {
-                    alignment: center;
-                    spacing: 10px;
-                    Text {
-                        text: root.weather-icon;
-                        color: pixel-accent-weather;
-                        font-size: 28px;
-                    }
-
-                    VerticalLayout {
-                        Text {
-                            text: root.weather-temp;
-                            color: pixel-accent-weather;
-                            font-size: 20px;
-                            font-family: root.font-family;
-                            font-weight: 400;
-                            horizontal-alignment: center;
-                        }
-
-                        Text {
-                            text: root.weather-desc;
-                            color: pixel-fg-weather;
-                            font-size: 12px;
-                            font-family: root.font-family;
-                            font-weight: 400;
-                            wrap: word-wrap;
-                            horizontal-alignment: center;
-                        }
-                    }
-                }
-            }
+        // Time
+        Text {
+            text: root.current-time;
+            color: pixel-fg-time;
+            font-size: 100px;
+            font-family: root.font-family;
+            font-weight: 400;
+            horizontal-alignment: center;
         }
+
+        Text {
+            width: 30%;
+            text: root.user-status-icon;
+            font-size: 28px;
+            font-family: root.font-family;
+            font-weight: 400;
+            horizontal-alignment: center;
+        }
+
         // Optional: User status text below everything for later
-        // Row { 
-        //     Text { 
-        //         text: root.user-status-text; 
-        //         horizontal-alignment: center; 
-        //         color: pixel-fg-date; 
-        //     }
-        // }
+        Text {
+            text: root.user-status-text;
+            horizontal-alignment: center;
+            color: pixel-fg-date;
+        }
     }
 }
