@@ -1,135 +1,159 @@
 # Frontend API Key Management Plan
 
-This document outlines the plan for implementing API key management in the frontend application, focusing on minimal changes and adherence to the existing architecture.
+This document outlines the plan for implementing API key management in the frontend application, adhering to the existing pattern for settings like Wi-Fi and Timezone.
 
 ## 1. Requirements
 
--   **View API Key:** Users should be able to see the status of the API key (e.g., "Set", "Not Set"). A "Copy API Key" button should be available if a key is set.
+-   **View API Key:** Users should be able to see the current API key (or its status, e.g., "Not Set").
 -   **Generate API Key:** Users should be able to generate a new API key (UUID).
 -   **Clear API Key:** Users should be able to clear/remove an existing API key.
--   **Staged Changes:** All API key modifications (generation, clearing) must be staged locally and not immediately saved to the device.
--   **Save Workflow Integration:** Staged API key changes must be part of the existing "Save Settings" workflow in `DashboardView.vue`.
--   **Selective Save:** Users must be able to selectively include or exclude API key changes during the save operation via the `SaveSettingsModal.vue`.
--   **State Management:** The `deviceStore.ts` will be the source of truth for API key state and modifications.
--   **User Feedback:** Clear feedback should be provided for actions like key generation, clearing, and copying (e.g., using toasts), and to indicate that changes require saving.
+-   **Copy API Key:** A button to copy the current API key to the clipboard.
+-   **Local Staging:** All API key modifications (generation, clearing) must be staged locally within `DashboardView.vue`'s context, not immediately saved to the device or directly to `deviceStore`.
+-   **Save Workflow Integration:** Staged API key changes must be part of the existing "Save Settings" workflow in `DashboardView.vue`, managed via `SaveSettingsModal.vue`.
+-   **Selective Save:** Users must be able to selectively include or exclude API key changes during the save operation.
+-   **User Feedback:** Clear feedback should be provided for actions (e.g., using toasts).
 
-## 2. Architecture
+## 2. Architecture (Revised)
 
 The implementation will leverage the existing Vue 3 (Composition API, TypeScript, Pinia) architecture.
 
 -   **State Management (`deviceStore.ts`):**
-    -   `deviceConfig.value.settings.api_key` will hold the current, potentially staged, API key.
-    -   `lastFetchedConfig.value.settings.api_key` will represent the last known API key persisted on the device (used as a baseline for detecting changes).
-    -   The existing `updateDeviceApiKey(newApiKey: string | null)` action will be used to stage changes to `deviceConfig.value.settings.api_key`.
-    -   The existing `apiKey` computed property (`deviceStore.apiKey`) will provide reactive access to the staged API key.
+    -   **No API-key-specific changes.** The API key (e.g., `api_key: string | null`) is expected to be a standard field within the device configuration's `settings` object (e.g., `deviceConfig.config.settings.api_key`).
+    -   `deviceStore` will continue to load and save the entire device configuration, including the `settings` object, without specific knowledge of the `api_key` field beyond its type if defined in `DeviceConfig`.
 
 -   **UI Components:**
-    -   **`ApiKeyManager.vue` (To be created/re-created):**
-        -   A dedicated component for displaying API key status, and providing "Generate", "Clear", and "Copy" actions.
-        -   Interacts with `deviceStore` to read `apiKey` and call `updateDeviceApiKey`.
+    -   **`ApiKeyManager.vue` (New Component):**
+        -   A UI component responsible for displaying the API key and providing "Generate", "Clear", and "Copy" buttons.
+        -   Props: `modelValue: string | null` (for v-model binding with `DashboardView.vue`, representing the current staged API key).
+        -   Local state: Manages its display based on `modelValue`.
+        -   Emits: `@update:modelValue (newValue: string | null)` when "Generate" or "Clear" is clicked.
     -   **`DashboardView.vue`:**
-        -   Hosts `ApiKeyManager.vue`.
-        -   Tracks the initial API key state (from when the config was loaded or last saved) to detect local changes.
-        -   A computed property `changedApiKey` will determine if the API key has been modified locally, providing `{ oldValue, newValue }` for the modal.
+        -   Will instantiate and use `ApiKeyManager.vue`.
+        -   Local State:
+            -   `originalApiKey = ref<string | null>(null)`: Populated from `deviceStore.deviceConfig.config.settings.api_key` (or the actual path) upon loading configuration. This is the last saved state.
+            -   `stagedApiKey = ref<string | null>(null)`: Bound to `ApiKeyManager.vue` using `v-model`. Initialized with `originalApiKey.value`.
+        -   Computed: `changedApiKey = computed(() => { ... })`: Compares `stagedApiKey.value` with `originalApiKey.value`. Returns `{ oldValue: string | null, newValue: string | null } | null`.
         -   Passes `changedApiKey` to `SaveSettingsModal.vue`.
-        -   Handles the save logic based on user selection in the modal, preparing the correct `api_key` value for `deviceStore.saveConfig()`.
+        -   Handles save logic: if API key change is confirmed in modal, `stagedApiKey.value` is used for `configToSave.config.settings.api_key`; otherwise, `originalApiKey.value` is used.
     -   **`SaveSettingsModal.vue`:**
-        -   Receives `changedApiKey` prop.
-        -   Displays a checkbox to include/exclude API key changes if `changedApiKey` indicates a modification.
-        -   Shows a textual summary of the API key change (e.g., "API Key: Will be set", "API Key: Will be cleared").
-        -   Emits the user's selection for the API key back to `DashboardView.vue`.
+        -   Receives `changedApiKey` prop as before.
+        -   Displays checkbox and summary for API key change.
+        -   Emits user's selection.
 
--   **Data Flow for API Key Change & Save:**
-    1.  Config loaded: `deviceStore.deviceConfig` and `initialApiKey` (in `DashboardView.vue`) are populated.
-    2.  `ApiKeyManager.vue` (via `deviceStore.apiKey`) displays current key status.
-    3.  User action (Generate/Clear) in `ApiKeyManager.vue` calls `deviceStore.updateDeviceApiKey()`.
-    4.  `deviceStore` updates `deviceConfig.value.settings.api_key` (staged change).
-    5.  `DashboardView.vue`'s `changedApiKey` computed property detects the change.
-    6.  User clicks "Save Settings"; `SaveSettingsModal.vue` is shown, displaying the API key change and checkbox.
-    7.  User confirms selection in modal.
-    8.  `DashboardView.vue`'s `handleSaveModalConfirm` adjusts `configToSave.settings.api_key` based on modal selection (apply staged change or revert to initial value).
-    9.  `deviceStore.saveConfig()` sends the payload. On success, `lastFetchedConfig` (and `initialApiKey` in `DashboardView`) are updated.
+-   **Data Flow for API Key Change & Save (Revised):**
+    1.  Config loaded: `deviceStore.deviceConfig` is populated. `DashboardView.vue` initializes `originalApiKey.value` and `stagedApiKey.value` from `deviceStore.deviceConfig.config.settings.api_key`.
+    2.  `DashboardView.vue` passes `stagedApiKey` to `ApiKeyManager.vue` via `v-model`.
+    3.  `ApiKeyManager.vue` displays the key based on its `modelValue` prop.
+    4.  User action (Generate/Clear) in `ApiKeyManager.vue`:
+        a.  `ApiKeyManager.vue` updates its internal representation of the key.
+        b.  `ApiKeyManager.vue` emits `@update:modelValue` with the new key.
+    5.  `DashboardView.vue`'s `v-model` binding updates `stagedApiKey.value`.
+    6.  `DashboardView.vue`'s `changedApiKey` computed property detects the difference between `stagedApiKey.value` and `originalApiKey.value`.
+    7.  User clicks "Save Settings"; `SaveSettingsModal.vue` is shown, displaying the API key change and checkbox via the `changedApiKey` prop.
+    8.  User confirms selection in modal.
+    9.  `DashboardView.vue`'s `handleSaveModalConfirm` prepares `configToSave`.
+        -   If API key change is included: `configToSave.config.settings.api_key = stagedApiKey.value`.
+        -   Else: `configToSave.config.settings.api_key = originalApiKey.value`.
+    10. `deviceStore.saveConfig(configToSave)` sends the payload.
+    11. On success, `deviceStore.fetchConfig()` is called. `DashboardView.vue` re-initializes `originalApiKey.value` and `stagedApiKey.value` from the new `deviceStore.deviceConfig`.
 
-## 3. Low-Level Design and Implementation
+## 3. Low-Level Design and Implementation (Revised)
 
 -   **`deviceStore.ts`:**
-    -   Type `DeviceConfig.settings.api_key?: string | null` is appropriate.
-    -   Action `updateDeviceApiKey(newApiKey: string | null)`: Ensure it robustly handles `deviceConfig` or `settings` being initially null (current implementation seems to cover this).
-    -   Computed `apiKey`: `computed(() => deviceConfig.value?.settings?.api_key || null)`.
+    -   Verification: Confirm the structure of `DeviceConfig` and the path to `settings` (e.g., `DeviceConfig.config.settings`). Ensure `settings` can accommodate an `api_key: string | null` field.
+    -   **No new API-key-specific actions or computed properties.**
 
--   **`ApiKeyManager.vue` (New/Re-created Component):**
+-   **`ApiKeyManager.vue` (New Component):**
     -   Located at `webapp/src/components/ApiKeyManager.vue`.
-    -   Uses `useDeviceStore()`.
-    -   Displays:
-        -   Text: "API Key: Set" or "API Key: Not Set" based on `deviceStore.apiKey`.
-    -   Buttons (Shadcn-Vue `Button`):
-        -   "Generate New API Key": Calls `crypto.randomUUID()`, then `deviceStore.updateDeviceApiKey(uuid)`. Toast: "New API key generated. Save settings to apply."
-        -   "Clear API Key": Calls `deviceStore.updateDeviceApiKey(null)`. Toast: "API key cleared. Save settings to apply."
-        -   "Copy API Key": Uses `navigator.clipboard.writeText(deviceStore.apiKey)`. Disabled if no key is set. Toast: "API Key copied" or "No API Key to copy."
+    -   Props: `modelValue: string | null`.
+    -   Emits: `@update:modelValue (newValue: string | null)`.
+    -   Internal logic:
+        -   Uses `computed` for display: "API Key: Set" (if `props.modelValue`), "API Key: Not Set" (if `!props.modelValue`).
+        -   Button "Generate New API Key": `const newKey = crypto.randomUUID(); emit('update:modelValue', newKey);`. Toast.
+        -   Button "Clear API Key": `emit('update:modelValue', null);`. Toast.
+        -   Button "Copy API Key": `navigator.clipboard.writeText(props.modelValue)`. Disabled if `!props.modelValue`. Toast.
     -   Toasts via shadcn-vue's sonner component.
 
 -   **`DashboardView.vue`:**
-    -   `initialApiKey = ref<string | null>(null)`: Updated in `watch` for `deviceStore.deviceConfig`.
-    -   `changedApiKey = computed(...)`: Compares `deviceStore.deviceConfig?.settings?.api_key` with `initialApiKey.value`. Returns `{ oldValue: string | null, newValue: string | null } | null`.
-    -   `hasSettingsChanged`: Include `!!changedApiKey.value`.
+    -   Refs:
+        -   `originalApiKey = ref<string | null>(null)`
+        -   `stagedApiKey = ref<string | null>(null)`
+    -   Watch `deviceStore.deviceConfig`:
+        ```typescript
+        watch(() => deviceStore.deviceConfig, (config) => {
+          const keyFromStore = config?.config?.settings?.api_key || null; // Adjust path as necessary
+          originalApiKey.value = keyFromStore;
+          stagedApiKey.value = keyFromStore;
+          // ... existing wifi/tz logic ...
+        }, { immediate: true, deep: true });
+        ```
+    -   Template: Add `<ApiKeyManager v-model="stagedApiKey" />` in the appropriate layout section (similar to Wi-Fi/Timezone inputs).
+    -   Computed `changedApiKey`:
+        ```typescript
+        const changedApiKey = computed(() => {
+          if (stagedApiKey.value !== originalApiKey.value) {
+            return { oldValue: originalApiKey.value, newValue: stagedApiKey.value };
+          }
+          return null;
+        });
+        ```
+    -   Update `hasSettingsChanged` computed to include `!!changedApiKey.value`.
     -   Pass `:changed-api-key="changedApiKey"` to `SaveSettingsModal`.
     -   `handleSaveModalConfirm(selection)`:
-        -   Deep copy `deviceStore.deviceConfig` to `configToSave`.
-        -   If `selection.apiKey === true` AND `changedApiKey.value`:
-            `configToSave.settings.api_key = changedApiKey.value.newValue;`
-        -   Else if `selection.apiKey === false` AND `changedApiKey.value`:
-            `configToSave.settings.api_key = changedApiKey.value.oldValue;`
-        -   Else (no user change to API key, or not part of modal selection): `configToSave.settings.api_key` (from the deep copy) will naturally hold the correct current value (either unchanged original, or user-staged if `changedApiKey.value` was null because it was the first value set).
+        -   In the part where `configToSave.config.settings` is prepared:
+            ```typescript
+            if (selection.apiKey && changedApiKey.value) {
+              configToSave.config.settings.api_key = changedApiKey.value.newValue;
+            } else {
+              configToSave.config.settings.api_key = originalApiKey.value;
+            }
+            ```
+            Ensure `configToSave.config.settings` object is created if it doesn't exist.
 
 -   **`SaveSettingsModal.vue`:**
-    -   Props: `changedApiKey: { oldValue: string | null, newValue: string | null } | null`.
-    -   State: `selected.apiKey: boolean`, initialized to `!!props.changedApiKey`.
-    -   Template:
-        -   Checkbox "API Key" `v-if="changedApiKey"` bound to `selected.apiKey`.
-        -   Textual summary `v-if="changedApiKey"`:
-            -   If `!changedApiKey.oldValue && changedApiKey.newValue`: "API Key: Will be set."
-            -   If `changedApiKey.oldValue && !changedApiKey.newValue`: "API Key: Will be cleared."
-            -   If `changedApiKey.oldValue && changedApiKey.newValue`: "API Key: Will be changed."
-    -   Emit `apiKey: selected.value.apiKey` in confirm event.
+    -   Props: `changedApiKey: { oldValue: string | null, newValue: string | null } | null`. (Existing prop, ensure it's wired up).
+    -   Template: Add checkbox for "API Key" `v-if="changedApiKey"` and textual summary.
+    -   Emit `apiKey: boolean` (or similar key in the selection object) in confirm event.
 
-## 4. Phase-wise Plan
+## 4. Phase-wise Plan (Revised)
 
--   **Phase 1: `deviceStore.ts` Baseline Verification**
-    -   Confirm `DeviceConfig` type and `api_key` field.
-    -   Confirm `updateDeviceApiKey` action stages changes correctly.
-    -   Confirm `apiKey` computed property.
-    -   *Goal: Store is ready for API key logic.*
+-   **Phase 1: Define API Key's Location in Configuration Data**
+    -   Determine the precise path within the existing device configuration data structure where `DashboardView.vue` will place the `api_key: string | null` field (e.g., `config.settings.api_key`). This is the structure `deviceStore.saveConfig()` will receive.
+    -   Review the TypeScript type definitions used by `deviceStore.ts` for the device configuration. If the type for the `settings` object is strictly defined and does not currently list `api_key` as a possible field, a minor, type-only annotation (`api_key?: string | null;`) might be added to that type definition for TypeScript correctness. This does not constitute a change to the store's runtime logic or JavaScript code.
+    -   *Goal: Clearly define where the API key data will reside within the configuration object handled by `deviceStore.ts`, ensuring `DashboardView.vue` can correctly place it for saving, with absolutely no changes to `deviceStore.ts` runtime logic.*
 
 -   **Phase 2: `ApiKeyManager.vue` Implementation**
     -   Create `webapp/src/components/ApiKeyManager.vue`.
+    -   Implement props (`modelValue`), emits (`@update:modelValue`).
     -   Implement UI (display, generate/clear/copy buttons).
-    -   Integrate with `deviceStore` actions and computed property.
+    -   Implement internal logic for button actions and emitting updates.
     -   Add toast notifications.
-    -   *Goal: User can view status and stage API key changes locally.*
+    -   *Goal: A functional `ApiKeyManager.vue` component that manages API key UI and emits changes.*
 
--   **Phase 3: `DashboardView.vue` - Change Detection & Modal Input**
-    -   Add `ApiKeyManager.vue` to template.
-    -   Implement `initialApiKey` ref and update it via watcher on `deviceStore.deviceConfig`.
+-   **Phase 3: `DashboardView.vue` - Integration of `ApiKeyManager.vue`**
+    -   Add `originalApiKey` and `stagedApiKey` refs.
+    -   Update watcher for `deviceStore.deviceConfig` to populate/reset these refs.
+    -   Add `ApiKeyManager.vue` to the template using `v-model="stagedApiKey"`.
     -   Implement `changedApiKey` computed property.
     -   Update `hasSettingsChanged` computed.
-    -   Pass `changedApiKey` prop to `SaveSettingsModal`.
-    -   *Goal: Dashboard correctly detects staged API key changes and informs the save modal.*
+    -   Pass `changedApiKey` to `SaveSettingsModal.vue`.
+    -   *Goal: `DashboardView.vue` correctly uses `ApiKeyManager.vue`, tracks staged API key changes, and informs `SaveSettingsModal.vue`.*
 
--   **Phase 4: `SaveSettingsModal.vue` - Display & Selection**
-    -   Verify prop `changedApiKey` handling.
-    -   Conditionally render checkbox and change summary for API key.
-    -   Ensure `selected.apiKey` is correctly managed and emitted.
-    -   (Most of this might be in place from previous work, verify against `DashboardView` changes).
-    -   *Goal: Modal allows user to confirm/reject saving API key changes.*
+-   **Phase 4: `SaveSettingsModal.vue` - Display & Selection for API Key**
+    -   Ensure prop `changedApiKey` is correctly received.
+    -   Add UI elements (checkbox, textual summary) for API key changes, conditioned on `changedApiKey`.
+    -   Ensure the modal emits the user's selection for the API key (e.g., as part of the `selection` object).
+    -   *Goal: Modal allows user to selectively include/exclude API key changes in the save operation.*
 
--   **Phase 5: `DashboardView.vue` - Save Logic Implementation**
-    -   Refine `handleSaveModalConfirm` to accurately set `configToSave.settings.api_key` based on `selection.apiKey` and `changedApiKey.value` (applying new value, reverting to old value, or preserving current if no change/selection).
-    -   Call `deviceStore.saveConfig(configToSave)`.
+-   **Phase 5: `DashboardView.vue` - Save Logic for API Key**
+    -   In `handleSaveModalConfirm`, update the `configToSave.config.settings` object to include `api_key: stagedApiKey.value` or `api_key: originalApiKey.value` based on modal selection and `changedApiKey`.
+    -   Ensure `deviceStore.saveConfig(configToSave)` is called.
+    -   Ensure `originalApiKey` and `stagedApiKey` are correctly reset after a successful save (typically by the `deviceStore.deviceConfig` watcher).
     -   *Goal: API key changes are correctly included/excluded in the save payload based on user choice.*
 
 -   **Phase 6: End-to-End Testing & Refinement**
-    -   Test all scenarios: generate, clear, save selected, save unselected, no changes.
+    -   Test all scenarios: generate, clear, copy, save selected, save unselected, no changes.
     -   Verify behavior with and without an existing API key.
     -   Check toast notifications and UI feedback.
     -   Address any linter errors or console warnings.
-    -   *Goal: A robust and user-friendly API key management feature.* 
+    -   *Goal: A robust and user-friendly API key management feature, consistent with existing settings management.* 
