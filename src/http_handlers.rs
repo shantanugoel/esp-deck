@@ -74,27 +74,38 @@ fn get_request_api_key<H: Headers>(request: &H) -> Option<String> {
     request.header(HEADER_API_KEY).map(String::from)
 }
 
+// Helper function to authenticate a request based on API key
+fn authenticate_request(
+    configured_api_key: &Option<String>,
+    received_api_key: &Option<String>, // Changed to take Request directly to build response
+) -> bool {
+    if let Some(ref key) = configured_api_key {
+        match received_api_key {
+            // get_request_api_key needs to work with Request
+            Some(provided_key) => {
+                if provided_key != key {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 fn register_user_status_handler(
     server: &mut EspHttpServer,
     ui_tx: Sender<AppEvent>,
     configured_api_key: Option<String>,
 ) -> Result<()> {
     server.fn_handler("/user-status", Method::Post, move |mut request| {
-        if let Some(ref key) = configured_api_key {
-            match get_request_api_key(&request) {
-                Some(provided_key) => {
-                    if &provided_key != key {
-                        return request
-                            .into_status_response(403)?
-                            .write_all(b"Invalid API Key");
-                    }
-                }
-                None => {
-                    return request
-                        .into_status_response(401)?
-                        .write_all(b"Missing API Key");
-                }
-            }
+        // Use the new authentication function
+        if !authenticate_request(&configured_api_key, &get_request_api_key(&request)) {
+            return request
+                .into_status_response(403)?
+                .write_all(b"Invalid API Key");
         }
 
         let content_len = request.content_len().map(|v| v as usize);
