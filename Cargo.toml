@@ -10,7 +10,7 @@ name = "esp-deck"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [profile.release]
-opt-level = "s"
+opt-level = "z"
 
 [profile.dev]
 debug = true    # Symbols are nice and they don't increase the size on Flash
