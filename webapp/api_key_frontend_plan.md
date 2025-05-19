@@ -66,7 +66,7 @@ The implementation will leverage the existing Vue 3 (Composition API, TypeScript
         -   "Generate New API Key": Calls `crypto.randomUUID()`, then `deviceStore.updateDeviceApiKey(uuid)`. Toast: "New API key generated. Save settings to apply."
         -   "Clear API Key": Calls `deviceStore.updateDeviceApiKey(null)`. Toast: "API key cleared. Save settings to apply."
         -   "Copy API Key": Uses `navigator.clipboard.writeText(deviceStore.apiKey)`. Disabled if no key is set. Toast: "API Key copied" or "No API Key to copy."
-    -   Toasts via `vue-sonner`.
+    -   Toasts via shadcn-vue's sonner component.
 
 -   **`DashboardView.vue`:**
     -   `initialApiKey = ref<string | null>(null)`: Updated in `watch` for `deviceStore.deviceConfig`.
