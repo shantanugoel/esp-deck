@@ -2,7 +2,7 @@
   <div class="space-y-2">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">API Key:</span>
-      <span v-if="props.modelValue" class="text-sm font-mono bg-muted px-2 py-1 rounded">**********{{ props.modelValue.slice(-4) }} (Click to copy)</span>
+      <span v-if="props.modelValue" class="text-sm font-mono bg-muted px-2 py-1 rounded">**********{{ props.modelValue.slice(-4) }}</span>
       <span v-else class="text-sm text-muted-foreground">Not Set</span>
     </div>
     <div class="flex items-center space-x-2">
