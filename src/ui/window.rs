@@ -164,7 +164,12 @@ fn handle_events(
                 }
                 AppEvent::UserStatusUpdate(user_status) => {
                     window.set_user_status_text(SharedString::from(&user_status));
-                    Some(SharedString::from(user_status))
+                    // Return None since we don't want to add this to the UI logs
+                    None
+                }
+                AppEvent::HttpServerUpdate(status) => {
+                    // Return None since we don't want to add this to the UI logs
+                    Some(SharedString::from(&status))
                 }
                 _ => {
                     log::info!("Unknown event: {:?}", event);

@@ -47,6 +47,7 @@ pub enum AppEvent {
     ButtonPressed(i32),
     MappingUpdated(MappingConfiguration),
     UserStatusUpdate(String),
+    HttpServerUpdate(String),
 }
 
 // Represents a single primitive HID action or delay

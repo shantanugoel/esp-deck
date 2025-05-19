@@ -3,7 +3,7 @@ use anyhow::Result;
 use embedded_svc::http::Headers;
 use esp_idf_svc::{
     http::server::{EspHttpServer, Method},
-    io::Write,
+    io::{Read, Write},
 };
 use std::sync::mpsc::Sender;
 
@@ -17,39 +17,60 @@ pub fn register_all_http_handlers(
 
 const MAX_BODY_SIZE: usize = 1024;
 
-fn register_user_status_handler(server: &mut EspHttpServer, ui_tx: Sender<AppEvent>) -> Result<()> {
-    server.fn_handler("/user-status", Method::Post, move |mut request| {
-        let body_size = request.content_len().unwrap_or(0) as usize;
+fn read_body<R: Read>(
+    reader: &mut R,
+    max_size: usize,
+    expected_size: Option<usize>,
+) -> Result<Vec<u8>> {
+    let mut body = Vec::with_capacity(expected_size.unwrap_or(1024));
+    let mut total_read = 0;
+    let mut buf = [0u8; 1024];
 
-        if body_size > MAX_BODY_SIZE {
-            return request
-                .into_status_response(413)?
-                .write_all(b"Request body too large");
+    if let Some(size) = expected_size {
+        if size > max_size {
+            return Err(anyhow::anyhow!("Request body too large"));
         }
-
-        let mut body = Vec::with_capacity(body_size);
-        let mut total_read = 0;
-        let mut buf = [0u8; 1024];
-        while total_read < body_size {
-            let to_read = std::cmp::min(buf.len(), body_size - total_read);
-            let n = request.read(&mut buf[..to_read])?;
+        while total_read < size {
+            let to_read = std::cmp::min(buf.len(), size - total_read);
+            let n = reader
+                .read(&mut buf[..to_read])
+                .map_err(|e| anyhow::anyhow!("Read error: {:?}", e))?;
             if n == 0 {
                 break;
             }
             body.extend_from_slice(&buf[..n]);
             total_read += n;
         }
-
-        // Fallback for unknown content length (read until EOF)
-        if body_size == 0 {
-            loop {
-                let n = request.read(&mut buf)?;
-                if n == 0 {
-                    break;
-                }
-                body.extend_from_slice(&buf[..n]);
+    } else {
+        // Unknown content length: read until EOF
+        loop {
+            let n = reader
+                .read(&mut buf)
+                .map_err(|e| anyhow::anyhow!("Read error: {:?}", e))?;
+            if n == 0 {
+                break;
+            }
+            body.extend_from_slice(&buf[..n]);
+            total_read += n;
+            if total_read > max_size {
+                return Err(anyhow::anyhow!("Request body too large"));
             }
         }
+    }
+    Ok(body)
+}
+
+fn register_user_status_handler(server: &mut EspHttpServer, ui_tx: Sender<AppEvent>) -> Result<()> {
+    server.fn_handler("/user-status", Method::Post, move |mut request| {
+        let content_len = request.content_len().map(|v| v as usize);
+        let body = match read_body(&mut request, MAX_BODY_SIZE, content_len) {
+            Ok(b) => b,
+            Err(e) => {
+                return request
+                    .into_status_response(413)?
+                    .write_all(format!("Request body error: {e}").as_bytes());
+            }
+        };
 
         let text = match serde_json::from_slice::<serde_json::Value>(&body) {
             Ok(val) => val

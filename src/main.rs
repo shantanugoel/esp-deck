@@ -146,18 +146,26 @@ fn main() -> anyhow::Result<()> {
                         } else {
                             log::info!("NTP setup complete");
                         }
-                        http_server_handle =
-                            start_http_server(peripheral_update_tx.clone(), |server, ui_tx| {
-                                http_handlers::register_all_http_handlers(server, ui_tx)
-                            });
-                        if http_server_handle.is_some() {
-                            log::info!("HTTP server started");
+                        if http_server_handle.is_none() {
+                            http_server_handle =
+                                start_http_server(peripheral_update_tx.clone(), |server, ui_tx| {
+                                    http_handlers::register_all_http_handlers(server, ui_tx)
+                                });
+                            if http_server_handle.is_some() {
+                                log::info!("HTTP server started");
+                                let _ = peripheral_update_tx.send(AppEvent::HttpServerUpdate(
+                                    "HTTP server started".to_string(),
+                                ));
+                            }
                         }
                     }
                     Err(e) => {
                         // WiFi failed/disconnected: drop HTTP server
                         if http_server_handle.is_some() {
                             http_server_handle = None;
+                            let _ = peripheral_update_tx.send(AppEvent::HttpServerUpdate(
+                                "HTTP server stopped".to_string(),
+                            ));
                         }
                         log::error!("Wi-Fi connection failed: {}", e);
                         if let Err(e2) = peripheral_update_tx
