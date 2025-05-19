@@ -8,11 +8,14 @@ use esp_idf_svc::{
 use serde::Deserialize;
 use std::sync::mpsc::Sender;
 
+const HEADER_API_KEY: &str = "X-API-Key";
+
 pub fn register_all_http_handlers(
     server: &mut EspHttpServer,
     ui_tx: Sender<AppEvent>,
+    api_key: Option<String>,
 ) -> anyhow::Result<()> {
-    register_user_status_handler(server, ui_tx)?;
+    register_user_status_handler(server, ui_tx, api_key)?;
     Ok(())
 }
 
@@ -66,8 +69,34 @@ pub struct UserStatus {
     pub text: String,
     pub bgcolor: Option<[u8; 3]>,
 }
-fn register_user_status_handler(server: &mut EspHttpServer, ui_tx: Sender<AppEvent>) -> Result<()> {
+
+fn get_request_api_key<H: Headers>(request: &H) -> Option<String> {
+    request.header(HEADER_API_KEY).map(String::from)
+}
+
+fn register_user_status_handler(
+    server: &mut EspHttpServer,
+    ui_tx: Sender<AppEvent>,
+    configured_api_key: Option<String>,
+) -> Result<()> {
     server.fn_handler("/user-status", Method::Post, move |mut request| {
+        if let Some(ref key) = configured_api_key {
+            match get_request_api_key(&request) {
+                Some(provided_key) => {
+                    if &provided_key != key {
+                        return request
+                            .into_status_response(403)?
+                            .write_all(b"Invalid API Key");
+                    }
+                }
+                None => {
+                    return request
+                        .into_status_response(401)?
+                        .write_all(b"Missing API Key");
+                }
+            }
+        }
+
         let content_len = request.content_len().map(|v| v as usize);
         let body = match read_body(&mut request, MAX_BODY_SIZE, content_len) {
             Ok(b) => b,

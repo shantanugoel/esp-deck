@@ -121,6 +121,10 @@ fn main() -> anyhow::Result<()> {
         log::error!("Failed to send wifi settings: {}", e);
     }
 
+    // Fetch API key from config for the HTTP server thread
+    // Clone it here as the original `config` will be moved later.
+    let http_server_api_key = config.get_api_key();
+
     threads.push(thread::spawn(move || {
         let mut wifi_driver = match block_on(Wifi::init(
             wifi_modem,
@@ -147,10 +151,18 @@ fn main() -> anyhow::Result<()> {
                             log::info!("NTP setup complete");
                         }
                         if http_server_handle.is_none() {
-                            http_server_handle =
-                                start_http_server(peripheral_update_tx.clone(), |server, ui_tx| {
-                                    http_handlers::register_all_http_handlers(server, ui_tx)
-                                });
+                            // Use the cloned api_key for the closure
+                            http_server_handle = start_http_server(
+                                peripheral_update_tx.clone(),
+                                http_server_api_key.clone(),
+                                |server, ui_tx, current_api_key| {
+                                    http_handlers::register_all_http_handlers(
+                                        server,
+                                        ui_tx,
+                                        current_api_key,
+                                    )
+                                },
+                            );
                             if http_server_handle.is_some() {
                                 log::info!("HTTP server started");
                                 let _ = peripheral_update_tx.send(AppEvent::HttpServerUpdate(
@@ -185,8 +197,8 @@ fn main() -> anyhow::Result<()> {
     let actor_mappings = match config.get_mappings() {
         Some(m) => m,
         None => {
-            log::error!("Failed to get mappings");
-            return Err(anyhow::anyhow!("Failed to get mappings"));
+            log::error!("Failed to get mappings from config");
+            return Err(anyhow::anyhow!("Failed to get mappings from config"));
         }
     };
     let actor_mapper = Mapper::new(actor_mappings);
@@ -213,6 +225,9 @@ fn main() -> anyhow::Result<()> {
 
     // Get the button names here because we move the config into the ProtocolManager past this point
     let button_names = config.get_button_names();
+
+    // Note: api_key for http server is already fetched and cloned above (http_server_api_key)
+    // config object will be moved into ProtocolManager thread now.
 
     let actor_protocol_tx = actor_tx.clone();
     threads.push(thread::spawn(move || {

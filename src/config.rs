@@ -20,6 +20,7 @@ pub struct DeviceSettings {
     // Add optional settings here
     pub wifi: Option<WifiSettings>,
     pub timezone_offset: Option<f32>,
+    pub api_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -45,6 +46,7 @@ pub struct ConfigUpdatedFor {
     pub timezone_offset: bool,
     pub mappings: bool,
     pub button_names: bool,
+    pub api_key: bool,
 }
 
 // Helper function to create a default configuration object
@@ -183,6 +185,14 @@ impl Configurator {
             old_config.settings.timezone_offset = Some(*new_timezone_offset);
             config_updated_for.timezone_offset = true;
         }
+        if let Some(new_api_key) = &new_config.settings.api_key {
+            if new_api_key.is_empty() {
+                old_config.settings.api_key = None;
+            } else {
+                old_config.settings.api_key = Some(new_api_key.clone());
+            }
+            config_updated_for.api_key = true;
+        }
         for (key, new_actions) in &new_config.mappings {
             if old_config.mappings.contains_key(key) {
                 old_config.mappings.insert(key.clone(), new_actions.clone());
@@ -256,6 +266,11 @@ impl Configurator {
     pub fn get_button_names(&self) -> Option<HashMap<usize, String>> {
         let config = self.config_data.lock().ok()?;
         config.button_names.clone()
+    }
+
+    pub fn get_api_key(&self) -> Option<String> {
+        let config = self.config_data.lock().ok()?;
+        config.settings.api_key.clone()
     }
 }
 

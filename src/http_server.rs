@@ -6,10 +6,12 @@ use std::sync::mpsc::Sender;
 /// The register_handlers closure is called with a mutable reference to the server to register all handlers.
 pub fn start_http_server<F>(
     ui_tx: Sender<AppEvent>,
+    api_key: Option<String>,
     register_handlers: F,
 ) -> Option<EspHttpServer<'static>>
 where
-    F: Fn(&mut EspHttpServer<'static>, Sender<AppEvent>) -> anyhow::Result<()> + 'static,
+    F: Fn(&mut EspHttpServer<'static>, Sender<AppEvent>, Option<String>) -> anyhow::Result<()>
+        + 'static,
 {
     let mut server = match EspHttpServer::new(&Configuration::default()) {
         Ok(s) => s,
@@ -18,7 +20,7 @@ where
             return None;
         }
     };
-    if let Err(e) = register_handlers(&mut server, ui_tx.clone()) {
+    if let Err(e) = register_handlers(&mut server, ui_tx.clone(), api_key) {
         log::error!("Failed to register HTTP handlers: {}", e);
         return None;
     }
