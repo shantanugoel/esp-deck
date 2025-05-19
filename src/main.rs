@@ -1,3 +1,4 @@
+use esp_deck::http_client::HttpClientPool;
 use esp_deck::{
     actor::Actor,
     bsp::{time, usb::Usb, wifi::Wifi},
@@ -21,6 +22,7 @@ use esp_idf_svc::{
 use std::ffi::CString;
 use std::{
     sync::mpsc::{self, Receiver, Sender, SyncSender},
+    sync::Arc,
     thread,
 };
 
@@ -207,7 +209,15 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    let _ = Window::init(touch_i2c, ui_updates_rx, actor_tx, tz_offset, button_names);
+    let http_pool = Arc::new(HttpClientPool::new());
+    let _ = Window::init(
+        touch_i2c,
+        ui_updates_rx,
+        actor_tx,
+        tz_offset,
+        button_names,
+        http_pool,
+    );
 
     for thread in threads {
         if let Err(e) = thread.join() {

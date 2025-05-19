@@ -14,6 +14,7 @@ use std::{
 use crate::{
     bsp::slint_platform,
     events::{AppEvent, TimeStatus, UsbStatus, WifiStatus},
+    http_client::HttpClientPool,
 };
 
 use super::widgets::gatus::start_gatus_service;
@@ -29,6 +30,7 @@ impl Window {
         actor_tx: Sender<AppEvent>,
         tz_offset: f32,
         button_names: Option<HashMap<usize, String>>,
+        http_pool: Arc<HttpClientPool>,
     ) -> Result<()> {
         slint_platform::init(touch_i2c);
         let window = MainWindow::new()
@@ -67,7 +69,12 @@ impl Window {
                 .to_string(),
         );
         let gatus_update_interval = Duration::from_secs(30);
-        start_gatus_service(window.as_weak(), gatus_url_arc, gatus_update_interval);
+        start_gatus_service(
+            window.as_weak(),
+            gatus_url_arc,
+            gatus_update_interval,
+            http_pool.clone(),
+        );
 
         let weather_update_interval = Duration::from_secs(10 * 60);
         start_weather_service(
@@ -75,6 +82,7 @@ impl Window {
             12.9716, // Harcode BLR for now
             77.5946, // Harcode BLR for now
             weather_update_interval,
+            http_pool,
         );
 
         window

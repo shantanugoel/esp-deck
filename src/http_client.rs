@@ -1,8 +1,10 @@
 use anyhow::Result;
 use embedded_svc::http::client::{Client, Method};
 use esp_idf_svc::http::client::{Configuration, EspHttpConnection};
+use std::sync::mpsc::{channel, Sender};
+use std::thread;
 
-pub struct HttpClient {
+struct HttpClient {
     client: Client<EspHttpConnection>,
 }
 
@@ -45,5 +47,52 @@ impl HttpClient {
         }
 
         Ok(String::from_utf8_lossy(&response_bytes).into_owned())
+    }
+}
+
+pub struct HttpRequest {
+    pub url: String,
+    pub response_tx: Sender<Result<String>>,
+}
+
+pub struct HttpClientPool {
+    request_tx: Sender<HttpRequest>,
+}
+
+impl HttpClientPool {
+    pub fn new() -> Self {
+        let (request_tx, request_rx) = channel::<HttpRequest>();
+        thread::spawn(move || {
+            while let Ok(req) = request_rx.recv() {
+                let mut client = match HttpClient::new() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        let _ = req.response_tx.send(Err(e));
+                        continue;
+                    }
+                };
+                let result = client.get(&req.url, None);
+                let _ = req.response_tx.send(result);
+            }
+        });
+        Self { request_tx }
+    }
+
+    pub fn get(&self, url: &str) -> Result<String> {
+        let (tx, rx) = channel();
+        let req = HttpRequest {
+            url: url.to_string(),
+            response_tx: tx,
+        };
+        self.request_tx.send(req).unwrap();
+        rx.recv().unwrap()
+    }
+
+    // Optionally, add async or callback-based API here
+}
+
+impl Default for HttpClientPool {
+    fn default() -> Self {
+        Self::new()
     }
 }
