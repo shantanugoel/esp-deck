@@ -69,14 +69,11 @@ impl Window {
         let gatus_update_interval = Duration::from_secs(30);
         start_gatus_service(window.as_weak(), gatus_url_arc, gatus_update_interval);
 
-        let weather_api_url_arc = Arc::new(
-            "https://api.openweathermap.org/data/2.5/weather?q=London&appid=YOUR_OPENWEATHERMAP_API_KEY&units=metric"
-                .to_string(),
-        );
         let weather_update_interval = Duration::from_secs(10 * 60);
         start_weather_service(
             window.as_weak(),
-            weather_api_url_arc,
+            12.9716, // Harcode BLR for now
+            77.5946, // Harcode BLR for now
             weather_update_interval,
         );
 
