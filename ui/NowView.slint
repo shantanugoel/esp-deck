@@ -8,6 +8,7 @@ export component NowView inherits Rectangle {
     in-out property <string> weather-temp: "--°C";
     in-out property <string> user-status-icon: "";
     in-out property <string> user-status-text: "";
+    in-out property <color> user-status-bgcolor: #000000;
     property <color> pixel-bg: #000000;
     property <color> pixel-fg-time: #FFFFFF;
     property <color> pixel-fg-date: #A0A0A0;
@@ -55,11 +56,14 @@ export component NowView inherits Rectangle {
         }
 
         // User status text
-        Text {
-            text: root.user-status-text;
-            font-size: 20px;
-            horizontal-alignment: center;
-            color: pixel-fg-date;
+        Rectangle {
+            background: root.user-status-bgcolor;
+            Text {
+                text: root.user-status-text;
+                font-size: 20px;
+                horizontal-alignment: center;
+                color: pixel-fg-date;
+            }
         }
     }
 }

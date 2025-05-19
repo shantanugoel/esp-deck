@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, FixedOffset, Utc};
 use esp_idf_svc::hal::i2c::I2cDriver;
-use slint::{SharedString, Weak};
+use slint::{Color, SharedString, Weak};
 use std::{
     collections::HashMap,
     sync::{
@@ -163,7 +163,12 @@ fn handle_events(
                     Some(text)
                 }
                 AppEvent::UserStatusUpdate(user_status) => {
-                    window.set_user_status_text(SharedString::from(&user_status));
+                    window.set_user_status_text(SharedString::from(&user_status.text));
+                    if let Some(bgcolor) = user_status.bgcolor {
+                        window.set_user_status_bgcolor(Color::from_rgb_u8(
+                            bgcolor[0], bgcolor[1], bgcolor[2],
+                        ));
+                    }
                     // Return None since we don't want to add this to the UI logs
                     None
                 }

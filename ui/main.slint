@@ -40,7 +40,8 @@ export component MainWindow inherits Window {
     in-out property <string> weather_temp: "--°C";
     in-out property <string> user_status_icon: "🧑‍💻";
     in-out property <string> user_status_text: "Custom Status, Updated via API or automatically, goes here!";
-        
+    in-out property <color> user_status_bgcolor: #000000;
+
     // Dummy invisible text to force-include all weather emojis
     Text {
         visible: false;
@@ -94,6 +95,7 @@ export component MainWindow inherits Window {
                     weather-temp: root.weather_temp;
                     user-status-icon: root.user_status_icon;
                     user-status-text: root.user_status_text;
+                    user-status-bgcolor: root.user_status_bgcolor;
                 }
             }
         }

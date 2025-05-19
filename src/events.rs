@@ -1,5 +1,6 @@
 use crate::{
     bsp::usb_desc::{ConsumerReport, KeyboardReport, MouseReport},
+    http_handlers::UserStatus,
     mapper::MappingConfiguration,
 };
 use std::net::Ipv4Addr;
@@ -46,7 +47,7 @@ pub enum AppEvent {
     UsbHidCommand(UsbHidCommand),
     ButtonPressed(i32),
     MappingUpdated(MappingConfiguration),
-    UserStatusUpdate(String),
+    UserStatusUpdate(UserStatus),
     HttpServerUpdate(String),
 }
 

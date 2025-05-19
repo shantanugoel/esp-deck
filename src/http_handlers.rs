@@ -5,6 +5,7 @@ use esp_idf_svc::{
     http::server::{EspHttpServer, Method},
     io::{Read, Write},
 };
+use serde::Deserialize;
 use std::sync::mpsc::Sender;
 
 pub fn register_all_http_handlers(
@@ -60,6 +61,11 @@ fn read_body<R: Read>(
     Ok(body)
 }
 
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct UserStatus {
+    pub text: String,
+    pub bgcolor: Option<[u8; 3]>,
+}
 fn register_user_status_handler(server: &mut EspHttpServer, ui_tx: Sender<AppEvent>) -> Result<()> {
     server.fn_handler("/user-status", Method::Post, move |mut request| {
         let content_len = request.content_len().map(|v| v as usize);
@@ -72,16 +78,17 @@ fn register_user_status_handler(server: &mut EspHttpServer, ui_tx: Sender<AppEve
             }
         };
 
-        let text = match serde_json::from_slice::<serde_json::Value>(&body) {
-            Ok(val) => val
-                .get("text")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string(),
-            Err(_) => "".to_string(),
+        let user_status = match serde_json::from_slice::<UserStatus>(&body) {
+            Ok(val) => val,
+            Err(_) => UserStatus {
+                text: "".to_string(),
+                bgcolor: None,
+            },
         };
-        if !text.is_empty() {
-            ui_tx.send(AppEvent::UserStatusUpdate(text.clone())).ok();
+        if !user_status.text.is_empty() {
+            ui_tx
+                .send(AppEvent::UserStatusUpdate(user_status.clone()))
+                .ok();
             request.into_ok_response()?.write_all(b"OK")
         } else {
             request
