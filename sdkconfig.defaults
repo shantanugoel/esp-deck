@@ -80,3 +80,6 @@ CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE=y
 
 # Some tasks can be long running of a lot of data tfr is happening
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=60
+
+# Use external memory for mbed TLS
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y

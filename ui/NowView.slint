@@ -1,12 +1,11 @@
 import { LineEdit, VerticalBox } from "std-widgets.slint";
-import "./fonts/MatrixtypeDisplay.ttf";
+import "./fonts/MatrixtypeDisplay-subset.ttf";
 
 export component NowView inherits Rectangle {
     in-out property <string> current-date: "MON, JAN 01";
     in-out property <string> current-time: "00:00:00";
     in-out property <string> weather-icon: "☀️"; 
     in-out property <string> weather-temp: "--°C";
-    in-out property <string> weather-desc: "Weather: N/A";
     in-out property <string> user-status-icon: "";
     in-out property <string> user-status-text: "";
     property <color> pixel-bg: #000000;
@@ -23,7 +22,6 @@ export component NowView inherits Rectangle {
             text: root.current-date;
             color: pixel-fg-date;
             font-size: 15px;
-            font-family: root.font-family;
             font-weight: 400;
             horizontal-alignment: center;
         }
@@ -41,7 +39,6 @@ export component NowView inherits Rectangle {
                 text: root.weather-temp;
                 color: pixel-accent-weather;
                 font-size: 20px;
-                font-family: root.font-family;
                 font-weight: 400;
                 horizontal-alignment: center;
             }
@@ -55,16 +52,6 @@ export component NowView inherits Rectangle {
             font-family: root.font-family;
             font-weight: 400;
             horizontal-alignment: center;
-        }
-
-        // User status icon
-        Text {
-            width: 30%;
-            text: root.user-status-icon;
-            font-size: 20px;
-            font-weight: 400;
-            horizontal-alignment: center;
-            color: pixel-fg-date;
         }
 
         // User status text

@@ -34,12 +34,18 @@ export component MainWindow inherits Window {
     // Properties for NowView weather and status
     in-out property <string> weather_icon: "❓";
     in-out property <string> weather_temp: "--°C";
-    in-out property <string> weather_desc: "Weather: N/A";
     in-out property <string> user_status_icon: "🧑‍💻";
     in-out property <string> user_status_text: "Custom Status, Updated via API or automatically, goes here!";
     Text {
         text: "⌨️ 🅰️ 🔠 🔡 ↩️ ⏎ ⌫ ⌦ 🔢 🔤 🔣 🖱️ 🖲️ ⏯️ ⏸️ ⏹️ ⏺️ ⏭️ ⏮️ ⏩ ⏪ 🔊 🔉 🔇 📋 ✂️ 📝 🗑️ 🖥️ 💻 🧑‍💻 🔒 🔓 🔁 🔀 🛑 ⬆️ ⬇️ ⬅️ ➡️ ↔️ ↕️ 🔄 🌐 🦊 🧭 🧩 🗂️ 🗃️ 🗄️ 🗒️ 🗓️ 🕒 📨 📧 🖨️ 👋 🏠 🏁 🏃 💤 🔔 🛠️ 🏷️ ⭐ 🏆 🧹 🧲 🧰 🧪 🚀 🧭";
         visible: false;
+        font-size: 10px;
+    }
+        // Dummy invisible text to force-include all weather emojis
+    Text {
+        visible: false;
+        text: "☀️ 🌙 ⛅ 🌫️ 🌦️ 🌧️ ❄️ ⛈️ ❓";
+        font-size: 20px;
     }
 
     VerticalLayout {
@@ -89,7 +95,6 @@ export component MainWindow inherits Window {
                     current-time: root.current_time;
                     weather-icon: root.weather_icon;
                     weather-temp: root.weather_temp;
-                    weather-desc: root.weather_desc;
                     user-status-icon: root.user_status_icon;
                     user-status-text: root.user_status_text;
                 }
