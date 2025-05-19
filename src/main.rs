@@ -1,9 +1,11 @@
 use esp_deck::http_client::HttpClientPool;
+use esp_deck::http_handlers;
 use esp_deck::{
     actor::Actor,
     bsp::{time, usb::Usb, wifi::Wifi},
     config::{Configurator, WifiSettings},
     events::{AppEvent, WifiStatus},
+    http_server::start_http_server,
     mapper::Mapper,
     protocol::ProtocolManager,
     ui::window::Window,
@@ -133,17 +135,30 @@ fn main() -> anyhow::Result<()> {
                 return;
             }
         };
+        let mut http_server_handle = None;
         loop {
             match main_wifi_time_init_rx.recv() {
                 Ok(wifi_settings) => match block_on(wifi_driver.connect(wifi_settings)) {
                     Ok(_) => {
+                        // WiFi connected: start HTTP server
                         if let Err(e) = block_on(time::init(peripheral_update_tx.clone())) {
                             log::error!("NTP setup failed: {}", e);
                         } else {
-                            log::info!("NTP set up");
+                            log::info!("NTP setup complete");
+                        }
+                        http_server_handle =
+                            start_http_server(peripheral_update_tx.clone(), |server, ui_tx| {
+                                http_handlers::register_all_http_handlers(server, ui_tx)
+                            });
+                        if http_server_handle.is_some() {
+                            log::info!("HTTP server started");
                         }
                     }
                     Err(e) => {
+                        // WiFi failed/disconnected: drop HTTP server
+                        if http_server_handle.is_some() {
+                            http_server_handle = None;
+                        }
                         log::error!("Wi-Fi connection failed: {}", e);
                         if let Err(e2) = peripheral_update_tx
                             .send(AppEvent::WifiUpdate(WifiStatus::Error(e.to_string())))

@@ -3,6 +3,8 @@ pub mod bsp;
 pub mod config;
 pub mod events;
 pub mod http_client;
+pub mod http_handlers;
+pub mod http_server;
 pub mod mapper;
 pub mod protocol;
 pub mod ui;

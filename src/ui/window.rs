@@ -162,6 +162,10 @@ fn handle_events(
                     };
                     Some(text)
                 }
+                AppEvent::UserStatusUpdate(user_status) => {
+                    window.set_user_status_text(SharedString::from(&user_status));
+                    Some(SharedString::from(user_status))
+                }
                 _ => {
                     log::info!("Unknown event: {:?}", event);
                     None
@@ -182,11 +186,6 @@ fn handle_events(
         let min_free_heap = { unsafe { esp_idf_svc::sys::esp_get_minimum_free_heap_size() } };
         window.set_free_heap(SharedString::from(format!("{}kB", free_heap / 1024)));
         window.set_min_free_heap(SharedString::from(format!("{}kB", min_free_heap / 1024)));
-        log::info!(
-            "Free heap: {}. Minimum free heap: {}",
-            free_heap,
-            min_free_heap
-        );
     }
 }
 
