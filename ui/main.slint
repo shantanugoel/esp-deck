@@ -51,7 +51,7 @@ export component MainWindow inherits Window {
     VerticalLayout {
         padding: 15px;
         spacing: 10px;
-        TabWidget {
+        if !root.show-list-view: TabWidget {
             vertical-stretch: 1;
             horizontal-stretch: 1;
             current-index <=> root.current_tab_index;
@@ -62,7 +62,7 @@ export component MainWindow inherits Window {
                     alignment: LayoutAlignment.stretch;
                     horizontal-stretch: 1;
                     padding-top: 10px;
-                    if !root.show-list-view: ButtonGridView {
+                    ButtonGridView {
                         color-button: root.color-button;
                         color-button-text: root.color-button-text;
                         color-accent: root.color-accent;
@@ -71,11 +71,6 @@ export component MainWindow inherits Window {
                         button-pressed(idx) => {
                             root.button-pressed(idx);
                         }
-                    }
-                    if root.show-list-view: LogListView {
-                        color-text: root.color-text;
-                        color-text-muted: root.color-text-muted;
-                        list-items: root.list-items;
                     }
                 }
             }
@@ -102,14 +97,23 @@ export component MainWindow inherits Window {
                 }
             }
         }
-
-        FooterView {
+        if root.show-list-view: LogListView {
             color-text: root.color-text;
             color-text-muted: root.color-text-muted;
-            wifi_symbol: root.wifi_symbol;
-            current_time: root.current_time;
-            status_text: root.status_text;
-            show-list-view <=> root.show-list-view;
+            list-items: root.list-items;
+        }
+        TouchArea {
+            clicked => {
+                root.show-list-view = !root.show-list-view;
+            }
+            FooterView {
+                color-text: root.color-text;
+                color-text-muted: root.color-text-muted;
+                wifi_symbol: root.wifi_symbol;
+                current_time: root.current_time;
+                status_text: root.status_text;
+                show-list-view <=> root.show-list-view;
+            }
         }
     }
 }
