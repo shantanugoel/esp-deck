@@ -3,6 +3,8 @@ import { WidgetMediumSquare } from "WidgetMediumSquare.slint";
 export component Dashboard inherits Rectangle {
     in property <color> color-button;
     in property <string> gatus: "N/A";
+    in property <string> free_heap: "--";
+    in property <string> min_free_heap: "--";
     VerticalLayout {
         vertical-stretch: 1;
         alignment: stretch;
@@ -25,14 +27,14 @@ export component Dashboard inherits Rectangle {
 
                     WidgetMediumSquare {
                         bgcolor: color-button;
-                        value: "100%";
-                        title: "Memory Usage";
+                        value: free_heap;
+                        title: "Free Heap";
                     }
 
                     WidgetMediumSquare {
                         bgcolor: color-button;
-                        value: "100%";
-                        title: "CPU Usage";
+                        value: min_free_heap;
+                        title: "Minimum Free Heap";
                     }
 
                     WidgetMediumSquare {

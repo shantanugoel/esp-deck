@@ -29,7 +29,11 @@ export component MainWindow inherits Window {
     in-out property <string> wifi_symbol: "🛜❌";
     in-out property <[string]> button-names: [];
     in-out property <int> current_tab_index: 0;
+
+    // Properties for Dashboard
     in-out property <string> gatus: "N/A";
+    in-out property <string> free_heap: "--";
+    in-out property <string> min_free_heap: "--";
 
     // Properties for NowView weather and status
     in-out property <string> weather_icon: "❓";
@@ -81,6 +85,8 @@ export component MainWindow inherits Window {
                 Dashboard {
                     color-button: root.color-button;
                     gatus: root.gatus;
+                    free_heap: root.free_heap;
+                    min_free_heap: root.min_free_heap;
                 }
             }
 
