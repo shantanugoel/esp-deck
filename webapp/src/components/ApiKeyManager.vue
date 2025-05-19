@@ -6,13 +6,13 @@
       <span v-else class="text-sm text-muted-foreground">Not Set</span>
     </div>
     <div class="flex items-center space-x-2">
-      <Button @click="generateApiKey" variant="outline" size="sm">
+      <Button @click="generateApiKey" size="sm">
         Generate New
       </Button>
-      <Button @click="clearApiKey" variant="destructive" size="sm" :disabled="!props.modelValue">
+      <Button @click="clearApiKey" size="sm" :disabled="!props.modelValue">
         Clear
       </Button>
-      <Button @click="copyApiKey" variant="secondary" size="sm" :disabled="!props.modelValue">
+      <Button @click="copyApiKey" size="sm" :disabled="!props.modelValue">
         Copy
       </Button>
     </div>
