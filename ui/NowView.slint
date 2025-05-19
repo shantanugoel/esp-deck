@@ -57,18 +57,20 @@ export component NowView inherits Rectangle {
             horizontal-alignment: center;
         }
 
+        // User status icon
         Text {
             width: 30%;
             text: root.user-status-icon;
-            font-size: 28px;
-            font-family: root.font-family;
+            font-size: 20px;
             font-weight: 400;
             horizontal-alignment: center;
+            color: pixel-fg-date;
         }
 
-        // Optional: User status text below everything for later
+        // User status text
         Text {
             text: root.user-status-text;
+            font-size: 20px;
             horizontal-alignment: center;
             color: pixel-fg-date;
         }
