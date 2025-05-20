@@ -48,7 +48,7 @@ watch(() => deviceSettingsStore.settings, (newSettings) => {
   localWifiPassword.value = newSettings.wifi?.password || '';
   localTimezoneOffsetInput.value = newSettings.timezone_offset?.toString() || '';
   localApiKey.value = newSettings.api_key || '';
-}, { deep: true });
+}, { deep: true, immediate: true });
 
 const handleClearWifi = () => {
   deviceSettingsStore.clearWifiSettings();
@@ -135,8 +135,15 @@ const clearApiKey = () => {
       <p class="text-sm text-muted-foreground mb-4">Optional API key for accessing external services (if implemented by a feature).</p>
       <div class="space-y-3">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-          <Label for="api-key" class="sm:col-span-1">Current Key</Label>
-          <Input id="api-key" type="text" :value="localApiKey" placeholder="No API Key set" readonly class="sm:col-span-2 font-mono text-sm" />
+          <Label for="api-key-display" class="sm:col-span-1">Current Key</Label>
+          <div 
+            id="api-key-display"
+            class="sm:col-span-2 font-mono text-sm p-2 border rounded-md bg-muted min-h-[2.5rem] flex items-center"
+            aria-readonly="true"
+          >
+            <span v-if="localApiKey" class="truncate">{{ localApiKey }}</span>
+            <span v-else class="text-muted-foreground">No API Key set</span>
+          </div>
         </div>
         <div class="flex flex-wrap gap-2 pt-1">
           <Button @click="generateApiKey" variant="outline">Generate New Key</Button>
