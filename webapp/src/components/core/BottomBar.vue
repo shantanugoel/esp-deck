@@ -7,8 +7,11 @@
         </Badge>
         <span class="text-muted-foreground">{{ formattedStatus }}</span>
       </div>
-      <div>
-        <!-- Placeholder for debug toggle -->
+      <div class="flex items-center space-x-2">
+        <Button variant="outline" size="sm" @click="uiStore.toggleDebugLogVisibility()">
+          <ListTreeIcon class="h-4 w-4 mr-1.5" />
+          {{ uiStore.isDebugLogVisible ? 'Hide' : 'Show' }} Logs
+        </Button>
         <span class="text-muted-foreground text-xs">ESP Deck UI</span>
       </div>
     </div>
@@ -18,9 +21,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useDeviceStore } from '@/stores/deviceStore';
+import { useUiStore } from '@/stores/uiStore';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ListTreeIcon } from 'lucide-vue-next';
 
 const deviceStore = useDeviceStore();
+const uiStore = useUiStore();
 
 const deviceInfo = computed(() => deviceStore.deviceInfo);
 const isConnected = computed(() => deviceStore.isConnected);

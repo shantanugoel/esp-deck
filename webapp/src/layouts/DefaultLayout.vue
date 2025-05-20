@@ -78,6 +78,7 @@
       </div>
     </main>
     <BottomBar />
+    <DebugLogPanel />
 
     <ConfirmChangesDialog
       v-model="isConfirmChangesDialogVisible"
@@ -96,6 +97,7 @@ import TopBar from '@/components/core/TopBar.vue';
 import BottomBar from '@/components/core/BottomBar.vue';
 import TabNavigation from '@/components/core/TabNavigation.vue';
 import ConfirmChangesDialog from '@/components/core/ConfirmChangesDialog.vue';
+import DebugLogPanel from '@/components/core/DebugLogPanel.vue';
 import type { SaveSelection } from '@/components/core/ConfirmChangesDialog.vue';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { useMacroPadConfigStore } from '@/stores/macroPadConfigStore';
