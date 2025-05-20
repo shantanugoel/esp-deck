@@ -30,17 +30,16 @@
     <!-- Button Configuration Dialog -->
     <ButtonConfigDialog
       v-if="selectedButtonConfig" 
-      v-model:open="isDialogVisible"
+      v-model="isDialogVisible"
       :button-config="selectedButtonConfig"
       @save="handleSaveButtonConfig"
-      @update:modelValue="handleDialogUpdateOpen" 
     />
 
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useMacroPadConfigStore, type ButtonConfig } from '@/stores/macroPadConfigStore';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { Button } from '@/components/ui/button';
@@ -53,7 +52,6 @@ const buttons = computed(() => macroPadStore.buttons);
 const isLoading = computed(() => deviceStore.isLoading);
 const isConnected = computed(() => deviceStore.isConnected);
 
-// Reactive state for the dialog
 const isDialogVisible = ref(false);
 const selectedButtonConfig = ref<ButtonConfig | null>(null);
 
@@ -61,24 +59,21 @@ const handleButtonClick = (button: ButtonConfig) => {
   console.log('Button clicked:', button);
   selectedButtonConfig.value = button;
   isDialogVisible.value = true;
-  // alert(`Configure button: ${button.button_name || button.id}\nConfig: ${JSON.stringify(button.actions)}`);
 };
 
 const handleSaveButtonConfig = (updatedConfig: ButtonConfig) => {
   console.log('Save button config from dialog:', updatedConfig);
-  // The updatedConfig from dialog now includes name and actions
   macroPadStore.updateButtonConfig(updatedConfig.id, updatedConfig);
-  // No need to manually close dialog if v-model:open is correctly handled by the dialog itself
-  // isDialogVisible.value = false; // This will be handled by the dialog's internal logic via v-model:open
-  // selectedButtonConfig.value = null; // Resetting selection can be done when dialog closes
+  // isDialogVisible will be set to false by ButtonConfigDialog's internal v-model:open logic after save
+  // selectedButtonConfig will be reset by the watcher below
 };
 
-const handleDialogUpdateOpen = (openState: boolean) => {
-  isDialogVisible.value = openState;
-  if (!openState) {
-    selectedButtonConfig.value = null; // Reset selection when dialog is closed
+// Watch for the dialog closing to reset the selected button config
+watch(isDialogVisible, (newValue) => {
+  if (newValue === false) {
+    selectedButtonConfig.value = null;
   }
-};
+});
 
 </script>
 
