@@ -373,8 +373,26 @@ export const useDeviceStore = defineStore('device', {
             this.isLoading = true;
             this.error = null;
             try {
-                const jsonDataToSave: FullDeviceConfig = JSON.parse(fileContents);
-                const response = await deviceService.saveConfig(jsonDataToSave); // Note: This still sends raw data if not pre-converted
+                let jsonDataToSave: FullDeviceConfig = JSON.parse(fileContents);
+
+                // Convert actions within mappings from UI format (if present) to device-expected format
+                if (jsonDataToSave.mappings) {
+                    for (const buttonId in jsonDataToSave.mappings) {
+                        if (Object.prototype.hasOwnProperty.call(jsonDataToSave.mappings, buttonId)) {
+                            const actionsInFile = jsonDataToSave.mappings[buttonId];
+                            if (Array.isArray(actionsInFile)) {
+                                if (actionsInFile.length > 0 && typeof actionsInFile[0] === 'object' && actionsInFile[0] !== null && 'type' in actionsInFile[0]) {
+                                    this._addStoreLog('Detected UI action format in uploaded file, converting to device format.', 'info');
+                                    jsonDataToSave.mappings[buttonId] = actionsInFile.map(this._convertUiActionToDeviceAction.bind(this));
+                                } else {
+                                    this._addStoreLog('Uploaded file actions appear to be in device format or unknown, attempting to send as-is.', 'info');
+                                }
+                            }
+                        }
+                    }
+                }
+
+                const response = await deviceService.saveConfig(jsonDataToSave);
                 if (response.success) {
                     this._addStoreLog('Uploaded config saved successfully. Fetching new state...', 'info');
                     await this.fetchConfig();
