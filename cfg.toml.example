@@ -1,4 +1,0 @@
-[esp-deck]
-wifi_ssid = "MYWIFISSID"
-wifi_password = "MYWIFIPASSWORD"
-tz_offset = 5.5
