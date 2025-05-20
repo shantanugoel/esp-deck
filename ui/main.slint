@@ -3,7 +3,7 @@ import { ButtonGridView } from "./ButtonGridView.slint";
 import { LogListView } from "./LogListView.slint";
 import { TabWidget } from "std-widgets.slint"; 
 import {Palette, StyleMetrics} from "std-widgets.slint";
-import { Dashboard } from "Dashboard.slint";
+import { Dashboard, WidgetItem } from "Dashboard.slint";
 import { NowView } from "NowView.slint";
 
 export component MainWindow inherits Window {
@@ -31,9 +31,7 @@ export component MainWindow inherits Window {
     in-out property <int> current_tab_index: 0;
 
     // Properties for Dashboard
-    in-out property <string> gatus: "N/A";
-    in-out property <string> free_heap: "--";
-    in-out property <string> min_free_heap: "--";
+    in-out property <[WidgetItem]> dashboard_items;
 
     // Properties for NowView weather and status
     in-out property <string> weather_icon: "❓";
@@ -80,9 +78,7 @@ export component MainWindow inherits Window {
                 title: "Dashboard";
                 Dashboard {
                     color-button: root.color-button;
-                    gatus: root.gatus;
-                    free_heap: root.free_heap;
-                    min_free_heap: root.min_free_heap;
+                    items: root.dashboard_items;
                 }
             }
 

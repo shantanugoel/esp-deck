@@ -1,86 +1,22 @@
-import { ScrollView } from "std-widgets.slint";
-import { WidgetMediumSquare } from "WidgetMediumSquare.slint";
+import { WidgetKind, WidgetItemRenderer } from "WidgetItemRenderer.slint";
+struct WidgetItemValue {
+    kind: WidgetKind,
+    value-string: string,
+    value-image: image,
+}
+
+export struct WidgetItem {
+    title: string,
+    value: WidgetItemValue,
+}
+
 export component Dashboard inherits Rectangle {
     in property <color> color-button;
-    in property <string> gatus: "N/A";
-    in property <string> free_heap: "--";
-    in property <string> min_free_heap: "--";
-    VerticalLayout {
-        vertical-stretch: 1;
-        alignment: stretch;
-        horizontal-stretch: 1;
-        padding: 10px;
-        ScrollView {
-            horizontal-scrollbar-policy: always-on;
-            vertical-scrollbar-policy: always-off;
-            padding: 10px;
-            height: 170px;
-            Flickable {
-                HorizontalLayout {
-                    spacing: 5px;
-                    alignment: center;
-                    WidgetMediumSquare {
-                        bgcolor: color-button;
-                        value: gatus;
-                        title: "ACT Status";
-                    }
-
-                    WidgetMediumSquare {
-                        bgcolor: color-button;
-                        value: free_heap;
-                        title: "Free Heap";
-                    }
-
-                    WidgetMediumSquare {
-                        bgcolor: color-button;
-                        value: min_free_heap;
-                        title: "Minimum Free Heap";
-                    }
-
-                    WidgetMediumSquare {
-                        bgcolor: color-button;
-                        value: "100%";
-                        title: "Disk Usage";
-                    }
-
-                    WidgetMediumSquare {
-                        bgcolor: color-button;
-                        value: "100%";
-                        title: "Network Usage";
-                    }
-
-                    WidgetMediumSquare {
-                        bgcolor: color-button;
-                        value: "100%";
-                        title: "Disk Usage";
-                    }
-
-                    WidgetMediumSquare {
-                        bgcolor: color-button;
-                        value: "100%";
-                        title: "Disk Usage";
-                    }
-                }
-            }
-        }
-
-        HorizontalLayout {
-            spacing: 5px;
-            padding: 10px;
-            Rectangle {
-                background: color-button;
-                width: 50px;
-            }
-
-            Rectangle {
-                background: color-button;
-                min-width: 10px;
-            }
-
-            Rectangle {
-                background: color-button;
-                horizontal-stretch: 1;
-            }
-        }
+    in property <[WidgetItem]> items;
+    for item in items: WidgetItemRenderer {
+        title: item.title;
+        value_string: item.value.value_string;
+        value_image: item.value.value_image;
+        kind: item.value.kind;
     }
 }

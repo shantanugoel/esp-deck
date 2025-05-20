@@ -1,0 +1,36 @@
+export enum WidgetKind {
+    text,
+    image,
+}
+
+export component WidgetItemRenderer inherits Rectangle {
+    in property <color> bgcolor;
+    in property <string> value_string;
+    in property <image> value_image;
+    in property <string> title;
+    in property <WidgetKind> kind;
+    background: bgcolor;
+    width: 150px;
+    height: 150px;
+    VerticalLayout {
+        Text {
+            text: title;
+            vertical-alignment: top;
+            horizontal-alignment: center;
+            stroke: burlywood;
+            padding-top: 10px;
+        }
+
+        if root.kind == WidgetKind.text:    
+            Text {
+            text: value_string;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            vertical-stretch: 1;
+        }
+        if root.kind == WidgetKind.image:
+            Image {
+            source: value_image;
+        }
+    }
+}
