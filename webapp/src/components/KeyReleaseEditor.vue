@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { defineProps } from 'vue';
 import type { ConfigActionKeyRelease } from '@/types/protocol'; // Import the specific type
 
 // Props: Expect the specific ConfigActionKeyRelease type

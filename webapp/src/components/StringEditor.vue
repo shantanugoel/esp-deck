@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, defineProps, defineEmits, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 const props = defineProps<{ action: any }>()
 const emit = defineEmits(['update'])
 const isEditing = ref(false)

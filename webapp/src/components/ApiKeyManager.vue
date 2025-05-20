@@ -20,7 +20,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { toast } from 'vue-sonner'
 

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
-import { defineProps, defineEmits } from 'vue'
 import type { ConfigActionMousePress } from '@/types/protocol';
 
 const props = defineProps<{ action: ConfigActionMousePress }>()

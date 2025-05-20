@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
-import { defineProps, defineEmits } from 'vue'
 import { keyCodes } from '../keycodes'
 import type { ConfigActionKeyPress } from '@/types/protocol';
 

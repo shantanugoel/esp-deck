@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import type { ConfigActionSendString } from '@/types/protocol';
 import { stringToKeyCodes, keyCodesToString } from '../keycodes';
 

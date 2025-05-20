@@ -12,8 +12,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
-
 const props = defineProps<{ buttonLabels: string[] }>()
 const emit = defineEmits<{ (e: 'edit', idx: number): void }>()
 </script> 
