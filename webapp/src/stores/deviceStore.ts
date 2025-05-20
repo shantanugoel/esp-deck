@@ -117,18 +117,24 @@ export const useDeviceStore = defineStore('device', {
                 const macroPadStore = useMacroPadConfigStore();
                 const deviceSettingsStore = useDeviceSettingsStore();
 
-                // Transform MappingConfiguration to ButtonConfig[] for macroPadConfigStore
                 const mappings: MappingConfiguration = response.data.mappings;
-                const buttonNames = response.data.button_names; // Record<number, string> | null | undefined
+                const buttonNames = response.data.button_names;
 
-                const buttonConfigsForMacroPadStore: MacroPadButtonConfig[] = Object.entries(mappings).map(([idStr, actions]) => {
-                    const numericId = parseInt(idStr, 10);
-                    return {
-                        id: idStr, // Use string ID as received from mappings key
-                        actions: actions as ConfigAction[], // Ensure actions is typed as ConfigAction[]
-                        name: (buttonNames && !isNaN(numericId) && buttonNames[numericId]) ? buttonNames[numericId] : undefined,
-                    };
-                });
+                const buttonConfigsForMacroPadStore: MacroPadButtonConfig[] = Object.entries(mappings)
+                    .filter(([idStr]) => idStr !== 'default') // Filter out the "default" mapping
+                    .map(([idStr, actions]) => {
+                        const numericId = parseInt(idStr, 10);
+                        let buttonName: string | undefined = undefined;
+                        if (buttonNames && !isNaN(numericId) && numericId > 0) {
+                            // Adjust for 0-indexed buttonNames array (idStr "1" maps to buttonNames[0])
+                            buttonName = buttonNames[numericId - 1];
+                        }
+                        return {
+                            id: idStr,
+                            actions: actions as ConfigAction[],
+                            name: buttonName,
+                        };
+                    });
                 macroPadStore.loadConfig(buttonConfigsForMacroPadStore);
 
                 deviceSettingsStore.loadSettings(response.data.settings);
