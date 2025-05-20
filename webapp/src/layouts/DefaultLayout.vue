@@ -124,8 +124,8 @@ const handleSaveSettings = async () => {
     mappings[btn.id.toString()] = btn.actions as ConfigAction[];
     if (btn.name) {
       const numId = parseInt(btn.id.toString(), 10);
-      if (!isNaN(numId)) {
-        buttonNames[numId] = btn.name;
+      if (!isNaN(numId) && numId > 0) {
+        buttonNames[numId - 1] = btn.name;
       }
     }
   }
@@ -180,8 +180,8 @@ const handleBackupCurrentConfig = () => {
     mappingsForBackup[btn.id.toString()] = btn.actions as ConfigAction[];
     if (btn.name) {
       const numId = parseInt(btn.id.toString(), 10);
-      if (!isNaN(numId)) {
-        buttonNamesForBackup[numId] = btn.name;
+      if (!isNaN(numId) && numId > 0) {
+        buttonNamesForBackup[numId - 1] = btn.name;
       }
     }
   }
