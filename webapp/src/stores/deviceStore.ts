@@ -1,165 +1,294 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { useDeviceApi } from '../composables/useDeviceApi'
+// import { ref, computed } from 'vue'
+import { deviceService } from '@/services/deviceService'
+import type { FullDeviceConfig, DeviceConnectionInfo, ConfigAction, MappingConfiguration } from '@/types/protocol'
+import { useMacroPadConfigStore, type ButtonConfig as MacroPadButtonConfig } from './macroPadConfigStore'
+import { useDeviceSettingsStore } from './deviceSettingsStore'
 
-// Types for device config (expand as needed)
-export type DeviceConfig = any
-
-type StagedButtonChange = {
-    macro?: any[],
-    name?: string,
-}
-
-export type DeviceInfo = {
-    ipAddress?: string;
-    firmwareVersion?: string;
-    // Add other relevant device info fields
-}
-
+// Keeping store-specific debug log type, but deviceApi also has its own logs
 export type DebugLog = {
     timestamp: Date;
     message: string;
-    type: 'sent' | 'received';
-}
+    type: 'info' | 'error' | 'action'; // Store-level log types
+};
+
+// Type for DeviceInfo in this store, now aliasing DeviceConnectionInfo from protocol types
+export type StoreDeviceInfo = DeviceConnectionInfo;
 
 export const useDeviceStore = defineStore('device', {
     state: () => ({
         isConnected: false,
-        isConnecting: false,
-        isLoading: false, // For generic device operations
-        deviceInfo: null as DeviceInfo | null,
-        debugLogs: [] as DebugLog[],
-        // The following were likely from an old store, decide if they belong in the new structure
-        // For Phase 1, they are not strictly part of the `deviceStore` as per the new plan,
-        // but I will keep them commented out for now if they need to be re-integrated.
-        // lastFetchedConfig: null as DeviceConfig | null, 
-        // deviceConfig: null as DeviceConfig | null,
-        // loading: false, // duplicate of isLoading
-        // error: null as string | null, 
-        // stagedButtonChanges: {} as Record<number, StagedButtonChange>,
+        isConnecting: false, // For the connect action itself
+        isLoading: false,    // For generic device operations like fetch/save config
+        deviceInfo: null as StoreDeviceInfo | null,
+        // Store-specific debug logs. UI can also display deviceService.debugLogs for USB-level comms.
+        storeDebugLogs: [] as DebugLog[],
+        _lastFetchedConfig: null as FullDeviceConfig | null,
+        error: null as string | null,
     }),
     getters: {
         getFormattedStatus: (state): string => {
-            if (state.isConnecting) return 'Connecting...';
-            if (state.isConnected && state.deviceInfo) return `Connected to ${state.deviceInfo.ipAddress || 'device'}`;
-            if (state.isConnected) return 'Connected';
+            if (state.isConnecting) return 'Connecting via USB...';
+            if (state.isConnected && state.deviceInfo) {
+                return `Connected to ${state.deviceInfo.productName || 'USB Device'}${state.deviceInfo.serialNumber ? ' (S/N: ' + state.deviceInfo.serialNumber + ')' : ''}`;
+            }
+            if (state.isConnected) return 'Connected via USB';
             return 'Disconnected';
         },
-        hasDebugLogs: (state): boolean => state.debugLogs.length > 0,
+        hasStoreDebugLogs: (state): boolean => state.storeDebugLogs.length > 0,
+        lastFetchedConfig: (state): FullDeviceConfig | null => state._lastFetchedConfig,
+        // Expose reactive connection state from the service for convenience if needed by UI directly
+        // This avoids duplicating the isConnected state if deviceService.isConnected is the source of truth
+        // However, the store maintains its own isConnected for actions and fine-grained control.
+        // So, these are more for observing the raw USB state if desired.
+        isUsbConnected: () => deviceService.isConnected,
+        isUsbLoading: () => deviceService.isLoading,
     },
     actions: {
-        // Core actions to be implemented in Phase 2, with placeholders for Phase 1
-        async connect(targetDevice?: string) {
-            console.log('Attempting to connect to', targetDevice || 'default device');
+        _addStoreLog(message: string, type: DebugLog['type'] = 'info') {
+            const newLog: DebugLog = { message, type, timestamp: new Date() };
+            this.storeDebugLogs.unshift(newLog);
+            if (this.storeDebugLogs.length > 100) this.storeDebugLogs.pop(); // Keep logs bounded
+            if (type === 'error') console.error(`[DeviceStore] ${message}`);
+            else console.log(`[DeviceStore] ${message}`);
+        },
+
+        _updateConnectionState(connected: boolean, deviceInfo?: StoreDeviceInfo | null, error?: string | null) {
+            this.isConnected = connected;
+            this.isConnecting = false; // Connection attempt finished
+            // isLoading should be managed by specific operations like fetch/save, not connection itself unless it implies a fetch
+            this.deviceInfo = deviceInfo || null;
+            this.error = error || null;
+            if (error) this._addStoreLog(error, 'error');
+            if (!connected) {
+                this._lastFetchedConfig = null;
+            }
+        },
+
+        async connect() {
+            if (this.isConnecting || this.isConnected) return;
+            this._addStoreLog('Attempting to connect via USB...', 'action');
             this.isConnecting = true;
-            this.isLoading = true;
-            // Simulate connection attempt
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            this.isConnected = true;
-            this.isConnecting = false;
-            this.isLoading = false;
-            this.deviceInfo = { ipAddress: targetDevice || '192.168.1.100', firmwareVersion: '1.0.0' };
-            console.log('Connected to', this.deviceInfo.ipAddress);
-            // In a real scenario, this would also trigger fetching initial config
-            // await this.fetchConfig(); 
+            this.isLoading = true; // Show global loading during connect sequence
+            this.error = null;
+
+            const response = await deviceService.connect(); // No argument needed
+            if (response.success && response.data) {
+                this._updateConnectionState(true, response.data);
+                this._addStoreLog(`Successfully connected to ${response.data.productName || 'USB Device'}.`, 'info');
+                // await this.fetchConfig(); // Auto-fetch on successful connect (optional)
+            } else {
+                this._updateConnectionState(false, null, response.error || 'USB Connection failed');
+            }
+            this.isLoading = false; // Hide global loading
         },
-        disconnect() {
-            console.log('Disconnecting...');
-            this.isConnected = false;
-            this.isConnecting = false;
-            this.isLoading = false;
-            this.deviceInfo = null;
-            console.log('Disconnected');
+
+        async disconnect() {
+            // if (!this.isConnected && !this.isConnecting) return; // Allow disconnect even if only connecting
+            this._addStoreLog('Attempting to disconnect USB...', 'action');
+            // No need to set isLoading for a quick disconnect op unless service indicates it
+            // deviceService.disconnect will update its own reactive state (deviceApi.isDeviceConnected)
+            const response = await deviceService.disconnect();
+            if (response.success) {
+                this._updateConnectionState(false); // Update store's view of connection
+                this._addStoreLog('Successfully disconnected USB.', 'info');
+            } else {
+                // Handle potential disconnect failure
+                this.error = response.error || 'Failed to disconnect USB properly';
+                this._addStoreLog(`USB Disconnect error: ${this.error}`, 'error');
+                // Even if service reports error, we mark as disconnected in store
+                this._updateConnectionState(false, null, this.error);
+            }
         },
+
         async fetchConfig() {
-            console.log('Fetching config...');
+            if (!this.isConnected) {
+                this._addStoreLog('Cannot fetch config: Not connected.', 'error');
+                return;
+            }
+            if (this.isLoading) return; // Avoid concurrent fetches
+            this._addStoreLog('Fetching configuration...', 'action');
             this.isLoading = true;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            // Example: this.deviceConfig = fetchedData.config;
-            // Example: useMacroPadConfigStore().loadConfig(fetchedData.config.macros);
-            // Example: useDeviceSettingsStore().loadSettings(fetchedData.config.settings);
-            this.isLoading = false;
-            console.log('Config fetched (simulated)');
-        },
-        async saveConfig(configPayload: any) {
-            console.log('Saving config:', configPayload);
-            this.isLoading = true;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            this.isLoading = false;
-            console.log('Config saved (simulated)');
-            // Optionally re-fetch config after save
-            // await this.fetchConfig();
-        },
-        async resetConfig() {
-            console.log('Resetting config...');
-            this.isLoading = true;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            this.isLoading = false;
-            console.log('Config reset (simulated)');
-            // await this.fetchConfig(); 
-        },
-        async rebootDevice() {
-            console.log('Rebooting device...');
-            this.isLoading = true;
-            await new Promise(resolve => setTimeout(resolve, 500));
-            this.isLoading = false;
-            this.isConnected = false; // Device will likely disconnect
-            this.deviceInfo = null;
-            console.log('Device reboot command sent (simulated)');
-        },
-        async backupDeviceConfig() {
-            console.log('Backing up device config...');
-            this.isLoading = true;
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Simulate download
-            alert('Device config backup downloaded (simulated).');
-            this.isLoading = false;
-        },
-        async backupCurrentUiConfig(currentConfig: any) {
-            console.log('Backing up current UI config:', currentConfig);
-            this.isLoading = true;
-            await new Promise(resolve => setTimeout(resolve, 500));
-            alert('Current UI config backup downloaded (simulated).');
-            this.isLoading = false;
-        },
-        async uploadConfig(fileContents: string | ArrayBuffer | null) {
-            console.log('Uploading config...');
-            this.isLoading = true;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            try {
-                if (typeof fileContents === 'string') {
-                    const jsonData = JSON.parse(fileContents);
-                    console.log('Uploaded config data:', jsonData);
-                    // Process jsonData, potentially update other stores or call saveConfig
-                    // e.g., await this.saveConfig(jsonData.config || jsonData);
-                } else {
-                    throw new Error('File content is not a string');
-                }
-            } catch (error) {
-                console.error('Error processing uploaded config file:', error);
-                alert('Invalid config file format or content.');
+            this.error = null;
+
+            const response = await deviceService.fetchConfig();
+            if (response.success && response.data) {
+                this._lastFetchedConfig = response.data;
+                const macroPadStore = useMacroPadConfigStore();
+                const deviceSettingsStore = useDeviceSettingsStore();
+
+                // Transform MappingConfiguration to ButtonConfig[] for macroPadConfigStore
+                const mappings: MappingConfiguration = response.data.mappings;
+                const buttonNames = response.data.button_names; // Record<number, string> | null | undefined
+
+                const buttonConfigsForMacroPadStore: MacroPadButtonConfig[] = Object.entries(mappings).map(([idStr, actions]) => {
+                    const numericId = parseInt(idStr, 10);
+                    return {
+                        id: idStr, // Use string ID as received from mappings key
+                        actions: actions as ConfigAction[], // Ensure actions is typed as ConfigAction[]
+                        name: (buttonNames && !isNaN(numericId) && buttonNames[numericId]) ? buttonNames[numericId] : undefined,
+                    };
+                });
+                macroPadStore.loadConfig(buttonConfigsForMacroPadStore);
+
+                deviceSettingsStore.loadSettings(response.data.settings);
+                this._addStoreLog('Configuration fetched and applied to stores.', 'info');
+            } else {
+                this.error = response.error || 'Failed to fetch config';
+                this._addStoreLog(`Fetch config error: ${this.error}`, 'error');
             }
             this.isLoading = false;
-            console.log('Config upload processed (simulated)');
         },
-        addDebugLog(log: { message: string; type: 'sent' | 'received' }) {
-            const newLog = { ...log, timestamp: new Date() };
-            this.debugLogs = [newLog, ...this.debugLogs.slice(0, 199)]; // Add to start, limit size
+
+        async saveConfig(configPayload: FullDeviceConfig) { // Expecting the full config structure
+            if (!this.isConnected) {
+                this._addStoreLog('Cannot save config: Not connected.', 'error');
+                return;
+            }
+            if (this.isLoading) return;
+            this._addStoreLog(`Saving configuration...`, 'action');
+            // this._addStoreLog(`Config: ${JSON.stringify(configPayload)}`, 'info'); // Can be too verbose
+            this.isLoading = true;
+            this.error = null;
+
+            const response = await deviceService.saveConfig(configPayload);
+            if (response.success) {
+                this._addStoreLog('Configuration saved successfully.', 'info');
+                // Optimistically update _lastFetchedConfig or refetch to ensure consistency.
+                // Fetching is safer.
+                await this.fetchConfig();
+            } else {
+                this.error = response.error || 'Failed to save config';
+                this._addStoreLog(`Save config error: ${this.error}`, 'error');
+            }
+            this.isLoading = false;
         },
-        sendMessage(message: any) {
-            // Placeholder for sending message to device (e.g., via WebSocket)
-            const messageString = JSON.stringify(message);
-            console.log('Sending message to device:', messageString);
-            this.addDebugLog({ message: messageString, type: 'sent' });
-            // Actual send logic via deviceService.ts will be here in later phases
+
+        async resetConfig() {
+            if (!this.isConnected) {
+                this._addStoreLog('Cannot reset config: Not connected.', 'error');
+                return;
+            }
+            if (this.isLoading) return;
+            this._addStoreLog('Requesting device reset to factory defaults...', 'action');
+            this.isLoading = true;
+            this.error = null;
+
+            const response = await deviceService.resetConfig();
+            if (response.success) {
+                this._addStoreLog('Device reset successfully. Fetching new config...', 'info');
+                await this.fetchConfig(); // Fetch fresh config after reset
+            } else {
+                this.error = response.error || 'Failed to reset config';
+                this._addStoreLog(`Reset config error: ${this.error}`, 'error');
+            }
+            this.isLoading = false;
         },
-        // Actions from the old store that might need re-integration or belong elsewhere:
-        // stageButtonMacro(idx: number, macro: any[]) { ... }
-        // stageButtonName(idx: number, name: string) { ... }
-        // isButtonDirty(idx: number) { ... }
-        // getStagedButtonMacro(idx: number): any[] | undefined { ... }
-        // getStagedButtonName(idx: number): string | undefined { ... }
-        // clearStagedChanges() { ... }
-        // setDeviceConfig(config: DeviceConfig) { ... }
+
+        async rebootDevice() {
+            if (!this.isConnected) {
+                this._addStoreLog('Cannot reboot: Not connected.', 'error');
+                return;
+            }
+            // Unlike other loading operations, reboot means we expect disconnection.
+            // isLoading might briefly be true, but isConnected state change is primary.
+            this._addStoreLog('Requesting device reboot...', 'action');
+            this.error = null;
+            // Set isLoading for the command send, but expect it to be cleared by connection state change
+            const wasLoading = this.isLoading;
+            this.isLoading = true;
+
+            const response = await deviceService.rebootDevice();
+            if (response.success) {
+                this._addStoreLog('Device reboot command acknowledged. Connection will be lost.', 'info');
+                // The deviceService/useDeviceApi should set its internal isConnected to false.
+                // We update our store's state accordingly.
+                this._updateConnectionState(false, null, 'Device rebooted. Connection lost.');
+            } else {
+                this.error = response.error || 'Failed to send reboot command';
+                this._addStoreLog(`Reboot error: ${this.error}`, 'error');
+                this.isLoading = wasLoading; // Restore previous loading state if command failed
+            }
+            // isLoading should naturally become false if _updateConnectionState(false) is called.
+            // If reboot command failed without disconnect, ensure isLoading is reset.
+            if (this.isConnected) this.isLoading = false;
+        },
+
+        // Backup/Upload actions remain largely the same but use FullDeviceConfig
+        async backupDeviceConfig() {
+            if (!this.isConnected) {
+                this._addStoreLog('Cannot backup: Not connected.', 'error');
+                return;
+            }
+            if (this.isLoading) return;
+            this._addStoreLog('Preparing to backup device config from device...', 'action');
+            this.isLoading = true;
+            this.error = null;
+
+            // Fetch the latest config directly from device for backup
+            const fetchResponse = await deviceService.fetchConfig();
+            if (fetchResponse.success && fetchResponse.data) {
+                this._downloadJson(fetchResponse.data, `device-config-backup-${new Date().toISOString().slice(0, 19).replace(/[-T:]/g, '')}.json`);
+                this._addStoreLog('Device config downloaded for backup.', 'info');
+            } else {
+                this.error = fetchResponse.error || 'Failed to fetch config for backup';
+                this._addStoreLog(`Backup error (fetch): ${this.error}`, 'error');
+            }
+            this.isLoading = false;
+        },
+
+        async backupCurrentUiConfig(currentConfig: FullDeviceConfig) { // Parameter type updated
+            if (this.isLoading && !this.isConnecting) return; // Allow during connection for initial state backup if needed
+            this._addStoreLog('Downloading current UI config snapshot...', 'action');
+            this._downloadJson(currentConfig, `ui-current-config-backup-${new Date().toISOString().slice(0, 19).replace(/[-T:]/g, '')}.json`);
+            this._addStoreLog('UI config snapshot downloaded.', 'info');
+        },
+
+        async uploadConfig(fileContents: string) {
+            if (!this.isConnected) {
+                this._addStoreLog('Cannot upload: Not connected.', 'error');
+                return;
+            }
+            if (this.isLoading) return;
+            this._addStoreLog('Uploading new configuration...', 'action');
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const jsonDataToSave: FullDeviceConfig = JSON.parse(fileContents);
+                // Basic validation could be added here against a schema if available
+                const response = await deviceService.saveConfig(jsonDataToSave);
+                if (response.success) {
+                    this._addStoreLog('Uploaded config saved successfully. Fetching new state...', 'info');
+                    await this.fetchConfig();
+                } else {
+                    this.error = response.error || 'Failed to save uploaded config';
+                    this._addStoreLog(`Upload save error: ${this.error}`, 'error');
+                }
+            } catch (e: any) {
+                console.error('[deviceStore] Error parsing/uploading config file:', e);
+                this.error = e.message || 'Invalid config file format during upload.';
+                this._addStoreLog(`Upload parsing error: ${this.error}`, 'error');
+            }
+            this.isLoading = false;
+        },
+
+        _downloadJson(data: any, filename: string) {
+            try {
+                const jsonString = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (e: any) {
+                console.error("[deviceStore] Error creating download:", e);
+                this.error = e.message || "Failed to prepare download.";
+                this._addStoreLog(`Download prep error: ${this.error}`, 'error');
+            }
+        }
     }
 }) 
