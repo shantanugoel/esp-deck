@@ -74,7 +74,7 @@
     <main class="flex-grow w-full px-4 py-8">
       <TabNavigation />
       <div class="mt-4 p-4 border rounded-lg shadow bg-card min-h-[300px]">
-        <component :is="activeViewComponent" />
+        <component :is="uiStore.activeViewComponent" />
       </div>
     </main>
     <BottomBar />
@@ -82,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, defineAsyncComponent } from 'vue';
+import { computed, ref, watch } from 'vue';
 import TopBar from '@/components/core/TopBar.vue';
 import BottomBar from '@/components/core/BottomBar.vue';
 import TabNavigation from '@/components/core/TabNavigation.vue';
@@ -92,29 +92,12 @@ import { useDeviceSettingsStore } from '@/stores/deviceSettingsStore';
 import { useUiStore } from '@/stores/uiStore';
 import type { FullDeviceConfig, MappingConfiguration, DeviceSettings, ConfigAction } from '@/types/protocol';
 
-// Lazy load tab components for better initial performance
-const MacroPadSettingsView = defineAsyncComponent(() => import('@/components/macropad/MacroPadSettingsView.vue'));
-const DashboardSettingsView = defineAsyncComponent(() => import('@/components/dashboard/DashboardSettingsView.vue'));
-const NowSettingsView = defineAsyncComponent(() => import('@/components/now/NowSettingsView.vue'));
-const DeviceGeneralSettingsView = defineAsyncComponent(() => import('@/components/device-settings/DeviceGeneralSettingsView.vue'));
-
 const deviceStore = useDeviceStore();
 const macroPadStore = useMacroPadConfigStore();
 const deviceSettingsStore = useDeviceSettingsStore();
 const uiStore = useUiStore();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
-
-const tabViewComponents = {
-  macropad: MacroPadSettingsView,
-  dashboard: DashboardSettingsView,
-  now: NowSettingsView,
-  'device-settings': DeviceGeneralSettingsView,
-};
-
-const activeViewComponent = computed(() => {
-  return tabViewComponents[uiStore.activeTab] || null;
-});
 
 const handleConnectToggle = () => {
   if (deviceStore.isConnected) {
@@ -138,7 +121,7 @@ const handleSaveSettings = async () => {
   const buttonNames: Record<number, string> = {};
 
   for (const btn of buttonConfigsToSave) {
-    mappings[btn.id.toString()] = btn.actions as ConfigAction[]; // Ensure actions are correctly typed
+    mappings[btn.id.toString()] = btn.actions as ConfigAction[];
     if (btn.name) {
       const numId = parseInt(btn.id.toString(), 10);
       if (!isNaN(numId)) {
@@ -154,7 +137,6 @@ const handleSaveSettings = async () => {
   };
 
   await deviceStore.saveConfig(payload);
-  // Check for error from the store action if possible, rather than just isLoading
   if (!deviceStore.error) { 
       macroPadStore.markAsSaved();
       deviceSettingsStore.markAsSaved();
@@ -169,7 +151,7 @@ const handleReloadSettings = () => {
 const handleResetSettings = () => {
   if (!deviceStore.isConnected || deviceStore.isLoading) return;
   if (confirm('Are you sure you want to reset the device to factory defaults? This will reload settings afterwards.')) {
-    deviceStore.resetConfig(); // fetchConfig is called inside resetConfig in store if successful
+    deviceStore.resetConfig();
   }
 };
 
@@ -245,7 +227,7 @@ const handleFileSelected = (event: Event) => {
 watch(() => deviceStore.isConnected, (newVal, oldVal) => {
   if (newVal === true && oldVal === false) {
     console.log("Device connected. Fetching initial config...");
-    deviceStore.fetchConfig(); // Auto-fetch on connect
+    deviceStore.fetchConfig();
   }
 });
 

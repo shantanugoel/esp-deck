@@ -1,25 +1,38 @@
 <template>
-  <nav class="flex space-x-1 border-b">
-    <!-- Using Shadcn-Vue like styling for tabs -->
-    <button class="px-4 py-2 -mb-px border-b-2 border-primary font-semibold text-primary focus:outline-none">
-      MacroPad
-    </button>
-    <button class="px-4 py-2 border-b-2 border-transparent hover:border-gray-400 text-muted-foreground focus:outline-none">
-      Dashboard
-    </button>
-    <button class="px-4 py-2 border-b-2 border-transparent hover:border-gray-400 text-muted-foreground focus:outline-none">
-      Now
-    </button>
-    <button class="px-4 py-2 border-b-2 border-transparent hover:border-gray-400 text-muted-foreground focus:outline-none">
-      Device Settings
-    </button>
-  </nav>
+  <Tabs :model-value="uiStore.activeTabId" @update:model-value="onTabChange" class="w-full">
+    <TabsList class="grid w-full grid-cols-4">
+      <TabsTrigger 
+        v-for="tab in uiStore.availableTabs" 
+        :key="tab.id" 
+        :value="tab.id"
+      >
+        {{ tab.label }}
+      </TabsTrigger>
+    </TabsList>
+    <!-- TabContent will be rendered by DefaultLayout.vue using activeViewComponent -->
+  </Tabs>
 </template>
 
 <script setup lang="ts">
-// Logic for TabNavigation will go here in later phases
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUiStore, type TabId } from '@/stores/uiStore';
+
+const uiStore = useUiStore();
+
+// Shadcn-Vue Tabs component emits string | number for the value
+const onTabChange = (newTabId: string | number | undefined) => {
+  if (newTabId !== undefined) {
+    const newTabIdStr = String(newTabId); // Ensure it's a string for comparison and store
+    if (uiStore.availableTabs.some(tab => tab.id === newTabIdStr)) {
+      uiStore.setActiveTab(newTabIdStr as TabId);
+    } else {
+      console.warn(`TabNavigation: Attempted to switch to an invalid tab ID: ${newTabIdStr}`);
+    }
+  } 
+};
+
 </script>
 
 <style scoped>
-/* Add any TabNavigation-specific styles here */
+/* Add any specific styling for TabNavigation if needed */
 </style> 
