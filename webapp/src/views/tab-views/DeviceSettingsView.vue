@@ -4,6 +4,7 @@ import { useDeviceSettingsStore } from '@/stores/deviceSettingsStore';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { EyeIcon, EyeOffIcon } from 'lucide-vue-next';
 
 const deviceSettingsStore = useDeviceSettingsStore();
 
@@ -11,6 +12,8 @@ const localWifiSsid = ref(deviceSettingsStore.settings.wifi?.ssid || '');
 const localWifiPassword = ref(deviceSettingsStore.settings.wifi?.password || '');
 const localTimezoneOffsetInput = ref<string>(deviceSettingsStore.settings.timezone_offset?.toString() || '');
 const localApiKey = ref<string>(deviceSettingsStore.settings.api_key || '');
+
+const isPasswordVisible = ref(false);
 
 const isWifiConfigured = computed(() => !!deviceSettingsStore.settings.wifi);
 
@@ -51,6 +54,31 @@ const handleClearWifi = () => {
   deviceSettingsStore.clearWifiSettings();
 };
 
+const generateApiKey = () => {
+  const newKey = crypto.randomUUID();
+  deviceSettingsStore.updateApiKey(newKey);
+  // localApiKey will update via the watcher on deviceSettingsStore.settings
+};
+
+const copyApiKey = () => {
+  if (localApiKey.value) {
+    navigator.clipboard.writeText(localApiKey.value)
+      .then(() => {
+        // Optional: Show a temporary "Copied!" message or toast
+        console.log('API Key copied to clipboard');
+      })
+      .catch(err => {
+        console.error('Failed to copy API Key: ', err);
+        // Optional: Show an error message
+      });
+  }
+};
+
+const clearApiKey = () => {
+  deviceSettingsStore.updateApiKey(null);
+  // localApiKey will update via the watcher
+};
+
 </script>
 
 <template>
@@ -65,7 +93,25 @@ const handleClearWifi = () => {
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
           <Label for="wifi-password">Password</Label>
-          <Input id="wifi-password" type="password" v-model="localWifiPassword" placeholder="Your WiFi Password" />
+          <div class="relative w-full">
+            <Input 
+              id="wifi-password" 
+              :type="isPasswordVisible ? 'text' : 'password'" 
+              v-model="localWifiPassword" 
+              placeholder="Your WiFi Password" 
+              class="pr-10" 
+            />
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="icon" 
+              class="absolute inset-y-0 right-0 h-full px-3 text-muted-foreground hover:text-foreground" 
+              @click="isPasswordVisible = !isPasswordVisible"
+              aria-label="Toggle password visibility"
+            >
+              <component :is="isPasswordVisible ? EyeOffIcon : EyeIcon" class="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
       <div v-if="isWifiConfigured" class="mt-4">
@@ -87,10 +133,15 @@ const handleClearWifi = () => {
     <div class="p-4 border rounded-md">
       <h3 class="text-lg font-semibold mb-2">API Key</h3>
       <p class="text-sm text-muted-foreground mb-4">Optional API key for accessing external services (if implemented by a feature).</p>
-      <div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-          <Label for="api-key">API Key</Label>
-          <Input id="api-key" type="text" v-model="localApiKey" placeholder="Optional API Key (empty for none)" />
+      <div class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+          <Label for="api-key" class="sm:col-span-1">Current Key</Label>
+          <Input id="api-key" type="text" :value="localApiKey" placeholder="No API Key set" readonly class="sm:col-span-2 font-mono text-sm" />
+        </div>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <Button @click="generateApiKey" variant="outline">Generate New Key</Button>
+          <Button @click="copyApiKey" :disabled="!localApiKey" variant="outline">Copy Key</Button>
+          <Button @click="clearApiKey" :disabled="!localApiKey" variant="destructive">Clear Key</Button>
         </div>
       </div>
     </div>
