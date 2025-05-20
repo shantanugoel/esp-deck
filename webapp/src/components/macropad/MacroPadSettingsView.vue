@@ -20,7 +20,7 @@
         :key="button.id"
         @click="handleButtonClick(button)"
         variant="outline"
-        class="p-4 h-24 flex flex-col items-center justify-center text-center aspect-square focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all duration-150 ease-in-out hover:shadow-lg hover:scale-105 active:scale-95"
+        class="p-4 h-24 w-32 bg-primary text-primary-foreground flex flex-col items-center justify-center text-center aspect-square focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all duration-150 ease-in-out hover:shadow-lg hover:scale-105 active:scale-95"
       >
         <span class="text-sm font-medium truncate w-full">{{ button.name || `Button ${button.id}` }}</span>
         <!-- Future: Maybe show a small icon or summary of actions -->
