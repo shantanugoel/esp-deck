@@ -82,14 +82,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch, defineAsyncComponent } from 'vue';
+import { computed, ref, watch, defineAsyncComponent } from 'vue';
 import TopBar from '@/components/core/TopBar.vue';
 import BottomBar from '@/components/core/BottomBar.vue';
 import TabNavigation from '@/components/core/TabNavigation.vue';
 import { useDeviceStore } from '@/stores/deviceStore';
-import { useMacroPadConfigStore } from '@/stores/macroPadConfigStore';
+import { useMacroPadConfigStore, type ButtonConfig as MacroPadButtonConfig } from '@/stores/macroPadConfigStore';
 import { useDeviceSettingsStore } from '@/stores/deviceSettingsStore';
-import { useUiStore, type TabName } from '@/stores/uiStore';
+import { useUiStore } from '@/stores/uiStore';
+import type { FullDeviceConfig, MappingConfiguration, DeviceSettings, ConfigAction } from '@/types/protocol';
 
 // Lazy load tab components for better initial performance
 const MacroPadSettingsView = defineAsyncComponent(() => import('@/components/macropad/MacroPadSettingsView.vue'));
@@ -112,7 +113,7 @@ const tabViewComponents = {
 };
 
 const activeViewComponent = computed(() => {
-  return tabViewComponents[uiStore.activeTab] || null; // Fallback to null if tab not found
+  return tabViewComponents[uiStore.activeTab] || null;
 });
 
 const handleConnectToggle = () => {
@@ -130,24 +131,33 @@ const isSaveRelevant = computed(() => {
 const handleSaveSettings = async () => {
   if (!isSaveRelevant.value || !deviceStore.isConnected || deviceStore.isLoading) return;
 
-  const payload: { macros?: any; settings?: any } = {};
+  const settingsToSave: DeviceSettings = deviceSettingsStore.getSettingsForSave;
+  const buttonConfigsToSave: MacroPadButtonConfig[] = macroPadStore.getConfigForSave;
 
-  if (macroPadStore.isDirty) {
-    payload.macros = macroPadStore.getConfigForSave; // Accessing getter
-  }
-  if (deviceSettingsStore.isDirty) {
-    payload.settings = deviceSettingsStore.getSettingsForSave; // Accessing getter
-  }
+  const mappings: MappingConfiguration = {};
+  const buttonNames: Record<number, string> = {};
 
-  const finalPayload = Object.fromEntries(Object.entries(payload).filter(([_, v]) => v !== undefined));
-
-  if (Object.keys(finalPayload).length > 0) {
-    await deviceStore.saveConfig(finalPayload);
-    if (!deviceStore.isLoading) { // Check if save was successful (isLoading is false)
-        macroPadStore.markAsSaved();
-        deviceSettingsStore.markAsSaved();
-        // await deviceStore.fetchConfig(); // Optionally fetch to confirm and get latest state
+  for (const btn of buttonConfigsToSave) {
+    mappings[btn.id.toString()] = btn.actions as ConfigAction[]; // Ensure actions are correctly typed
+    if (btn.name) {
+      const numId = parseInt(btn.id.toString(), 10);
+      if (!isNaN(numId)) {
+        buttonNames[numId] = btn.name;
+      }
     }
+  }
+
+  const payload: FullDeviceConfig = {
+    settings: settingsToSave,
+    mappings: mappings,
+    button_names: Object.keys(buttonNames).length > 0 ? buttonNames : null,
+  };
+
+  await deviceStore.saveConfig(payload);
+  // Check for error from the store action if possible, rather than just isLoading
+  if (!deviceStore.error) { 
+      macroPadStore.markAsSaved();
+      deviceSettingsStore.markAsSaved();
   }
 };
 
@@ -159,9 +169,7 @@ const handleReloadSettings = () => {
 const handleResetSettings = () => {
   if (!deviceStore.isConnected || deviceStore.isLoading) return;
   if (confirm('Are you sure you want to reset the device to factory defaults? This will reload settings afterwards.')) {
-    deviceStore.resetConfig().then(() => {
-        // deviceStore.fetchConfig(); // fetchConfig is called inside resetConfig in store if successful
-    });
+    deviceStore.resetConfig(); // fetchConfig is called inside resetConfig in store if successful
   }
 };
 
@@ -179,16 +187,30 @@ const handleBackupDeviceConfig = () => {
 
 const handleBackupCurrentConfig = () => {
   if (deviceStore.isLoading) return;
-  const currentConfig = {
-    source: 'ui-current-backup',
-    timestamp: new Date().toISOString(),
-    config: {
-      macros: macroPadStore.buttons, // Current state of buttons in the store
-      settings: deviceSettingsStore.settings, // Current state of settings in the store
-      // Add other relevant parts of the config from other stores or states if needed
+
+  const settingsForBackup: DeviceSettings = deviceSettingsStore.settings;
+  const buttonConfigsForBackup: MacroPadButtonConfig[] = macroPadStore.buttons;
+
+  const mappingsForBackup: MappingConfiguration = {};
+  const buttonNamesForBackup: Record<number, string> = {};
+
+  for (const btn of buttonConfigsForBackup) {
+    mappingsForBackup[btn.id.toString()] = btn.actions as ConfigAction[];
+    if (btn.name) {
+      const numId = parseInt(btn.id.toString(), 10);
+      if (!isNaN(numId)) {
+        buttonNamesForBackup[numId] = btn.name;
+      }
     }
+  }
+
+  const fullConfigForBackup: FullDeviceConfig = {
+    settings: settingsForBackup,
+    mappings: mappingsForBackup,
+    button_names: Object.keys(buttonNamesForBackup).length > 0 ? buttonNamesForBackup : null,
   };
-  deviceStore.backupCurrentUiConfig(currentConfig);
+
+  deviceStore.backupCurrentUiConfig(fullConfigForBackup);
 };
 
 const triggerUpload = () => {
@@ -205,15 +227,14 @@ const handleFileSelected = (event: Event) => {
       const content = e.target?.result;
       if (content && typeof content === 'string') {
         await deviceStore.uploadConfig(content);
-        // Potentially trigger a fetchConfig or apply directly based on uploadConfig's behavior
       } else {
         alert('Could not read file content or content is not text.');
       }
-      if (fileInputRef.value) fileInputRef.value.value = ''; // Reset file input
+      if (fileInputRef.value) fileInputRef.value.value = ''; 
     };
     reader.onerror = () => {
       alert('Error reading file.');
-      if (fileInputRef.value) fileInputRef.value.value = ''; // Reset file input
+      if (fileInputRef.value) fileInputRef.value.value = ''; 
     };
     reader.readAsText(file);
   } else {
@@ -223,8 +244,8 @@ const handleFileSelected = (event: Event) => {
 
 watch(() => deviceStore.isConnected, (newVal, oldVal) => {
   if (newVal === true && oldVal === false) {
-    console.log("Device connected. You might want to fetch initial config if not done automatically.");
-    // For example: deviceStore.fetchConfig();
+    console.log("Device connected. Fetching initial config...");
+    deviceStore.fetchConfig(); // Auto-fetch on connect
   }
 });
 
@@ -232,5 +253,5 @@ watch(() => deviceStore.isConnected, (newVal, oldVal) => {
 
 <style scoped>
 .min-w-\[110px\] { min-width: 110px; }
-.min-h-\[300px\] { min-height: 300px; } /* Ensure content area has some height */
+.min-h-\[300px\] { min-height: 300px; }
 </style> 
