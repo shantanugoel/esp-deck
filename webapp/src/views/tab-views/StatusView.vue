@@ -50,6 +50,14 @@ const deviceFreeMemory = computed(() => {
   return 'N/A (Not Implemented)';
 });
 
+const configuredTimezoneOffset = computed(() => {
+  const offset = deviceSettingsStore.settings.timezone_offset;
+  if (offset === null || offset === undefined) {
+    return 'N/A';
+  }
+  return `${offset >= 0 ? '+' : ''}${offset} hours from UTC`;
+});
+
 </script>
 
 <template>
@@ -109,6 +117,11 @@ const deviceFreeMemory = computed(() => {
            <div class="flex justify-between">
             <span class="text-muted-foreground">Free Memory:</span>
             <span>{{ deviceFreeMemory }}</span>
+          </div>
+          <Separator />
+          <div class="flex justify-between">
+            <span class="text-muted-foreground">Configured Timezone:</span>
+            <span>{{ configuredTimezoneOffset }}</span>
           </div>
           <Separator />
           <div class="flex justify-between">
