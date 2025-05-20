@@ -64,17 +64,17 @@ const handleCancel = () => {
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="props.buttonConfig" class="grid gap-4 py-4">
-        <div class="grid grid-cols-4 items-center gap-4">
-          <Label for="button-name" class="text-right">
-            Name
-          </Label>
-          <Input id="button-name" v-model="localButtonName" class="col-span-3" />
+      <div v-if="props.buttonConfig" class="grid gap-y-4 py-4"> <!-- Outer grid for rows, gap-y-4 for vertical spacing -->
+        <!-- Name Row -->
+        <div class="grid grid-cols-6 items-center gap-x-4">
+          <Label for="button-name" class="text-right col-span-1">Name</Label>
+          <Input id="button-name" v-model="localButtonName" class="col-span-5" />
         </div>
 
-        <div class="grid grid-cols-4 items-start gap-4">
+        <!-- Actions Row -->
+        <div class="grid grid-cols-6 items-start gap-x-4">
           <Label class="text-right col-span-1 pt-2">Actions</Label>
-          <div class="col-span-3">
+          <div class="col-span-5">
             <MacroEditor v-model="localActions" :open="true" />
           </div>
         </div>
