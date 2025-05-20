@@ -1,5 +1,6 @@
 import { WidgetKind, WidgetItemRenderer } from "WidgetItemRenderer.slint";
-struct WidgetItemValue {
+import { ScrollView, HorizontalBox } from "std-widgets.slint";
+export struct WidgetItemValue {
     kind: WidgetKind,
     value-string: string,
     value-image: image,
@@ -13,10 +14,23 @@ export struct WidgetItem {
 export component Dashboard inherits Rectangle {
     in property <color> color-button;
     in property <[WidgetItem]> items;
-    for item in items: WidgetItemRenderer {
-        title: item.title;
-        value_string: item.value.value_string;
-        value_image: item.value.value_image;
-        kind: item.value.kind;
+    ScrollView {
+        horizontal-scrollbar-policy: always-on;
+        vertical-scrollbar-policy: always-off;
+        padding: 10px;
+        height: 170px;
+        Flickable {
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: center;
+                for item in items: WidgetItemRenderer {
+                    title: item.title;
+                    value_string: item.value.value_string;
+                    value_image: item.value.value_image;
+                    kind: item.value.kind;
+                    bgcolor: color-button;
+                }
+            }
+        }
     }
 }
