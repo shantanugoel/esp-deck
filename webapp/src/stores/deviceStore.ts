@@ -195,31 +195,35 @@ export const useDeviceStore = defineStore('device', {
                 // Prepare mappings with converted actions
                 const processedMappings: MappingConfiguration = {};
                 if (response.data.mappings) {
-                    for (const key in response.data.mappings) {
-                        // Filter out "default" key from mappings before processing actions or passing to store
-                        if (key === 'default') continue;
+                    for (const rawKey in response.data.mappings) {
+                        if (rawKey === 'default') continue;
 
-                        if (Object.prototype.hasOwnProperty.call(response.data.mappings, key)) {
-                            const rawActions = response.data.mappings[key];
-                            processedMappings[key] = Array.isArray(rawActions)
+                        if (Object.prototype.hasOwnProperty.call(response.data.mappings, rawKey)) {
+                            const rawActions = response.data.mappings[rawKey];
+                            const actions = Array.isArray(rawActions)
                                 ? rawActions.map(action => this._convertRawActionToConfigAction(action))
                                 : [];
+
+                            const numericKey = parseInt(rawKey, 10);
+                            // If the rawKey is a positive integer string (e.g., "1", "2", ...),
+                            // assume it's 1-based and convert to a 0-based string key.
+                            if (!isNaN(numericKey) && numericKey > 0 && String(numericKey) === rawKey) {
+                                const zeroBasedKey = String(numericKey - 1);
+                                processedMappings[zeroBasedKey] = actions;
+                                this._addStoreLog(`Mapping key "${rawKey}" from device converted to "${zeroBasedKey}".`, 'info');
+                            } else {
+                                // If key is "0", or not a simple positive integer string (e.g., "special_key"), use it as is.
+                                processedMappings[rawKey] = actions;
+                                if (rawKey !== "0") {
+                                    this._addStoreLog(`Mapping key "${rawKey}" from device used as is.`, 'info');
+                                }
+                            }
                         }
                     }
                 }
 
-                // Prepare button_names, ensuring 0-indexed keys from device (if they were 1-indexed)
-                // The summary mentioned a fix for off-by-one indexing. Assuming device now provides 0-indexed for button_names keys if they are numbers.
-                // Or, if button_names from device is Record<number, string> and already 0-indexed, direct pass is fine.
-                // The previous logic for button_names was:
-                // if (buttonNames && !isNaN(numericId) && numericId > 0) { buttonName = buttonNames[numericId - 1]; }
-                // This implies device `button_names` might have used 1-based index for keys, or the keys were strings to be parsed.
-                // protocol.ts defines button_names as Record<number, string> | null.
-                // Let's assume button_names from device (response.data.button_names) is Record<number, string> and correctly 0-indexed as per protocol type.
                 const processedButtonNames = response.data.button_names ? JSON.parse(JSON.stringify(response.data.button_names)) : {};
 
-                // The original code had a complex creation of `buttonConfigsForMacroPadStore` (old format).
-                // Now, we directly load the processed mappings and button names.
                 macroPadStore.loadConfig(processedMappings, processedButtonNames);
                 deviceSettingsStore.loadSettings(response.data.settings);
 
@@ -281,16 +285,42 @@ export const useDeviceStore = defineStore('device', {
             this.error = null;
 
             const payloadForDevice = JSON.parse(JSON.stringify(configPayload));
+
+            // 1. Convert action structures within mappings (from UI format to device format)
             if (payloadForDevice.mappings) {
-                for (const buttonId in payloadForDevice.mappings) {
-                    if (Object.prototype.hasOwnProperty.call(payloadForDevice.mappings, buttonId)) {
-                        const uiActions = payloadForDevice.mappings[buttonId];
+                for (const buttonIdKey in payloadForDevice.mappings) { // buttonIdKey is "0", "1", etc. (0-based from UI/store)
+                    if (Object.prototype.hasOwnProperty.call(payloadForDevice.mappings, buttonIdKey)) {
+                        const uiActions = payloadForDevice.mappings[buttonIdKey];
                         if (Array.isArray(uiActions)) {
-                            payloadForDevice.mappings[buttonId] = uiActions.map(this._convertUiActionToDeviceAction.bind(this));
+                            payloadForDevice.mappings[buttonIdKey] = uiActions.map(this._convertUiActionToDeviceAction.bind(this));
                         }
                     }
                 }
             }
+
+            // 2. Transform the MAPPING KEYS from 0-based (UI/store) to 1-based (device)
+            if (payloadForDevice.mappings) {
+                const deviceKeyedMappings: MappingConfiguration = {};
+                for (const zeroBasedKey in payloadForDevice.mappings) { // zeroBasedKey is "0", "1", etc.
+                    if (Object.prototype.hasOwnProperty.call(payloadForDevice.mappings, zeroBasedKey)) {
+                        const numericKey = parseInt(zeroBasedKey, 10);
+                        if (!isNaN(numericKey)) {
+                            const oneBasedKey = String(numericKey + 1); // Convert "0" to "1", "1" to "2", etc.
+                            deviceKeyedMappings[oneBasedKey] = payloadForDevice.mappings[zeroBasedKey];
+                            this._addStoreLog(`Mapping key "${zeroBasedKey}" from UI converted to "${oneBasedKey}" for device.`, 'info');
+                        } else {
+                            // This case should ideally not happen for standard button keys.
+                            // If it does, pass it through but log it, as it might indicate an issue.
+                            deviceKeyedMappings[zeroBasedKey] = payloadForDevice.mappings[zeroBasedKey];
+                            this._addStoreLog(`Non-numeric mapping key "${zeroBasedKey}" encountered during save. Sent as is to device.`, 'info');
+                        }
+                    }
+                }
+                payloadForDevice.mappings = deviceKeyedMappings; // Replace with 1-based key mappings
+            }
+
+            // Note: button_names are Record<number, string> (0-indexed) in UI/store,
+            // and HashMap<usize, String> (0-indexed) on device. No key conversion needed for button_names.
 
             const response = await deviceService.saveConfig(payloadForDevice);
             if (response.success) {
