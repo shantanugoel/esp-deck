@@ -2,80 +2,93 @@ import { defineStore } from 'pinia';
 import type { DeviceSettings, WifiSettings, FullDeviceConfig } from '@/types/protocol'; // Import FullDeviceConfig
 import { useMacroPadConfigStore } from './macroPadConfigStore'; // Import macroPadConfigStore
 import { useDeviceStore } from './deviceStore'; // Import deviceStore
+import { isEqual } from 'lodash-es'; // For deep equality checks
 
 // Local DeviceSettings type removed, using imported one.
 
+const defaultDeviceSettings: () => DeviceSettings = () => ({ wifi: null, timezone_offset: null, api_key: null });
+
 export const useDeviceSettingsStore = defineStore('deviceSettings', {
     state: () => ({
-        // Initialize with an empty object or default structure according to imported DeviceSettings
-        settings: { wifi: null, timezone_offset: null, api_key: null } as DeviceSettings,
-        hasUnsavedChanges: false,
+        settings: defaultDeviceSettings(),
+        initialSettings: defaultDeviceSettings(), // Store the initial state for comparison
+        hasUnsavedChanges: false, // Kept for now, but isDirty is the primary source of truth
     }),
     getters: {
         getCurrentSettings: (state): DeviceSettings => state.settings,
-        isDirty: (state): boolean => state.hasUnsavedChanges,
-        // This getter should return the structure expected by deviceService.saveConfig
-        getSettingsForSave: (state): DeviceSettings => {
-            return state.settings;
+        getSettingsForSave: (state): DeviceSettings => state.settings, // Returns current potentially modified settings
+
+        // Granular change detection getters
+        isWifiChanged(state): boolean {
+            const initialWifi = state.initialSettings.wifi;
+            const currentWifi = state.settings.wifi;
+            if (initialWifi === null && currentWifi === null) return false;
+            if (initialWifi === null || currentWifi === null) return true; // One is null, other is not
+            return !isEqual(initialWifi, currentWifi);
+        },
+        isTimezoneChanged(state): boolean {
+            return state.initialSettings.timezone_offset !== state.settings.timezone_offset;
+        },
+        isApiKeyChanged(state): boolean {
+            return state.initialSettings.api_key !== state.settings.api_key;
+        },
+
+        // Overall dirty flag based on granular changes
+        isDirty(): boolean { // Removed state parameter, uses `this` context
+            return this.isWifiChanged || this.isTimezoneChanged || this.isApiKeyChanged;
         },
     },
     actions: {
         loadSettings(newSettings: DeviceSettings) {
-            // Ensure wifi is initialized if it's null/undefined in newSettings but we want to allow updates to its properties
-            // The default state now initializes wifi to null, so this explicit check might be less critical
-            // but doesn't hurt if newSettings could potentially omit it.
-            if (newSettings.wifi === undefined) {
-                newSettings.wifi = null;
-            }
-            this.settings = JSON.parse(JSON.stringify(newSettings)); // Deep copy
-            this.hasUnsavedChanges = false;
-            console.log('Device settings loaded into store', this.settings);
+            const newSettingsCopy = JSON.parse(JSON.stringify(newSettings || defaultDeviceSettings()));
+            this.settings = newSettingsCopy;
+            this.initialSettings = JSON.parse(JSON.stringify(newSettingsCopy));
+            this.hasUnsavedChanges = false; // isDirty will be false after this
+            console.log('Device settings loaded and initial state set', this.settings);
         },
-        // Actions now reflect the structure of DeviceSettings from protocol.ts
+        // Update actions now just update settings; isDirty is reactive via getters
         updateWifiSsid(ssid: string) {
-            if (this.settings.wifi === null || this.settings.wifi === undefined) { // Check for null or undefined explicitly
+            if (!this.settings.wifi) {
                 this.settings.wifi = { ssid: '', password: '' };
             }
-            this.settings.wifi.ssid = ssid;
-            this.hasUnsavedChanges = true;
+            if (this.settings.wifi.ssid !== ssid) {
+                this.settings.wifi.ssid = ssid;
+            }
         },
         updateWifiPassword(password: string) {
-            if (this.settings.wifi === null || this.settings.wifi === undefined) { // Check for null or undefined explicitly
+            if (!this.settings.wifi) {
                 this.settings.wifi = { ssid: '', password: '' };
             }
-            this.settings.wifi.password = password;
-            this.hasUnsavedChanges = true;
+            if (this.settings.wifi.password !== password) {
+                this.settings.wifi.password = password;
+            }
         },
         clearWifiSettings() {
-            this.settings.wifi = null;
-            this.hasUnsavedChanges = true;
+            if (this.settings.wifi !== null) {
+                this.settings.wifi = null;
+            }
         },
         updateTimezoneOffset(offset: number | null) {
-            this.settings.timezone_offset = offset;
-            this.hasUnsavedChanges = true;
+            if (this.settings.timezone_offset !== offset) {
+                this.settings.timezone_offset = offset;
+            }
         },
         updateApiKey(key: string | null) {
-            this.settings.api_key = key;
-            this.hasUnsavedChanges = true;
+            if (this.settings.api_key !== key) {
+                this.settings.api_key = key;
+            }
         },
-        // Generic updateSetting might be complex with nested structures.
-        // Specific updaters are preferred for type safety.
-        // updateSetting(key: keyof DeviceSettings, value: any) { ... }
-
         resetChanges() {
-            // This should ideally reload from _lastFetchedConfig in deviceStore via an action
-            // or use a local copy of the last loaded settings if that's the desired behavior.
-            console.log('Device settings changes (simulated reset) - flag cleared, data needs reload from source');
-            // For a true reset to last loaded state, you might do:
-            // if (this.initialSettings) this.settings = JSON.parse(JSON.stringify(this.initialSettings));
-            // Where initialSettings is populated in loadSettings.
-            this.hasUnsavedChanges = false;
+            this.settings = JSON.parse(JSON.stringify(this.initialSettings || defaultDeviceSettings()));
+            console.log('Device settings reset to initial loaded state');
         },
         markAsSaved() {
-            this.hasUnsavedChanges = false;
-            console.log('Device settings marked as saved in store');
+            this.initialSettings = JSON.parse(JSON.stringify(this.settings));
+            this.hasUnsavedChanges = false; // isDirty will be false after this
+            console.log('Device settings current state marked as saved (initial state updated)');
         },
 
+        // saveDeviceSettings remains largely the same but its success path calls markAsSaved
         async saveDeviceSettings(): Promise<boolean> {
             const macroPadConfigStore = useMacroPadConfigStore();
             const deviceStore = useDeviceStore();
@@ -92,25 +105,21 @@ export const useDeviceSettingsStore = defineStore('deviceSettings', {
             console.log('Attempting to save full config from deviceSettingsStore', fullConfig);
 
             try {
-                // Assume deviceStore.saveConfig returns a boolean or throws an error
                 const success = await deviceStore.saveConfig(fullConfig);
                 if (success) {
-                    this.markAsSaved();
-                    // Optionally, macroPadConfigStore could also mark itself as saved if its data was part of this save.
-                    // However, its state is managed via hasUnsavedChanges which is set by its own actions.
-                    // If saveConfig in deviceStore is the single point of truth for saving FullDeviceConfig,
-                    // it might be better for deviceStore.saveConfig to also notify macroPadConfigStore.
-                    // For now, this store marks its own part as saved.
-                    console.log('Device settings successfully saved via deviceStore.saveConfig');
+                    this.markAsSaved(); // Update initialSettings to reflect the saved state
+                    // Note: deviceStore.saveConfig internally calls fetchConfig, which calls loadSettings.
+                    // loadSettings ALREADY updates initialSettings. So this call to markAsSaved might be redundant
+                    // if the flow through fetchConfig -> loadSettings is guaranteed.
+                    // However, if saveDeviceSettings could be called without that full loop, this is a safeguard.
+                    console.log('Device settings successfully saved (and marked as saved in deviceSettingsStore)');
                     return true;
                 } else {
                     console.error('Failed to save device settings: deviceStore.saveConfig returned false');
-                    // TODO: Propagate error to UI
                     return false;
                 }
             } catch (error) {
                 console.error('Error saving device settings:', error);
-                // TODO: Propagate error to UI
                 return false;
             }
         },

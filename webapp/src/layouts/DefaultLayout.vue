@@ -78,6 +78,15 @@
       </div>
     </main>
     <BottomBar />
+
+    <ConfirmChangesDialog
+      v-model="isConfirmChangesDialogVisible"
+      :is-wifi-changed="pendingIsWifiChanged"
+      :is-timezone-changed="pendingIsTimezoneChanged"
+      :is-api-key-changed="pendingIsApiKeyChanged"
+      :changed-button-keys="pendingChangedButtonKeys"
+      @confirm-save="executeSaveWithSelection"
+    />
   </div>
 </template>
 
@@ -86,11 +95,13 @@ import { computed, ref, watch } from 'vue';
 import TopBar from '@/components/core/TopBar.vue';
 import BottomBar from '@/components/core/BottomBar.vue';
 import TabNavigation from '@/components/core/TabNavigation.vue';
+import ConfirmChangesDialog from '@/components/core/ConfirmChangesDialog.vue';
+import type { SaveSelection } from '@/components/core/ConfirmChangesDialog.vue';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { useMacroPadConfigStore } from '@/stores/macroPadConfigStore';
 import { useDeviceSettingsStore } from '@/stores/deviceSettingsStore';
 import { useUiStore } from '@/stores/uiStore';
-import type { FullDeviceConfig, MappingConfiguration, DeviceSettings } from '@/types/protocol';
+import type { FullDeviceConfig, MappingConfiguration, DeviceSettings, ConfigAction } from '@/types/protocol';
 
 const deviceStore = useDeviceStore();
 const macroPadStore = useMacroPadConfigStore();
@@ -98,6 +109,13 @@ const deviceSettingsStore = useDeviceSettingsStore();
 const uiStore = useUiStore();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+const isConfirmChangesDialogVisible = ref(false);
+const pendingIsWifiChanged = ref(false);
+const pendingIsTimezoneChanged = ref(false);
+const pendingIsApiKeyChanged = ref(false);
+const pendingChangedButtonKeys = ref<string[]>([]);
+const MAX_BUTTONS = 16;
 
 const handleConnectToggle = () => {
   if (deviceStore.isConnected) {
@@ -108,30 +126,73 @@ const handleConnectToggle = () => {
 };
 
 const isSaveRelevant = computed(() => {
-  return macroPadStore.isDirty || deviceSettingsStore.isDirty;
+  return deviceSettingsStore.isDirty || macroPadStore.isDirty;
 });
 
 const handleSaveSettings = async () => {
   if (!isSaveRelevant.value || !deviceStore.isConnected || deviceStore.isLoading) return;
 
-  const settingsToSave: DeviceSettings = deviceSettingsStore.getSettingsForSave;
-  const macroPadConfig = macroPadStore.getMacroPadConfigForSave;
+  pendingIsWifiChanged.value = deviceSettingsStore.isWifiChanged;
+  pendingIsTimezoneChanged.value = deviceSettingsStore.isTimezoneChanged;
+  pendingIsApiKeyChanged.value = deviceSettingsStore.isApiKeyChanged;
+  pendingChangedButtonKeys.value = macroPadStore.getChangedButtonKeys;
+
+  isConfirmChangesDialogVisible.value = true;
+};
+
+const executeSaveWithSelection = async (selection: SaveSelection) => {
+  console.log('Executing save with selection:', selection);
+  const lastFetchedConfig = deviceStore.lastFetchedConfig;
+
+  const finalDeviceSettings: DeviceSettings = {
+    wifi: selection.applyWifiChanges 
+            ? deviceSettingsStore.settings.wifi 
+            : (lastFetchedConfig?.settings.wifi !== undefined ? lastFetchedConfig.settings.wifi : null),
+    timezone_offset: selection.applyTimezoneChanges 
+            ? deviceSettingsStore.settings.timezone_offset 
+            : (lastFetchedConfig?.settings.timezone_offset !== undefined ? lastFetchedConfig.settings.timezone_offset : null),
+    api_key: selection.applyApiKeyChanges 
+            ? deviceSettingsStore.settings.api_key 
+            : (lastFetchedConfig?.settings.api_key !== undefined ? lastFetchedConfig.settings.api_key : null),
+  };
+  
+  if (!selection.applyWifiChanges) finalDeviceSettings.wifi = null;
+  if (!selection.applyTimezoneChanges) finalDeviceSettings.timezone_offset = null;
+  if (!selection.applyApiKeyChanges) finalDeviceSettings.api_key = null;
+
+  const finalMappings: MappingConfiguration = {};
+  const finalButtonNames: Record<number, string> = {};
+
+  for (let i = 0; i < MAX_BUTTONS; i++) {
+    const buttonKey = String(i);
+    const numericId = i;
+
+    if (selection.buttonsToSave[buttonKey]) {
+      finalMappings[buttonKey] = macroPadStore.getButtonActions(buttonKey) || [];
+      const name = macroPadStore.getButtonName(numericId);
+      if (name) {
+        finalButtonNames[numericId] = name;
+      }
+    } else if (pendingChangedButtonKeys.value.includes(buttonKey) && lastFetchedConfig?.mappings && lastFetchedConfig.button_names) {
+    }
+  }
 
   const payload: FullDeviceConfig = {
-    settings: settingsToSave,
-    mappings: macroPadConfig.mappings,
-    button_names: Object.keys(macroPadConfig.button_names).length > 0 ? macroPadConfig.button_names : null,
+    settings: finalDeviceSettings,
+    mappings: finalMappings,
+    button_names: Object.keys(finalButtonNames).length > 0 ? finalButtonNames : null,
   };
 
-  console.log("Saving settings with payload:", JSON.parse(JSON.stringify(payload)));
+  console.log("Final payload for save:", JSON.parse(JSON.stringify(payload)));
   const success = await deviceStore.saveConfig(payload);
-  if (success) { 
-      macroPadStore.markAsSaved();
-      deviceSettingsStore.markAsSaved();
-      console.log('Settings saved, stores marked as saved.');
+  if (success) {
+    macroPadStore.markAsSaved();
+    deviceSettingsStore.markAsSaved();
+    console.log('Settings saved via dialog, stores marked as saved.');
   } else {
-      console.error('Failed to save settings from DefaultLayout.');
+    console.error('Failed to save settings from DefaultLayout via dialog.');
   }
+  isConfirmChangesDialogVisible.value = false;
 };
 
 const handleReloadSettings = () => {
@@ -160,16 +221,13 @@ const handleBackupDeviceConfig = () => {
 
 const handleBackupCurrentConfig = () => {
   if (deviceStore.isLoading) return;
-
   const settingsForBackup: DeviceSettings = deviceSettingsStore.settings;
   const macroPadConfigForBackup = macroPadStore.getMacroPadConfigForSave;
-
   const fullConfigForBackup: FullDeviceConfig = {
     settings: settingsForBackup,
     mappings: macroPadConfigForBackup.mappings,
     button_names: Object.keys(macroPadConfigForBackup.button_names).length > 0 ? macroPadConfigForBackup.button_names : null,
   };
-
   deviceStore.backupCurrentUiConfig(fullConfigForBackup);
 };
 
