@@ -6,6 +6,7 @@ const TAB_IDS = {
     MACROPAD: 'macropad',
     DASHBOARD: 'dashboard',
     NOW: 'now',
+    STATUS: 'status',
     DEVICE_SETTINGS: 'device-settings',
 } as const; // Use "as const" for stricter type checking and to use values in types
 
@@ -24,7 +25,8 @@ export type TabDefinition = {
 const tabViewComponentsMap: Record<TabId, Component> = {
     [TAB_IDS.MACROPAD]: shallowRef(defineAsyncComponent(() => import('@/components/macropad/MacroPadSettingsView.vue'))),
     [TAB_IDS.DASHBOARD]: shallowRef(defineAsyncComponent(() => import('@/components/dashboard/DashboardSettingsView.vue'))),
-    [TAB_IDS.NOW]: shallowRef(defineAsyncComponent(() => import('@/components/now/NowSettingsView.vue'))),
+    [TAB_IDS.NOW]: shallowRef(defineAsyncComponent(() => import('@/views/tab-views/NowView.vue'))),
+    [TAB_IDS.STATUS]: shallowRef(defineAsyncComponent(() => import('@/views/tab-views/StatusView.vue'))),
     [TAB_IDS.DEVICE_SETTINGS]: shallowRef(defineAsyncComponent(() => import('@/views/tab-views/DeviceSettingsView.vue'))),
 };
 
@@ -46,6 +48,7 @@ export const useUiStore = defineStore('ui', {
             { id: TAB_IDS.DASHBOARD, label: 'Dashboard', component: tabViewComponentsMap[TAB_IDS.DASHBOARD] },
             { id: TAB_IDS.NOW, label: 'Now', component: tabViewComponentsMap[TAB_IDS.NOW] },
             { id: TAB_IDS.DEVICE_SETTINGS, label: 'Device Settings', component: tabViewComponentsMap[TAB_IDS.DEVICE_SETTINGS] },
+            { id: TAB_IDS.STATUS, label: 'Status', component: tabViewComponentsMap[TAB_IDS.STATUS] },
         ] as TabDefinition[], // Keep this assertion as availableTabs structure is fixed here
     }),
     getters: {

@@ -1,6 +1,6 @@
 <template>
   <Tabs :model-value="uiStore.activeTabId" @update:model-value="onTabChange" class="w-full">
-    <TabsList class="grid w-full grid-cols-4">
+    <TabsList class="grid w-full grid-cols-5">
       <TabsTrigger 
         v-for="tab in uiStore.availableTabs" 
         :key="tab.id" 
