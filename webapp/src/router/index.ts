@@ -4,8 +4,8 @@ import type { RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
     {
         path: '/',
-        name: 'Dashboard',
-        component: () => import('@/views/DashboardView.vue'),
+        name: 'MacroPad',
+        component: () => import('@/views/MacroPad.vue'),
     },
     {
         path: '/edit-macro/:buttonIndex',

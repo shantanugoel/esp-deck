@@ -60,6 +60,6 @@ function onSave() {
   goBack()
 }
 function goBack() {
-  router.push({ name: 'Dashboard' })
+  router.push({ name: 'MacroPad' })
 }
 </script> 
