@@ -25,13 +25,20 @@ const tabViewComponentsMap: Record<TabId, Component> = {
     [TAB_IDS.MACROPAD]: shallowRef(defineAsyncComponent(() => import('@/components/macropad/MacroPadSettingsView.vue'))),
     [TAB_IDS.DASHBOARD]: shallowRef(defineAsyncComponent(() => import('@/components/dashboard/DashboardSettingsView.vue'))),
     [TAB_IDS.NOW]: shallowRef(defineAsyncComponent(() => import('@/components/now/NowSettingsView.vue'))),
-    [TAB_IDS.DEVICE_SETTINGS]: shallowRef(defineAsyncComponent(() => import('@/components/device-settings/DeviceGeneralSettingsView.vue'))),
+    [TAB_IDS.DEVICE_SETTINGS]: shallowRef(defineAsyncComponent(() => import('@/views/tab-views/DeviceSettingsView.vue'))),
 };
 
 const defaultActiveTab: TabId = TAB_IDS.MACROPAD;
 
+// Define the type for the store's state
+interface UiStoreState {
+    activeTabId: TabId;
+    isDebugLogVisible: boolean;
+    availableTabs: TabDefinition[];
+}
+
 export const useUiStore = defineStore('ui', {
-    state: () => ({
+    state: (): UiStoreState => ({
         activeTabId: defaultActiveTab,
         isDebugLogVisible: false,
         availableTabs: [
@@ -39,7 +46,7 @@ export const useUiStore = defineStore('ui', {
             { id: TAB_IDS.DASHBOARD, label: 'Dashboard', component: tabViewComponentsMap[TAB_IDS.DASHBOARD] },
             { id: TAB_IDS.NOW, label: 'Now', component: tabViewComponentsMap[TAB_IDS.NOW] },
             { id: TAB_IDS.DEVICE_SETTINGS, label: 'Device Settings', component: tabViewComponentsMap[TAB_IDS.DEVICE_SETTINGS] },
-        ] as TabDefinition[],
+        ] as TabDefinition[], // Keep this assertion as availableTabs structure is fixed here
     }),
     getters: {
         activeTabDefinition(state): TabDefinition | undefined {
@@ -49,7 +56,6 @@ export const useUiStore = defineStore('ui', {
             const activeDef = state.availableTabs.find(tab => tab.id === state.activeTabId);
             return activeDef ? activeDef.component : null;
         },
-        // Renamed original isActiveTab for clarity if needed, or can be removed if activeTabDefinition is preferred
         isTabActive: (state) => (tabId: TabId): boolean => {
             return state.activeTabId === tabId;
         },
@@ -58,7 +64,7 @@ export const useUiStore = defineStore('ui', {
         setActiveTab(tabId: TabId) {
             const isValidTab = this.availableTabs.some(tab => tab.id === tabId);
             if (isValidTab) {
-                this.activeTabId = tabId as TabId;
+                this.activeTabId = tabId; // No need for 'as TabId' anymore
                 console.log('Active tab set to:', tabId);
             } else {
                 console.warn(`Attempted to set invalid tab ID: ${tabId}. Resetting to default.`);

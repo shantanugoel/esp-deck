@@ -40,35 +40,57 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useMacroPadConfigStore, type ButtonConfig } from '@/stores/macroPadConfigStore';
+import { useMacroPadConfigStore } from '@/stores/macroPadConfigStore';
 import { useDeviceStore } from '@/stores/deviceStore';
+import type { ConfigAction } from '@/types/protocol';
 import { Button } from '@/components/ui/button';
 import ButtonConfigDialog from '@/components/macropad/ButtonConfigDialog.vue';
+
+// Define a local type for UI representation of button data
+export type ButtonUIData = {
+  id: number;      // Numeric ID, e.g., 0, 1, 2
+  key: string;     // String key for mappings, e.g., "0", "1"
+  name: string;
+  actions: ConfigAction[];
+};
 
 const macroPadStore = useMacroPadConfigStore();
 const deviceStore = useDeviceStore();
 
-const buttons = computed(() => macroPadStore.buttons);
-const isLoading = computed(() => deviceStore.isLoading);
-const isConnected = computed(() => deviceStore.isConnected);
+const MAX_BUTTONS = 16; // Assuming 16 buttons based on logs (0-15)
+
+const buttons = computed<ButtonUIData[]>(() => {
+  const buttonList: ButtonUIData[] = [];
+  if (!deviceStore.isConnected || deviceStore.isLoading) {
+    return []; // Return empty if not connected or loading, so .length check doesn't fail
+  }
+  for (let i = 0; i < MAX_BUTTONS; i++) {
+    const buttonKey = String(i);
+    buttonList.push({
+      id: i,
+      key: buttonKey,
+      name: macroPadStore.getButtonName(i) || `Button ${i + 1}`,
+      actions: macroPadStore.getButtonActions(buttonKey) || [],
+    });
+  }
+  return buttonList;
+});
 
 const isDialogVisible = ref(false);
-const selectedButtonConfig = ref<ButtonConfig | null>(null);
+const selectedButtonConfig = ref<ButtonUIData | null>(null);
 
-const handleButtonClick = (button: ButtonConfig) => {
+const handleButtonClick = (button: ButtonUIData) => {
   console.log('Button clicked:', button);
-  selectedButtonConfig.value = button;
+  selectedButtonConfig.value = JSON.parse(JSON.stringify(button));
   isDialogVisible.value = true;
 };
 
-const handleSaveButtonConfig = (updatedConfig: ButtonConfig) => {
+const handleSaveButtonConfig = (updatedConfig: ButtonUIData) => {
   console.log('Save button config from dialog:', updatedConfig);
-  macroPadStore.updateButtonConfig(updatedConfig.id, updatedConfig);
-  // isDialogVisible will be set to false by ButtonConfigDialog's internal v-model:open logic after save
-  // selectedButtonConfig will be reset by the watcher below
+  macroPadStore.updateButtonName(updatedConfig.id, updatedConfig.name);
+  macroPadStore.updateButtonActions(updatedConfig.key, updatedConfig.actions);
 };
 
-// Watch for the dialog closing to reset the selected button config
 watch(isDialogVisible, (newValue) => {
   if (newValue === false) {
     selectedButtonConfig.value = null;

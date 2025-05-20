@@ -87,10 +87,10 @@ import TopBar from '@/components/core/TopBar.vue';
 import BottomBar from '@/components/core/BottomBar.vue';
 import TabNavigation from '@/components/core/TabNavigation.vue';
 import { useDeviceStore } from '@/stores/deviceStore';
-import { useMacroPadConfigStore, type ButtonConfig as MacroPadButtonConfig } from '@/stores/macroPadConfigStore';
+import { useMacroPadConfigStore } from '@/stores/macroPadConfigStore';
 import { useDeviceSettingsStore } from '@/stores/deviceSettingsStore';
 import { useUiStore } from '@/stores/uiStore';
-import type { FullDeviceConfig, MappingConfiguration, DeviceSettings, ConfigAction } from '@/types/protocol';
+import type { FullDeviceConfig, MappingConfiguration, DeviceSettings } from '@/types/protocol';
 
 const deviceStore = useDeviceStore();
 const macroPadStore = useMacroPadConfigStore();
@@ -115,31 +115,22 @@ const handleSaveSettings = async () => {
   if (!isSaveRelevant.value || !deviceStore.isConnected || deviceStore.isLoading) return;
 
   const settingsToSave: DeviceSettings = deviceSettingsStore.getSettingsForSave;
-  const buttonConfigsToSave: MacroPadButtonConfig[] = macroPadStore.getConfigForSave;
-
-  const mappings: MappingConfiguration = {};
-  const buttonNames: Record<number, string> = {};
-
-  for (const btn of buttonConfigsToSave) {
-    mappings[btn.id.toString()] = btn.actions as ConfigAction[];
-    if (btn.name) {
-      const numId = parseInt(btn.id.toString(), 10);
-      if (!isNaN(numId) && numId > 0) {
-        buttonNames[numId - 1] = btn.name;
-      }
-    }
-  }
+  const macroPadConfig = macroPadStore.getMacroPadConfigForSave;
 
   const payload: FullDeviceConfig = {
     settings: settingsToSave,
-    mappings: mappings,
-    button_names: Object.keys(buttonNames).length > 0 ? buttonNames : null,
+    mappings: macroPadConfig.mappings,
+    button_names: Object.keys(macroPadConfig.button_names).length > 0 ? macroPadConfig.button_names : null,
   };
 
-  await deviceStore.saveConfig(payload);
-  if (!deviceStore.error) { 
+  console.log("Saving settings with payload:", JSON.parse(JSON.stringify(payload)));
+  const success = await deviceStore.saveConfig(payload);
+  if (success) { 
       macroPadStore.markAsSaved();
       deviceSettingsStore.markAsSaved();
+      console.log('Settings saved, stores marked as saved.');
+  } else {
+      console.error('Failed to save settings from DefaultLayout.');
   }
 };
 
@@ -171,25 +162,12 @@ const handleBackupCurrentConfig = () => {
   if (deviceStore.isLoading) return;
 
   const settingsForBackup: DeviceSettings = deviceSettingsStore.settings;
-  const buttonConfigsForBackup: MacroPadButtonConfig[] = macroPadStore.buttons;
-
-  const mappingsForBackup: MappingConfiguration = {};
-  const buttonNamesForBackup: Record<number, string> = {};
-
-  for (const btn of buttonConfigsForBackup) {
-    mappingsForBackup[btn.id.toString()] = btn.actions as ConfigAction[];
-    if (btn.name) {
-      const numId = parseInt(btn.id.toString(), 10);
-      if (!isNaN(numId) && numId > 0) {
-        buttonNamesForBackup[numId - 1] = btn.name;
-      }
-    }
-  }
+  const macroPadConfigForBackup = macroPadStore.getMacroPadConfigForSave;
 
   const fullConfigForBackup: FullDeviceConfig = {
     settings: settingsForBackup,
-    mappings: mappingsForBackup,
-    button_names: Object.keys(buttonNamesForBackup).length > 0 ? buttonNamesForBackup : null,
+    mappings: macroPadConfigForBackup.mappings,
+    button_names: Object.keys(macroPadConfigForBackup.button_names).length > 0 ? macroPadConfigForBackup.button_names : null,
   };
 
   deviceStore.backupCurrentUiConfig(fullConfigForBackup);

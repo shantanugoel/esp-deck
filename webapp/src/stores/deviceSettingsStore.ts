@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
-import type { DeviceSettings, WifiSettings } from '@/types/protocol'; // Import correct types
+import type { DeviceSettings, WifiSettings, FullDeviceConfig } from '@/types/protocol'; // Import FullDeviceConfig
+import { useMacroPadConfigStore } from './macroPadConfigStore'; // Import macroPadConfigStore
+import { useDeviceStore } from './deviceStore'; // Import deviceStore
 
 // Local DeviceSettings type removed, using imported one.
 
@@ -72,6 +74,45 @@ export const useDeviceSettingsStore = defineStore('deviceSettings', {
         markAsSaved() {
             this.hasUnsavedChanges = false;
             console.log('Device settings marked as saved in store');
+        },
+
+        async saveDeviceSettings(): Promise<boolean> {
+            const macroPadConfigStore = useMacroPadConfigStore();
+            const deviceStore = useDeviceStore();
+
+            const currentDeviceSettings = this.getSettingsForSave;
+            const currentMacroPadConfig = macroPadConfigStore.getMacroPadConfigForSave;
+
+            const fullConfig: FullDeviceConfig = {
+                settings: currentDeviceSettings,
+                mappings: currentMacroPadConfig.mappings,
+                button_names: currentMacroPadConfig.button_names,
+            };
+
+            console.log('Attempting to save full config from deviceSettingsStore', fullConfig);
+
+            try {
+                // Assume deviceStore.saveConfig returns a boolean or throws an error
+                const success = await deviceStore.saveConfig(fullConfig);
+                if (success) {
+                    this.markAsSaved();
+                    // Optionally, macroPadConfigStore could also mark itself as saved if its data was part of this save.
+                    // However, its state is managed via hasUnsavedChanges which is set by its own actions.
+                    // If saveConfig in deviceStore is the single point of truth for saving FullDeviceConfig,
+                    // it might be better for deviceStore.saveConfig to also notify macroPadConfigStore.
+                    // For now, this store marks its own part as saved.
+                    console.log('Device settings successfully saved via deviceStore.saveConfig');
+                    return true;
+                } else {
+                    console.error('Failed to save device settings: deviceStore.saveConfig returned false');
+                    // TODO: Propagate error to UI
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error saving device settings:', error);
+                // TODO: Propagate error to UI
+                return false;
+            }
         },
     },
 }); 

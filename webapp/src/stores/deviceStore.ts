@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 // import { ref, computed } from 'vue'
 import { deviceService } from '@/services/deviceService'
 import type { FullDeviceConfig, DeviceConnectionInfo, ConfigAction, MappingConfiguration, ConfigActionKeyPress, ConfigActionKeyRelease, ConfigActionMousePress, ConfigActionMouseRelease, ConfigActionMouseMove, ConfigActionMouseWheel, ConfigActionConsumerPress, ConfigActionConsumerRelease, ConfigActionDelay, ConfigActionSendString, ConfigActionSequence } from '@/types/protocol'
-import { useMacroPadConfigStore, type ButtonConfig as MacroPadButtonConfig } from './macroPadConfigStore'
+import { useMacroPadConfigStore } from './macroPadConfigStore'
 import { useDeviceSettingsStore } from './deviceSettingsStore'
 import { stringToKeyCodes } from '@/keycodes'; // Import for SendString conversion
 
@@ -188,30 +188,41 @@ export const useDeviceStore = defineStore('device', {
 
             const response = await deviceService.fetchConfig();
             if (response.success && response.data) {
-                this._lastFetchedConfig = response.data;
+                this._lastFetchedConfig = JSON.parse(JSON.stringify(response.data)); // Store a deep copy
                 const macroPadStore = useMacroPadConfigStore();
                 const deviceSettingsStore = useDeviceSettingsStore();
 
-                const mappings: MappingConfiguration = response.data.mappings;
-                const buttonNames = response.data.button_names;
+                // Prepare mappings with converted actions
+                const processedMappings: MappingConfiguration = {};
+                if (response.data.mappings) {
+                    for (const key in response.data.mappings) {
+                        // Filter out "default" key from mappings before processing actions or passing to store
+                        if (key === 'default') continue;
 
-                const buttonConfigsForMacroPadStore: MacroPadButtonConfig[] = Object.entries(mappings)
-                    .filter(([idStr]) => idStr !== 'default')
-                    .map(([idStr, rawActions]) => {
-                        const numericId = parseInt(idStr, 10);
-                        let buttonName: string | undefined = undefined;
-                        if (buttonNames && !isNaN(numericId) && numericId > 0) {
-                            buttonName = buttonNames[numericId - 1];
+                        if (Object.prototype.hasOwnProperty.call(response.data.mappings, key)) {
+                            const rawActions = response.data.mappings[key];
+                            processedMappings[key] = Array.isArray(rawActions)
+                                ? rawActions.map(action => this._convertRawActionToConfigAction(action))
+                                : [];
                         }
-                        const convertedActions = Array.isArray(rawActions) ? rawActions.map(this._convertRawActionToConfigAction.bind(this)) : [];
-                        return {
-                            id: idStr,
-                            actions: convertedActions,
-                            name: buttonName,
-                        };
-                    });
-                macroPadStore.loadConfig(buttonConfigsForMacroPadStore);
+                    }
+                }
+
+                // Prepare button_names, ensuring 0-indexed keys from device (if they were 1-indexed)
+                // The summary mentioned a fix for off-by-one indexing. Assuming device now provides 0-indexed for button_names keys if they are numbers.
+                // Or, if button_names from device is Record<number, string> and already 0-indexed, direct pass is fine.
+                // The previous logic for button_names was:
+                // if (buttonNames && !isNaN(numericId) && numericId > 0) { buttonName = buttonNames[numericId - 1]; }
+                // This implies device `button_names` might have used 1-based index for keys, or the keys were strings to be parsed.
+                // protocol.ts defines button_names as Record<number, string> | null.
+                // Let's assume button_names from device (response.data.button_names) is Record<number, string> and correctly 0-indexed as per protocol type.
+                const processedButtonNames = response.data.button_names ? JSON.parse(JSON.stringify(response.data.button_names)) : {};
+
+                // The original code had a complex creation of `buttonConfigsForMacroPadStore` (old format).
+                // Now, we directly load the processed mappings and button names.
+                macroPadStore.loadConfig(processedMappings, processedButtonNames);
                 deviceSettingsStore.loadSettings(response.data.settings);
+
                 this._addStoreLog('Configuration fetched and applied to stores.', 'info');
             } else {
                 this.error = response.error || 'Failed to fetch config';
@@ -259,12 +270,12 @@ export const useDeviceStore = defineStore('device', {
             }
         },
 
-        async saveConfig(configPayload: FullDeviceConfig) {
+        async saveConfig(configPayload: FullDeviceConfig): Promise<boolean> {
             if (!this.isConnected) {
                 this._addStoreLog('Cannot save config: Not connected.', 'error');
-                return;
+                return false;
             }
-            if (this.isLoading) return;
+            if (this.isLoading) return false;
             this._addStoreLog(`Saving configuration...`, 'action');
             this.isLoading = true;
             this.error = null;
@@ -285,11 +296,14 @@ export const useDeviceStore = defineStore('device', {
             if (response.success) {
                 this._addStoreLog('Configuration saved successfully.', 'info');
                 await this.fetchConfig();
+                this.isLoading = false;
+                return true;
             } else {
                 this.error = response.error || 'Failed to save config';
                 this._addStoreLog(`Save config error: ${this.error}`, 'error');
+                this.isLoading = false;
+                return false;
             }
-            this.isLoading = false;
         },
 
         async resetConfig() {
