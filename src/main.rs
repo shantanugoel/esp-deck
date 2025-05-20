@@ -230,7 +230,7 @@ fn main() -> anyhow::Result<()> {
     // config object will be moved into ProtocolManager thread now.
 
     let actor_protocol_tx = actor_tx.clone();
-    threads.push(thread::spawn(move || {
+    threads.push(thread::Builder::new().stack_size(8192).spawn(move || {
         let protocol_manager = ProtocolManager::new(
             usb_message_rx,
             main_wifi_time_init_tx,
@@ -238,7 +238,7 @@ fn main() -> anyhow::Result<()> {
             &config,
         );
         protocol_manager.run();
-    }));
+    })?);
 
     let touch_i2c = esp_idf_svc::hal::i2c::I2cDriver::new(
         peripherals.i2c0,
