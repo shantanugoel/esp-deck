@@ -72,7 +72,6 @@
   --sidebar-ring: oklch(0.645 0.246 16.439);
 }
 
-
 a {
   font-weight: 500;
   color: #646cff;
@@ -85,8 +84,6 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -103,7 +100,6 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
   transition: border-color 0.25s;
 }
@@ -121,13 +117,6 @@ button:focus-visible {
   padding: 2em;
 }
 
-#app {
-  /* max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center; */
-}
-
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -138,9 +127,6 @@ button:focus-visible {
     color: #747bff;
   }
 
-  button {
-    background-color: #f9f9f9;
-  }
 }
 
 @theme inline {

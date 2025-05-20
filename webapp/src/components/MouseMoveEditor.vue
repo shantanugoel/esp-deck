@@ -1,31 +1,33 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { defineProps, defineEmits } from 'vue'
-const props = defineProps<{ action: any }>()
-const emit = defineEmits(['update'])
+import type { ConfigActionMouseMove } from '@/types/protocol';
+
+const props = defineProps<{ action: ConfigActionMouseMove }>()
+const emit = defineEmits<{(e: 'update', value: ConfigActionMouseMove): void}>()
 const isEditingDx = ref(false)
 const isEditingDy = ref(false)
-const tempDx = ref(props.action.MouseMove.dx)
-const tempDy = ref(props.action.MouseMove.dy)
+const tempDx = ref(props.action.dx)
+const tempDy = ref(props.action.dy)
 const dxInputRef = ref<HTMLInputElement | null>(null)
 const dyInputRef = ref<HTMLInputElement | null>(null)
 
 function startEditDx() {
-  tempDx.value = props.action.MouseMove.dx
+  tempDx.value = props.action.dx
   isEditingDx.value = true
   nextTick(() => dxInputRef.value?.focus())
 }
 function saveEditDx() {
-  emit('update', { ...props.action, MouseMove: { dx: tempDx.value, dy: props.action.MouseMove.dy } })
+  emit('update', { type: 'MouseMove', dx: tempDx.value, dy: props.action.dy })
   isEditingDx.value = false
 }
 function startEditDy() {
-  tempDy.value = props.action.MouseMove.dy
+  tempDy.value = props.action.dy
   isEditingDy.value = true
   nextTick(() => dyInputRef.value?.focus())
 }
 function saveEditDy() {
-  emit('update', { ...props.action, MouseMove: { dx: props.action.MouseMove.dx, dy: tempDy.value } })
+  emit('update', { type: 'MouseMove', dx: props.action.dx, dy: tempDy.value })
   isEditingDy.value = false
 }
 </script>
@@ -33,7 +35,7 @@ function saveEditDy() {
   <div class="flex gap-2 items-center">
     <span class="font-mono">dx:</span>
     <template v-if="!isEditingDx">
-      <span>{{ props.action.MouseMove.dx }}</span>
+      <span>{{ props.action.dx }}</span>
       <span
         class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
         @click="startEditDx"
@@ -55,7 +57,7 @@ function saveEditDy() {
     </template>
     <span class="font-mono ml-2">dy:</span>
     <template v-if="!isEditingDy">
-      <span>{{ props.action.MouseMove.dy }}</span>
+      <span>{{ props.action.dy }}</span>
       <span
         class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
         @click="startEditDy"

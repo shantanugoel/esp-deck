@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { defineProps, defineEmits } from 'vue'
-const props = defineProps<{ action: any }>()
-const emit = defineEmits(['update'])
+import type { ConfigActionMousePress } from '@/types/protocol';
+
+const props = defineProps<{ action: ConfigActionMousePress }>()
+const emit = defineEmits<{(e: 'update', value: ConfigActionMousePress): void}>()
 const isEditing = ref(false)
-const tempButton = ref(props.action.MousePress.button)
+const tempButton = ref(props.action.button)
 const selectRef = ref<HTMLSelectElement | null>(null)
 
 function startEdit() {
-  tempButton.value = props.action.MousePress.button
+  tempButton.value = props.action.button
   isEditing.value = true
 }
 function saveEdit() {
-  emit('update', { ...props.action, MousePress: { button: tempButton.value } })
+  emit('update', { type: 'MousePress', button: tempButton.value })
   isEditing.value = false
 }
 function buttonLabel(val: number) {
@@ -30,7 +32,7 @@ watch(isEditing, (val) => {
   <div class="flex gap-2 items-center">
     <span class="font-mono">Button:</span>
     <template v-if="!isEditing">
-      <span>{{ buttonLabel(props.action.MousePress.button) }}</span>
+      <span>{{ buttonLabel(props.action.button) }}</span>
       <span
         class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
         @click="startEdit"

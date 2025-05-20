@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { defineProps, defineEmits } from 'vue'
-const props = defineProps<{ action: any }>()
-const emit = defineEmits(['update'])
+import type { ConfigActionMouseWheel } from '@/types/protocol';
+
+const props = defineProps<{ action: ConfigActionMouseWheel }>()
+const emit = defineEmits<{(e: 'update', value: ConfigActionMouseWheel): void}>()
 const isEditing = ref(false)
-const tempAmount = ref(props.action.MouseWheel.amount)
+const tempAmount = ref(props.action.amount)
 const inputRef = ref<HTMLInputElement | null>(null)
 
 function startEdit() {
-  tempAmount.value = props.action.MouseWheel.amount
+  tempAmount.value = props.action.amount
   isEditing.value = true
 }
 function saveEdit() {
-  emit('update', { ...props.action, MouseWheel: { amount: tempAmount.value } })
+  emit('update', { type: 'MouseWheel', amount: tempAmount.value })
   isEditing.value = false
 }
 
@@ -24,7 +26,7 @@ watch(isEditing, (val) => {
   <div class="flex gap-2 items-center">
     <span class="font-mono">Amount:</span>
     <template v-if="!isEditing">
-      <span>{{ props.action.MouseWheel.amount }}</span>
+      <span>{{ props.action.amount }}</span>
       <span
         class="ml-1 cursor-pointer text-muted-foreground hover:text-primary"
         @click="startEdit"
