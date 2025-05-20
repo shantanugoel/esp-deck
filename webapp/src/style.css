@@ -117,8 +117,6 @@ button:focus-visible {
   padding: 2em;
 }
 
-#app {}
-
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -129,7 +127,6 @@ button:focus-visible {
     color: #747bff;
   }
 
-  button {}
 }
 
 @theme inline {
