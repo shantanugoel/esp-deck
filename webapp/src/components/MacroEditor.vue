@@ -4,9 +4,9 @@
     <div class="flex flex-col sm:flex-row gap-4">
       <!-- Sidebar: Action Palette -->
       <div class="flex flex-row sm:flex-col gap-2 min-w-[140px] max-w-[180px]">
-        <button v-for="action in actionPalette" :key="action.type" @click="addAction(action.type)"
+        <button v-for="actionItem in actionPalette" :key="actionItem.type" @click="addAction(actionItem.type)"
           class="px-3 py-1 rounded bg-muted text-muted-foreground hover:bg-primary/10 border border-muted text-sm w-full">
-          + {{ action.label }}
+          + {{ actionItem.label }}
         </button>
       </div>
       <!-- Macro Sequence List -->
@@ -14,7 +14,7 @@
         <div class="relative">
           <div v-if="sequence.length === 0" class="text-muted-foreground text-sm mb-2">No actions yet. Add actions from the left.</div>
           <div class="max-h-[60vh] overflow-y-auto pr-1">
-            <VueDraggable v-model="sequence" class="space-y-2">
+            <VueDraggable v-model="sequence" class="space-y-2" itemKey="type">
               <div v-for="(act, idx) in sequence" :key="idx">
                 <li class="flex items-center gap-2 bg-card rounded border border-muted px-2 py-1 shadow-sm hover:shadow transition-all">
                   <span class="cursor-grab flex items-center pr-2 select-none text-muted-foreground">
@@ -24,7 +24,7 @@
                     <div class="font-mono text-xs text-primary flex items-center gap-2">
                       <span v-html="getActionSummary(act)"></span>
                     </div>
-                    <component :is="getActionEditor(act, idx)" :action="act" @update="updateAction(idx, $event)" />
+                    <component :is="getActionEditor(act)" :action="act" @update="updateAction(idx, $event)" />
                   </div>
                   <span
                     @click="removeAction(idx)"
@@ -61,6 +61,9 @@ import KeyReleaseEditor from './KeyReleaseEditor.vue'
 import SendStringEditor from './SendStringEditor.vue'
 import { stringToKeyCodes, keyCodesToString } from '../keycodes'
 
+// Import ConfigAction and potentially other action types if needed for casting
+import type { ConfigAction, ConfigActionKeyPress, ConfigActionDelay, ConfigActionMousePress, ConfigActionMouseMove, ConfigActionMouseWheel, ConfigActionConsumerPress, ConfigActionSendString, ConfigActionSequence } from '@/types/protocol';
+
 // Action type definitions
 const actionPalette = [
   { type: 'KeyPress', label: 'KeyPress' },
@@ -75,52 +78,59 @@ const actionPalette = [
 ]
 
 const props = defineProps<{
-  modelValue: any[],
+  modelValue: ConfigAction[],
   open: boolean
 }>()
-const emit = defineEmits<{ (e: 'update:modelValue', value: any[]): void }>()
+const emit = defineEmits<{ (e: 'update:modelValue', value: ConfigAction[]): void }>()
 
-const sequence = ref<any[]>([])
+const sequence = ref<ConfigAction[]>([])
 
 watch(() => props.modelValue, (val) => {
-  sequence.value = Array.isArray(val)
-    ? JSON.parse(JSON.stringify(val)).map((act: any) => {
-        if (act.SendString && Array.isArray(act.SendString.keys) && Array.isArray(act.SendString.modifiers)) {
-          // Convert backend format to frontend format
-          return { SendString: { text: keyCodesToString(act.SendString.keys, act.SendString.modifiers) } }
-        }
-        return act
-      })
-    : []
-}, { immediate: true })
+  sequence.value = JSON.parse(JSON.stringify(val || []));
+}, { immediate: true, deep: true })
 
 function emitSequence() {
-  // Convert frontend SendString {text} to backend {keys, modifiers}
-  const backendSeq = sequence.value.map((act: any) => {
-    if (act.SendString && typeof act.SendString.text === 'string') {
-      const { keys, modifiers } = stringToKeyCodes(act.SendString.text)
-      return { SendString: { keys, modifiers } }
-    }
-    return act
-  })
-  emit('update:modelValue', backendSeq)
+  emit('update:modelValue', JSON.parse(JSON.stringify(sequence.value)));
 }
 
 function addAction(type: string) {
-  let action: any = {}
-  if (type === 'KeyPress')
-    action = { KeyPress: { keys: [''], modifier: '' } }
-  else if (type === 'KeyRelease')
-    action = 'KeyRelease'
-  else if (type === 'MousePress') action = { MousePress: { button: 1 } }
-  else if (type === 'MouseMove') action = { MouseMove: { dx: 0, dy: 0 } }
-  else if (type === 'MouseWheel') action = { MouseWheel: { amount: 1 } }
-  else if (type === 'ConsumerPress') action = { ConsumerPress: { usage_id: 0xE9 } }
-  else if (type === 'Delay') action = { Delay: { ms: 100 } }
-  else if (type === 'Sequence') action = { Sequence: [] }
-  else if (type === 'SendString') action = { SendString: { text: '' } }
-  sequence.value.push(action)
-  emitSequence()
+  let newAction: ConfigAction | null = null;
+  switch (type) {
+    case 'KeyPress':
+      newAction = { type: 'KeyPress', keys: [''], modifier: null };
+      break;
+    case 'KeyRelease':
+      newAction = { type: 'KeyRelease' };
+      break;
+    case 'MousePress':
+      newAction = { type: 'MousePress', button: 1 };
+      break;
+    case 'MouseMove':
+      newAction = { type: 'MouseMove', dx: 0, dy: 0 };
+      break;
+    case 'MouseWheel':
+      newAction = { type: 'MouseWheel', amount: 1 };
+      break;
+    case 'ConsumerPress':
+      newAction = { type: 'ConsumerPress', usage_id: 0xE9 };
+      break;
+    case 'Delay':
+      newAction = { type: 'Delay', ms: 100 };
+      break;
+    case 'Sequence':
+      newAction = { type: 'Sequence', actions: [] };
+      break;
+    case 'SendString':
+      newAction = { type: 'SendString', keys: [], modifiers: [] };
+      break;
+    default:
+      console.warn('Unknown action type to add:', type);
+      return;
+  }
+  if (newAction) {
+    sequence.value.push(newAction);
+    emitSequence();
+  }
 }
 function removeAction(idx: number) {
   sequence.value.splice(idx, 1)
@@ -140,68 +150,73 @@ function moveDown(idx: number) {
   sequence.value[idx] = temp
   emitSequence()
 }
-function updateAction(idx: number, newAction: any) {
+function updateAction(idx: number, newAction: ConfigAction) {
   sequence.value[idx] = newAction
   emitSequence()
 }
 
 // Editor components for each action type
-function getActionEditor(act: any, idx: number) {
-  if (act.KeyPress) return KeyPressEditor
-  if (act.KeyRelease || act === 'KeyRelease') return KeyReleaseEditor
-  if (act.MousePress) return MousePressEditor
-  if (act.MouseMove) return MouseMoveEditor
-  if (act.MouseWheel) return MouseWheelEditor
-  if (act.ConsumerPress) return ConsumerPressEditor
-  if (act.Delay) return DelayEditor
-  if (act.Sequence) return SequenceEditor
-  if (act.SendString) return SendStringEditor
-  return UnknownEditor
+function getActionEditor(act: ConfigAction) {
+  switch (act.type) {
+    case 'KeyPress': return KeyPressEditor
+    case 'KeyRelease': return KeyReleaseEditor
+    case 'MousePress': return MousePressEditor
+    case 'MouseMove': return MouseMoveEditor
+    case 'MouseWheel': return MouseWheelEditor
+    case 'ConsumerPress': return ConsumerPressEditor
+    case 'Delay': return DelayEditor
+    case 'Sequence': return SequenceEditor
+    case 'SendString': return SendStringEditor
+    default: return UnknownEditor
+  }
 }
 
 // Move getActionSummary above the template so it is available for template usage
-function getActionSummary(act: any): string {
-  if (act.KeyPress) {
-    const keys = Array.isArray(act.KeyPress.keys) ? act.KeyPress.keys : []
-    const keyLabel = keys.length > 0 ? keys.map((k: string) => k || '<key>').join(' + ') : '<key>'
-    const mod = act.KeyPress.modifier ? ` + ${act.KeyPress.modifier}` : ''
-    return `<b>KeyPress:</b> ${keyLabel}${mod}`
+function getActionSummary(act: ConfigAction): string {
+  switch (act.type) {
+    case 'KeyPress':
+      const kpAction = act as ConfigActionKeyPress;
+      const keyLabel = kpAction.keys.length > 0 ? kpAction.keys.map((k: string) => k || '<key>').join(' + ') : '<key>';
+      const mod = kpAction.modifier ? ` + ${kpAction.modifier}` : '';
+      return `<b>KeyPress:</b> ${keyLabel}${mod}`;
+    case 'SendString':
+      const ssAction = act as ConfigActionSendString;
+      if (ssAction.keys.length > 0) {
+        const keys = ssAction.keys.map((k: string, i: number) => {
+          const m = ssAction.modifiers && ssAction.modifiers[i] ? `${ssAction.modifiers[i]} + ` : '';
+          return `${m}${k}`;
+        }).join(', ');
+        return `<b>SendString:</b> ${keys}`;
+      }
+      return '<b>SendString:</b> <empty>';
+    case 'MousePress':
+      const mpAction = act as ConfigActionMousePress;
+      const btn = mpAction.button === 1 ? 'Left' : mpAction.button === 2 ? 'Right' : mpAction.button === 4 ? 'Middle' : `Button ${mpAction.button}`;
+      return `<b>MousePress:</b> ${btn}`;
+    case 'MouseMove':
+      const mmAction = act as ConfigActionMouseMove;
+      return `<b>MouseMove:</b> dx=${mmAction.dx}, dy=${mmAction.dy}`;
+    case 'MouseWheel':
+      const mwAction = act as ConfigActionMouseWheel;
+      return `<b>MouseWheel:</b> amount=${mwAction.amount}`;
+    case 'ConsumerPress':
+      const cpAction = act as ConfigActionConsumerPress;
+      return `<b>Media Key:</b> usage_id=0x${cpAction.usage_id.toString(16).toUpperCase()}`;
+    case 'Delay':
+      const dAction = act as ConfigActionDelay;
+      return `<b>Delay:</b> ${dAction.ms}ms`;
+    case 'Sequence':
+      const seqAction = act as ConfigActionSequence;
+      return `<b>Nested Sequence</b> (${(seqAction.actions.length)} actions)`;
+    case 'KeyRelease':
+      return `<b>KeyRelease</b>`;
+    case 'MouseRelease':
+      return `<b>MouseRelease</b>`;
+    case 'ConsumerRelease':
+      return `<b>ConsumerRelease</b>`;
+    default:
+      const _exhaustiveCheck: never = act;
+      return `<b>Unknown Action:</b> ${JSON.stringify(_exhaustiveCheck)}`;
   }
-  if (act.SendString) {
-    if (typeof act.SendString.text === 'string') {
-      return `<b>SendString:</b> ${act.SendString.text || '<string>'}`
-    }
-    if (Array.isArray(act.SendString.keys) && Array.isArray(act.SendString.modifiers)) {
-      const keys = act.SendString.keys.map((k: string, i: number) => {
-        const mod = act.SendString.modifiers[i]
-        return mod ? `${mod} + ${k}` : k
-      }).join(', ')
-      return `<b>SendString:</b> ${keys || '<string>'}`
-    }
-    return '<b>SendString</b>'
-  }
-  if (act.MousePress) {
-    const btn = act.MousePress.button === 1 ? 'Left' : act.MousePress.button === 2 ? 'Right' : 'Middle'
-    return `<b>MousePress:</b> ${btn}`
-  }
-  if (act.MouseMove) {
-    return `<b>MouseMove:</b> dx=${act.MouseMove.dx}, dy=${act.MouseMove.dy}`
-  }
-  if (act.MouseWheel) {
-    return `<b>MouseWheel:</b> amount=${act.MouseWheel.amount}`
-  }
-  if (act.ConsumerPress) {
-    return `<b>Media Key:</b> usage_id=0x${act.ConsumerPress.usage_id.toString(16).toUpperCase()}`
-  }
-  if (act.Delay) {
-    return `<b>Delay:</b> ${act.Delay.ms}ms`
-  }
-  if (act.Sequence) {
-    return `<b>Nested Sequence</b>`
-  }
-  if (typeof act === 'string') {
-    return `<b>${act}</b>`
-  }
-  return '<b>Unknown</b>'
 }
 </script> 

@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 // import { ref, computed } from 'vue'
 import { deviceService } from '@/services/deviceService'
-import type { FullDeviceConfig, DeviceConnectionInfo, ConfigAction, MappingConfiguration } from '@/types/protocol'
+import type { FullDeviceConfig, DeviceConnectionInfo, ConfigAction, MappingConfiguration, ConfigActionKeyPress, ConfigActionKeyRelease, ConfigActionMousePress, ConfigActionMouseRelease, ConfigActionMouseMove, ConfigActionMouseWheel, ConfigActionConsumerPress, ConfigActionConsumerRelease, ConfigActionDelay, ConfigActionSendString, ConfigActionSequence } from '@/types/protocol'
 import { useMacroPadConfigStore, type ButtonConfig as MacroPadButtonConfig } from './macroPadConfigStore'
 import { useDeviceSettingsStore } from './deviceSettingsStore'
+import { stringToKeyCodes } from '@/keycodes'; // Import for SendString conversion
 
 // Keeping store-specific debug log type, but deviceApi also has its own logs
 export type DebugLog = {
@@ -53,10 +54,80 @@ export const useDeviceStore = defineStore('device', {
             else console.log(`[DeviceStore] ${message}`);
         },
 
+        _convertRawActionToConfigAction(action: any): ConfigAction {
+            if (!action) return { type: 'Unknown', original: null } as any;
+
+            // Handle string-based actions first (for parameterless actions like KeyRelease)
+            if (typeof action === 'string') {
+                switch (action) {
+                    case 'KeyRelease':
+                        return { type: 'KeyRelease' } as ConfigActionKeyRelease;
+                    case 'MouseRelease':
+                        return { type: 'MouseRelease' } as ConfigActionMouseRelease;
+                    case 'ConsumerRelease':
+                        return { type: 'ConsumerRelease' } as ConfigActionConsumerRelease;
+                    default:
+                        // If it's a string but not a known parameterless action, it's unknown
+                        console.warn('Unrecognized string action:', action);
+                        return { type: 'Unknown', originalAction: action } as any;
+                }
+            }
+
+            // If action already has a 'type' field, assume it's in the new format (or new format but unknown)
+            if (action.type) {
+                // Basic validation: if it's a known type, cast it. Otherwise, preserve it.
+                const knownTypes = ['KeyPress', 'KeyRelease', 'MousePress', 'MouseRelease', 'MouseMove', 'MouseWheel', 'ConsumerPress', 'ConsumerRelease', 'Delay', 'SendString', 'Sequence'];
+                if (knownTypes.includes(action.type)) {
+                    return action as ConfigAction;
+                }
+                // If it has a 'type' but it's not one of our known ones, treat as Unknown but keep structure
+                console.warn('Action has a type field but it is not a known action type:', action);
+                return { type: 'Unknown', originalAction: action } as any;
+            }
+
+            // Handle old object-based formats
+            if (action.KeyPress) {
+                return { type: 'KeyPress', keys: action.KeyPress.keys, modifier: action.KeyPress.modifier } as ConfigActionKeyPress;
+            }
+            // KeyRelease is handled above if it's a string. If it was an object in old format, it would need specific handling here.
+            // Assuming for now that old KeyRelease, if not string, isn't a common case or would be caught by fallback.
+
+            if (action.MousePress) {
+                return { type: 'MousePress', button: action.MousePress.button } as ConfigActionMousePress;
+            }
+            // MouseRelease handled above if string.
+
+            if (action.MouseMove) {
+                return { type: 'MouseMove', dx: action.MouseMove.dx, dy: action.MouseMove.dy } as ConfigActionMouseMove;
+            }
+            if (action.MouseWheel) {
+                return { type: 'MouseWheel', amount: action.MouseWheel.amount } as ConfigActionMouseWheel;
+            }
+            if (action.ConsumerPress) {
+                return { type: 'ConsumerPress', usage_id: action.ConsumerPress.usage_id } as ConfigActionConsumerPress;
+            }
+            // ConsumerRelease handled above if string.
+
+            if (action.Delay) {
+                return { type: 'Delay', ms: action.Delay.ms } as ConfigActionDelay;
+            }
+            // Correctly handle old object-based SendString which contains keys and modifiers directly
+            if (action.SendString && Array.isArray(action.SendString.keys) && Array.isArray(action.SendString.modifiers)) {
+                return { type: 'SendString', keys: action.SendString.keys, modifiers: action.SendString.modifiers } as ConfigActionSendString;
+            }
+
+            if (action.Sequence && Array.isArray(action.Sequence)) {
+                const nestedActions = (action.Sequence || []).map(this._convertRawActionToConfigAction.bind(this));
+                return { type: 'Sequence', actions: nestedActions } as ConfigActionSequence;
+            }
+
+            console.warn('Unrecognized/unhandled old action format during conversion:', action);
+            return { type: 'Unknown', originalAction: action } as any;
+        },
+
         _updateConnectionState(connected: boolean, deviceInfo?: StoreDeviceInfo | null, error?: string | null) {
             this.isConnected = connected;
             this.isConnecting = false; // Connection attempt finished
-            // isLoading should be managed by specific operations like fetch/save, not connection itself unless it implies a fetch
             this.deviceInfo = deviceInfo || null;
             this.error = error || null;
             if (error) this._addStoreLog(error, 'error');
@@ -69,34 +140,35 @@ export const useDeviceStore = defineStore('device', {
             if (this.isConnecting || this.isConnected) return;
             this._addStoreLog('Attempting to connect via USB...', 'action');
             this.isConnecting = true;
-            this.isLoading = true; // Show global loading during connect sequence
+            this.isLoading = true;
             this.error = null;
 
-            const response = await deviceService.connect(); // No argument needed
+            const response = await deviceService.connect();
             if (response.success && response.data) {
                 this._updateConnectionState(true, response.data);
                 this._addStoreLog(`Successfully connected to ${response.data.productName || 'USB Device'}.`, 'info');
-                // await this.fetchConfig(); // Auto-fetch on successful connect (optional)
+
+                this.isLoading = false;
+                await this.fetchConfig();
             } else {
                 this._updateConnectionState(false, null, response.error || 'USB Connection failed');
+                this.isLoading = false;
             }
-            this.isLoading = false; // Hide global loading
+            if (this.isConnecting) {
+                this.isConnecting = false;
+                this.isLoading = false;
+            }
         },
 
         async disconnect() {
-            // if (!this.isConnected && !this.isConnecting) return; // Allow disconnect even if only connecting
             this._addStoreLog('Attempting to disconnect USB...', 'action');
-            // No need to set isLoading for a quick disconnect op unless service indicates it
-            // deviceService.disconnect will update its own reactive state (deviceApi.isDeviceConnected)
             const response = await deviceService.disconnect();
             if (response.success) {
-                this._updateConnectionState(false); // Update store's view of connection
+                this._updateConnectionState(false);
                 this._addStoreLog('Successfully disconnected USB.', 'info');
             } else {
-                // Handle potential disconnect failure
                 this.error = response.error || 'Failed to disconnect USB properly';
                 this._addStoreLog(`USB Disconnect error: ${this.error}`, 'error');
-                // Even if service reports error, we mark as disconnected in store
                 this._updateConnectionState(false, null, this.error);
             }
         },
@@ -106,7 +178,10 @@ export const useDeviceStore = defineStore('device', {
                 this._addStoreLog('Cannot fetch config: Not connected.', 'error');
                 return;
             }
-            if (this.isLoading) return; // Avoid concurrent fetches
+            if (this.isLoading) {
+                this._addStoreLog('Fetch config skipped: An operation is already in progress (isLoading is true).', 'info');
+                return;
+            }
             this._addStoreLog('Fetching configuration...', 'action');
             this.isLoading = true;
             this.error = null;
@@ -121,22 +196,21 @@ export const useDeviceStore = defineStore('device', {
                 const buttonNames = response.data.button_names;
 
                 const buttonConfigsForMacroPadStore: MacroPadButtonConfig[] = Object.entries(mappings)
-                    .filter(([idStr]) => idStr !== 'default') // Filter out the "default" mapping
-                    .map(([idStr, actions]) => {
+                    .filter(([idStr]) => idStr !== 'default')
+                    .map(([idStr, rawActions]) => {
                         const numericId = parseInt(idStr, 10);
                         let buttonName: string | undefined = undefined;
                         if (buttonNames && !isNaN(numericId) && numericId > 0) {
-                            // Adjust for 0-indexed buttonNames array (idStr "1" maps to buttonNames[0])
                             buttonName = buttonNames[numericId - 1];
                         }
+                        const convertedActions = Array.isArray(rawActions) ? rawActions.map(this._convertRawActionToConfigAction.bind(this)) : [];
                         return {
                             id: idStr,
-                            actions: actions as ConfigAction[],
+                            actions: convertedActions,
                             name: buttonName,
                         };
                     });
                 macroPadStore.loadConfig(buttonConfigsForMacroPadStore);
-
                 deviceSettingsStore.loadSettings(response.data.settings);
                 this._addStoreLog('Configuration fetched and applied to stores.', 'info');
             } else {
@@ -146,22 +220,70 @@ export const useDeviceStore = defineStore('device', {
             this.isLoading = false;
         },
 
-        async saveConfig(configPayload: FullDeviceConfig) { // Expecting the full config structure
+        _convertUiActionToDeviceAction(uiAction: ConfigAction): any {
+            switch (uiAction.type) {
+                case 'KeyPress':
+                    const { type: _kpType, ...kpPayload } = uiAction as ConfigActionKeyPress;
+                    return { KeyPress: kpPayload };
+                case 'KeyRelease':
+                    return 'KeyRelease';
+                case 'MousePress':
+                    const { type: _mpType, ...mpPayload } = uiAction as ConfigActionMousePress;
+                    return { MousePress: mpPayload };
+                case 'MouseRelease':
+                    return 'MouseRelease';
+                case 'MouseMove':
+                    const { type: _mmType, ...mmPayload } = uiAction as ConfigActionMouseMove;
+                    return { MouseMove: mmPayload };
+                case 'MouseWheel':
+                    const { type: _mwType, ...mwPayload } = uiAction as ConfigActionMouseWheel;
+                    return { MouseWheel: mwPayload };
+                case 'ConsumerPress':
+                    const { type: _cpType, ...cpPayload } = uiAction as ConfigActionConsumerPress;
+                    return { ConsumerPress: cpPayload };
+                case 'ConsumerRelease':
+                    return 'ConsumerRelease';
+                case 'Delay':
+                    const { type: _dType, ...dPayload } = uiAction as ConfigActionDelay;
+                    return { Delay: dPayload };
+                case 'SendString':
+                    const { type: _ssType, ...ssPayload } = uiAction as ConfigActionSendString;
+                    return { SendString: ssPayload };
+                case 'Sequence':
+                    const seqAction = uiAction as ConfigActionSequence;
+                    const deviceActions = seqAction.actions.map(this._convertUiActionToDeviceAction.bind(this));
+                    return { Sequence: { actions: deviceActions } }; // Ensure Sequence payload matches Rust: { actions: Vec<ConfigAction> }
+                default:
+                    console.warn('Unknown UI action type during device conversion:', uiAction);
+                    return { UnknownDeviceAction: { originalUiAction: uiAction } };
+            }
+        },
+
+        async saveConfig(configPayload: FullDeviceConfig) {
             if (!this.isConnected) {
                 this._addStoreLog('Cannot save config: Not connected.', 'error');
                 return;
             }
             if (this.isLoading) return;
             this._addStoreLog(`Saving configuration...`, 'action');
-            // this._addStoreLog(`Config: ${JSON.stringify(configPayload)}`, 'info'); // Can be too verbose
             this.isLoading = true;
             this.error = null;
 
-            const response = await deviceService.saveConfig(configPayload);
+            const payloadForDevice = JSON.parse(JSON.stringify(configPayload));
+            if (payloadForDevice.mappings) {
+                for (const buttonId in payloadForDevice.mappings) {
+                    if (Object.prototype.hasOwnProperty.call(payloadForDevice.mappings, buttonId)) {
+                        const uiActions = payloadForDevice.mappings[buttonId];
+                        if (Array.isArray(uiActions)) {
+                            payloadForDevice.mappings[buttonId] = uiActions.map(this._convertUiActionToDeviceAction.bind(this));
+                        }
+                    }
+                }
+            }
+
+            const response = await deviceService.saveConfig(payloadForDevice);
             if (response.success) {
                 this._addStoreLog('Configuration saved successfully.', 'info');
-                // Optimistically update _lastFetchedConfig or refetch to ensure consistency.
-                // Fetching is safer.
                 await this.fetchConfig();
             } else {
                 this.error = response.error || 'Failed to save config';
@@ -183,7 +305,7 @@ export const useDeviceStore = defineStore('device', {
             const response = await deviceService.resetConfig();
             if (response.success) {
                 this._addStoreLog('Device reset successfully. Fetching new config...', 'info');
-                await this.fetchConfig(); // Fetch fresh config after reset
+                await this.fetchConfig();
             } else {
                 this.error = response.error || 'Failed to reset config';
                 this._addStoreLog(`Reset config error: ${this.error}`, 'error');
@@ -196,31 +318,23 @@ export const useDeviceStore = defineStore('device', {
                 this._addStoreLog('Cannot reboot: Not connected.', 'error');
                 return;
             }
-            // Unlike other loading operations, reboot means we expect disconnection.
-            // isLoading might briefly be true, but isConnected state change is primary.
             this._addStoreLog('Requesting device reboot...', 'action');
             this.error = null;
-            // Set isLoading for the command send, but expect it to be cleared by connection state change
             const wasLoading = this.isLoading;
             this.isLoading = true;
 
             const response = await deviceService.rebootDevice();
             if (response.success) {
                 this._addStoreLog('Device reboot command acknowledged. Connection will be lost.', 'info');
-                // The deviceService/useDeviceApi should set its internal isConnected to false.
-                // We update our store's state accordingly.
                 this._updateConnectionState(false, null, 'Device rebooted. Connection lost.');
             } else {
                 this.error = response.error || 'Failed to send reboot command';
                 this._addStoreLog(`Reboot error: ${this.error}`, 'error');
-                this.isLoading = wasLoading; // Restore previous loading state if command failed
+                this.isLoading = wasLoading;
             }
-            // isLoading should naturally become false if _updateConnectionState(false) is called.
-            // If reboot command failed without disconnect, ensure isLoading is reset.
             if (this.isConnected) this.isLoading = false;
         },
 
-        // Backup/Upload actions remain largely the same but use FullDeviceConfig
         async backupDeviceConfig() {
             if (!this.isConnected) {
                 this._addStoreLog('Cannot backup: Not connected.', 'error');
@@ -231,7 +345,6 @@ export const useDeviceStore = defineStore('device', {
             this.isLoading = true;
             this.error = null;
 
-            // Fetch the latest config directly from device for backup
             const fetchResponse = await deviceService.fetchConfig();
             if (fetchResponse.success && fetchResponse.data) {
                 this._downloadJson(fetchResponse.data, `device-config-backup-${new Date().toISOString().slice(0, 19).replace(/[-T:]/g, '')}.json`);
@@ -243,8 +356,8 @@ export const useDeviceStore = defineStore('device', {
             this.isLoading = false;
         },
 
-        async backupCurrentUiConfig(currentConfig: FullDeviceConfig) { // Parameter type updated
-            if (this.isLoading && !this.isConnecting) return; // Allow during connection for initial state backup if needed
+        async backupCurrentUiConfig(currentConfig: FullDeviceConfig) {
+            if (this.isLoading && !this.isConnecting) return;
             this._addStoreLog('Downloading current UI config snapshot...', 'action');
             this._downloadJson(currentConfig, `ui-current-config-backup-${new Date().toISOString().slice(0, 19).replace(/[-T:]/g, '')}.json`);
             this._addStoreLog('UI config snapshot downloaded.', 'info');
@@ -261,8 +374,7 @@ export const useDeviceStore = defineStore('device', {
             this.error = null;
             try {
                 const jsonDataToSave: FullDeviceConfig = JSON.parse(fileContents);
-                // Basic validation could be added here against a schema if available
-                const response = await deviceService.saveConfig(jsonDataToSave);
+                const response = await deviceService.saveConfig(jsonDataToSave); // Note: This still sends raw data if not pre-converted
                 if (response.success) {
                     this._addStoreLog('Uploaded config saved successfully. Fetching new state...', 'info');
                     await this.fetchConfig();
@@ -297,4 +409,4 @@ export const useDeviceStore = defineStore('device', {
             }
         }
     }
-}) 
+});
