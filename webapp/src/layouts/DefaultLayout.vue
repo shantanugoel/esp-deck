@@ -3,8 +3,8 @@
     <TopBar />
     <!-- Action Buttons Row - Centered below TopBar -->
     <div class="w-full flex flex-wrap gap-2 justify-center py-2 bg-background shadow-sm">
-      <button class="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80">Connect</button>
-      <button class="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80">Save Settings</button>
+      <Button class="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80">Connect</Button>
+      <Button class="px-3 py-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80">Save Settings</Button>
       <!-- Other buttons will be added here in Phase 2 -->
     </div>
 
@@ -24,6 +24,7 @@
 import TopBar from '@/components/core/TopBar.vue'
 import BottomBar from '@/components/core/BottomBar.vue'
 import TabNavigation from '@/components/core/TabNavigation.vue'
+import { Button } from '@/components/ui/button'
 </script>
 
 <style scoped>
