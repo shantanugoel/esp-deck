@@ -77,6 +77,7 @@ const ENDPOINT_IN = 2;
 
 // This is the protocol version defined in Rust: 0x00010000 (Major 1, Minor 0)
 const PROTOCOL_VERSION = 0x00010000; // 65536 decimal
+const MAGIC_WORD = 0xE59DECC0; // Restore magic word
 
 let usbDevice: USBDevice | null = null; // Renamed for clarity
 
@@ -180,16 +181,23 @@ async function sendCommandAndGetResponse(command: Command): Promise<string> {
     const commandString = JSON.stringify(command);
     addDebugLog('sent', commandString);
 
-    // Send data using WebUSB transferOut
-    // MODIFIED: Send raw JSON string, as protocol.rs uses serde_json::from_slice directly.
-    // The custom MAGIC_WORD framing for sending has been removed.
-    const dataToSend = new TextEncoder().encode(commandString);
+    // Send data using WebUSB transferOut with MAGIC_WORD + Length + Payload framing
+    const headerBuffer = new ArrayBuffer(4);
+    new DataView(headerBuffer).setUint32(0, MAGIC_WORD, false); // false for Little Endian
+    const bodyBuffer = new TextEncoder().encode(commandString);
+    const lengthBuffer = new ArrayBuffer(4);
+    new DataView(lengthBuffer).setUint32(0, bodyBuffer.byteLength, false); // false for Little Endian
+
+    const dataToSend = new Uint8Array(headerBuffer.byteLength + lengthBuffer.byteLength + bodyBuffer.byteLength);
+    dataToSend.set(new Uint8Array(headerBuffer), 0);
+    dataToSend.set(new Uint8Array(lengthBuffer), headerBuffer.byteLength);
+    dataToSend.set(bodyBuffer, headerBuffer.byteLength + lengthBuffer.byteLength);
+
     await usbDevice.transferOut(ENDPOINT_OUT, dataToSend);
 
-    // Receive data using WebUSB transferIn
-    // Assumes device sends raw JSON as per protocol.rs `serde_json::to_vec(&response)`
-    let receiveBuffer = '';
-    const timeoutMs = 5000; // Increased timeout
+    // Receive data using WebUSB transferIn, expecting MAGIC_WORD + Length + Payload framing
+    let accumulatedBuffer = new Uint8Array(0);
+    const timeoutMs = 5000;
     const startTime = Date.now();
 
     while (true) {
@@ -197,30 +205,47 @@ async function sendCommandAndGetResponse(command: Command): Promise<string> {
             throw new Error('Timeout waiting for device response.');
         }
 
-        const result = await usbDevice.transferIn(ENDPOINT_IN, 2048); // Read larger chunks
+        const result = await usbDevice.transferIn(ENDPOINT_IN, 2048); // Read in chunks
+
         if (result.status === 'stall') {
             await usbDevice.clearHalt('in', ENDPOINT_IN);
             continue;
         }
         if (!result.data || result.data.byteLength === 0) {
-            await new Promise(resolve => setTimeout(resolve, 50)); // Small delay before retrying
+            await new Promise(resolve => setTimeout(resolve, 50));
             continue;
         }
 
-        receiveBuffer += new TextDecoder().decode(result.data);
+        const newChunk = new Uint8Array(result.data.buffer);
+        const tempBuffer = new Uint8Array(accumulatedBuffer.length + newChunk.length);
+        tempBuffer.set(accumulatedBuffer, 0);
+        tempBuffer.set(newChunk, accumulatedBuffer.length);
+        accumulatedBuffer = tempBuffer;
 
-        try {
-            // Try to parse the buffer as JSON. If it succeeds, we have the full message.
-            JSON.parse(receiveBuffer); // This will throw if not complete JSON
-            addDebugLog('received', receiveBuffer);
-            return receiveBuffer;
-        } catch (e) {
-            // JSON is not complete yet, continue accumulating
-            if (receiveBuffer.length > 10 * 1024 * 1024) { // Safety break for too large buffer
-                throw new Error('Received data too large without forming valid JSON.');
+        // Try to parse the frame from accumulatedBuffer
+        if (accumulatedBuffer.length >= 8) { // Minimum length for Magic Word + Length
+            const view = new DataView(accumulatedBuffer.buffer, accumulatedBuffer.byteOffset, accumulatedBuffer.byteLength);
+            const magic = view.getUint32(0, true); // true for little Endian
+            const payloadLength = view.getUint32(4, true); // true for little Endian
+
+            if (magic !== MAGIC_WORD) {
+                // Clear buffer and throw error or try to find next magic word (simpler to error out)
+                accumulatedBuffer = new Uint8Array(0);
+                throw new Error(`Magic word mismatch. Expected ${MAGIC_WORD.toString(16)}, got ${magic.toString(16)}`);
             }
+
+            if (accumulatedBuffer.length >= 8 + payloadLength) {
+                // We have the full frame
+                const payloadBytes = accumulatedBuffer.slice(8, 8 + payloadLength);
+                const decodedPayload = new TextDecoder().decode(payloadBytes);
+                addDebugLog('received', decodedPayload);
+                // Remaining bytes in buffer are part of the next message, if any (not handled here, assumes one response per command)
+                // accumulatedBuffer = accumulatedBuffer.slice(8 + payloadLength);
+                return decodedPayload;
+            }
+            // Not enough data for the full payload yet, continue accumulating
         }
-        await new Promise(resolve => setTimeout(resolve, 20)); // Wait a bit for more data
+        await new Promise(resolve => setTimeout(resolve, 20));
     }
 }
 
@@ -233,12 +258,15 @@ async function getConfig(): Promise<ApiResult<FullDeviceConfig>> {
             header: { version: PROTOCOL_VERSION, correlationId: getNextCorrelationId() }
         };
         const responseString = await sendCommandAndGetResponse(command);
-        const parsedResponse = JSON.parse(responseString); // Expecting ProtocolResponse structure
-        // Now, handle the ProtocolResponse structure
-        if (parsedResponse.Config) {
-            return { data: parsedResponse.Config.config, error: null, loading: false };
-        } else if (parsedResponse.Error) {
-            throw new Error(`Device Error: ${parsedResponse.Error.message} (Code: ${parsedResponse.Error.errorCode})`);
+        const parsedResponse = JSON.parse(responseString);
+
+        // Check if it's an ErrorResponse (sent directly by Rust)
+        if (typeof parsedResponse.message === 'string' && typeof parsedResponse.errorCode === 'number' && parsedResponse.header) {
+            throw new Error(`Device Error: ${parsedResponse.message} (Code: ${parsedResponse.errorCode})`);
+        }
+        // Check if it's a GetConfigResponse (sent directly by Rust)
+        if (parsedResponse.config && parsedResponse.header) {
+            return { data: parsedResponse.config, error: null, loading: false };
         }
         throw new Error('Invalid response structure from getConfig');
     } catch (e: any) {
@@ -260,13 +288,17 @@ async function setConfig(config: FullDeviceConfig): Promise<ApiResult<boolean>> 
         };
         const responseString = await sendCommandAndGetResponse(command);
         const parsedResponse = JSON.parse(responseString);
-        if (parsedResponse.Ack) {
-            if (parsedResponse.Ack.success) {
+
+        // Check if it's an ErrorResponse
+        if (typeof parsedResponse.message === 'string' && typeof parsedResponse.errorCode === 'number' && parsedResponse.header) {
+            throw new Error(`Device Error: ${parsedResponse.message} (Code: ${parsedResponse.errorCode})`);
+        }
+        // Check if it's an AckResponse
+        if (typeof parsedResponse.success === 'boolean' && parsedResponse.header) {
+            if (parsedResponse.success) {
                 return { data: true, error: null, loading: false };
             }
-            throw new Error(parsedResponse.Ack.message || 'SetConfig failed on device (Ack success false)');
-        } else if (parsedResponse.Error) {
-            throw new Error(`Device Error: ${parsedResponse.Error.message} (Code: ${parsedResponse.Error.errorCode})`);
+            throw new Error(parsedResponse.message || 'SetConfig failed on device (Ack success false)');
         }
         throw new Error('Invalid response structure from setConfig');
     } catch (e: any) {
@@ -287,13 +319,17 @@ async function resetConfig(): Promise<ApiResult<boolean>> {
         };
         const responseString = await sendCommandAndGetResponse(command);
         const parsedResponse = JSON.parse(responseString);
-        if (parsedResponse.Ack) {
-            if (parsedResponse.Ack.success) {
+
+        // Check if it's an ErrorResponse
+        if (typeof parsedResponse.message === 'string' && typeof parsedResponse.errorCode === 'number' && parsedResponse.header) {
+            throw new Error(`Device Error: ${parsedResponse.message} (Code: ${parsedResponse.errorCode})`);
+        }
+        // Check if it's an AckResponse
+        if (typeof parsedResponse.success === 'boolean' && parsedResponse.header) {
+            if (parsedResponse.success) {
                 return { data: true, error: null, loading: false };
             }
-            throw new Error(parsedResponse.Ack.message || 'ResetConfig failed on device (Ack success false)');
-        } else if (parsedResponse.Error) {
-            throw new Error(`Device Error: ${parsedResponse.Error.message} (Code: ${parsedResponse.Error.errorCode})`);
+            throw new Error(parsedResponse.message || 'ResetConfig failed on device (Ack success false)');
         }
         throw new Error('Invalid response structure from resetConfig');
     } catch (e: any) {
@@ -312,28 +348,25 @@ async function reboot(): Promise<ApiResult<boolean>> {
             type: 'Reboot',
             header: { version: PROTOCOL_VERSION, correlationId: getNextCorrelationId() }
         };
-        // For reboot, we might not get a conventional response or the connection might drop.
-        // The original sendCommand might throw a timeout or error if device reboots too fast.
-        // We'll assume an Ack is expected if the command is accepted before reboot.
         const responseString = await sendCommandAndGetResponse(command);
         const parsedResponse = JSON.parse(responseString);
-        if (parsedResponse.Ack) {
-            if (parsedResponse.Ack.success) {
-                // Expect disconnect after this
-                isDeviceConnected.value = false;
+
+        // Check if it's an ErrorResponse
+        if (typeof parsedResponse.message === 'string' && typeof parsedResponse.errorCode === 'number' && parsedResponse.header) {
+            throw new Error(`Device Error: ${parsedResponse.message} (Code: ${parsedResponse.errorCode})`);
+        }
+        // Check if it's an AckResponse
+        if (typeof parsedResponse.success === 'boolean' && parsedResponse.header) {
+            if (parsedResponse.success) {
+                isDeviceConnected.value = false; // Expect disconnect
                 usbDevice = null;
                 return { data: true, error: null, loading: false };
             }
-            throw new Error(parsedResponse.Ack.message || 'Reboot command failed on device (Ack success false)');
-        } else if (parsedResponse.Error) {
-            throw new Error(`Device Error: ${parsedResponse.Error.message} (Code: ${parsedResponse.Error.errorCode})`);
+            throw new Error(parsedResponse.message || 'Reboot command failed on device (Ack success false)');
         }
         throw new Error('Invalid response structure from reboot');
     } catch (e: any) {
         lastError.value = e.message;
-        // If it's a timeout because device rebooted, that's sort of expected.
-        // However, this generic catch makes it an error.
-        // For now, we reflect the error. Could refine later if specific timeout errors need special handling.
         isDeviceConnected.value = false; // Assume disconnected on any error during reboot
         usbDevice = null;
         return { data: false, error: e.message, loading: false };
