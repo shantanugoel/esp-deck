@@ -144,51 +144,66 @@ const executeSaveWithSelection = async (selection: SaveSelection) => {
   console.log('Executing save with selection:', selection);
   const lastFetchedConfig = deviceStore.lastFetchedConfig;
 
-  const finalDeviceSettings: DeviceSettings = {
-    wifi: selection.applyWifiChanges 
-            ? deviceSettingsStore.settings.wifi 
-            : (lastFetchedConfig?.settings.wifi !== undefined ? lastFetchedConfig.settings.wifi : null),
-    timezone_offset: selection.applyTimezoneChanges 
-            ? deviceSettingsStore.settings.timezone_offset 
-            : (lastFetchedConfig?.settings.timezone_offset !== undefined ? lastFetchedConfig.settings.timezone_offset : null),
-    api_key: selection.applyApiKeyChanges 
-            ? deviceSettingsStore.settings.api_key 
-            : (lastFetchedConfig?.settings.api_key !== undefined ? lastFetchedConfig.settings.api_key : null),
-  };
-  
-  if (!selection.applyWifiChanges) finalDeviceSettings.wifi = null;
-  if (!selection.applyTimezoneChanges) finalDeviceSettings.timezone_offset = null;
-  if (!selection.applyApiKeyChanges) finalDeviceSettings.api_key = null;
+  const finalDeviceSettings: Partial<DeviceSettings> = {};
+  if (selection.applyWifi) {
+    finalDeviceSettings.wifi = deviceSettingsStore.settings.wifi;
+  }
+  if (selection.applyTimezone) {
+    finalDeviceSettings.timezone_offset = deviceSettingsStore.settings.timezone_offset;
+  }
+  if (selection.applyApiKey) {
+    finalDeviceSettings.api_key = deviceSettingsStore.settings.api_key;
+  }
 
-  const finalMappings: MappingConfiguration = {};
-  const finalButtonNames: Record<number, string> = {};
+  const finalMappingsToSend: MappingConfiguration = {};
+  let finalButtonNamesToSend: Record<number, string> | undefined = undefined;
 
-  for (let i = 0; i < MAX_BUTTONS; i++) {
-    const buttonKey = String(i);
-    const numericId = i;
-
-    if (selection.buttonsToSave[buttonKey]) {
-      finalMappings[buttonKey] = macroPadStore.getButtonActions(buttonKey) || [];
-      const name = macroPadStore.getButtonName(numericId);
-      if (name) {
-        finalButtonNames[numericId] = name;
+  if (selection.applyMappings) {
+    const selectedButtonKeys = Object.keys(selection.buttonsToSave).filter(key => selection.buttonsToSave[key]);
+    if (selectedButtonKeys.length > 0) {
+      const tempButtonNames: Record<number, string> = {};
+      selectedButtonKeys.forEach(buttonKey => {
+        finalMappingsToSend[buttonKey] = macroPadStore.getButtonActions(buttonKey) || [];
+        const numericId = parseInt(buttonKey, 10);
+        const name = macroPadStore.getButtonName(numericId);
+        if (name) {
+          tempButtonNames[numericId] = name;
+        }
+      });
+      if (Object.keys(tempButtonNames).length > 0) {
+        finalButtonNamesToSend = tempButtonNames;
       }
-    } else if (pendingChangedButtonKeys.value.includes(buttonKey) && lastFetchedConfig?.mappings && lastFetchedConfig.button_names) {
     }
   }
 
-  const payload: FullDeviceConfig = {
-    settings: finalDeviceSettings,
-    mappings: finalMappings,
-    button_names: Object.keys(finalButtonNames).length > 0 ? finalButtonNames : null,
+  const payload: { settings: DeviceSettings; mappings: MappingConfiguration; button_names?: Record<number, string> } = {
+    settings: finalDeviceSettings as DeviceSettings,
+    mappings: finalMappingsToSend,
   };
 
+  if (finalButtonNamesToSend !== undefined) {
+    payload.button_names = finalButtonNamesToSend;
+  }
+
   console.log("Final payload for save:", JSON.parse(JSON.stringify(payload)));
-  const success = await deviceStore.saveConfig(payload);
+  const success = await deviceStore.saveConfig(payload as FullDeviceConfig);
   if (success) {
-    macroPadStore.markAsSaved();
-    deviceSettingsStore.markAsSaved();
-    console.log('Settings saved via dialog, stores marked as saved.');
+    deviceSettingsStore.markAsSaved({
+      wifi: selection.applyWifi,
+      timezone: selection.applyTimezone,
+      apiKey: selection.applyApiKey,
+    });
+
+    const savedButtonKeys = selection.applyMappings 
+      ? Object.keys(selection.buttonsToSave).filter(key => selection.buttonsToSave[key]) 
+      : [];
+
+    macroPadStore.markAsSaved({
+      applyAllButtonChanges: selection.applyMappings,
+      buttonKeys: savedButtonKeys,
+    });
+
+    console.log('Settings saved via dialog, stores selectively marked as saved.');
   } else {
     console.error('Failed to save settings from DefaultLayout via dialog.');
   }

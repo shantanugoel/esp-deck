@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, watch, computed } from 'vue';
+import { defineProps, defineEmits, ref, watch, computed, onMounted } from 'vue';
 import type { PropType } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,15 +15,17 @@ import {
 import { useMacroPadConfigStore } from '@/stores/macroPadConfigStore';
 
 export type SaveSelection = {
-  applyWifiChanges: boolean;
-  applyTimezoneChanges: boolean;
-  applyApiKeyChanges: boolean;
-  // For buttons, a map of buttonKey (string) to boolean (true if save, false if revert/omit)
+  applyWifi: boolean;
+  applyTimezone: boolean;
+  applyApiKey: boolean;
+  applyMappings: boolean; // Master switch for all mappings
+  // buttonsToSave will only be populated if applyMappings is true
+  // and will contain { [buttonKey]: true } for selected changed buttons
   buttonsToSave: Record<string, boolean>; 
 };
 
 const props = defineProps({
-  modelValue: { type: Boolean, required: true }, // For v-model:open
+  modelValue: { type: Boolean, required: true }, 
   isWifiChanged: { type: Boolean, default: false },
   isTimezoneChanged: { type: Boolean, default: false },
   isApiKeyChanged: { type: Boolean, default: false },
@@ -34,48 +36,53 @@ const emit = defineEmits(['update:modelValue', 'confirm-save']);
 
 const macroPadStore = useMacroPadConfigStore();
 
-// Local state for user selections, initialized based on incoming changed props
-const applyWifi = ref(props.isWifiChanged);
-const applyTimezone = ref(props.isTimezoneChanged);
-const applyApiKey = ref(props.isApiKeyChanged);
-const buttonsSelection = ref<Record<string, boolean>>({});
+// Local state for user selections
+const selectWifi = ref(false);
+const selectTimezone = ref(false);
+const selectApiKey = ref(false);
+const selectMappingsMaster = ref(false); // Master checkbox for all mappings
+const individualButtonSelections = ref<Record<string, boolean>>({});
+
+// Function to initialize/reset local state when dialog opens or props change
+const initializeSelections = () => {
+  selectWifi.value = props.isWifiChanged;
+  selectTimezone.value = props.isTimezoneChanged;
+  selectApiKey.value = props.isApiKeyChanged;
+  
+  // If any button has changed, default the master mappings switch to true
+  selectMappingsMaster.value = props.changedButtonKeys.length > 0;
+
+  const newButtonSelection: Record<string, boolean> = {};
+  // Only create selections for buttons that actually changed
+  props.changedButtonKeys.forEach(key => {
+    newButtonSelection[key] = true; // Default changed buttons to selected
+  });
+  individualButtonSelections.value = newButtonSelection;
+};
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
-    // Reset selections when dialog opens based on current changes
-    applyWifi.value = props.isWifiChanged;
-    applyTimezone.value = props.isTimezoneChanged;
-    applyApiKey.value = props.isApiKeyChanged;
-    
-    const newButtonSelection: Record<string, boolean> = {};
-    props.changedButtonKeys.forEach(key => {
-      newButtonSelection[key] = true; // Default to true (save change) if button is listed as changed
-    });
-    buttonsSelection.value = newButtonSelection;
+    initializeSelections();
   }
-}, { immediate: true });
+}, { immediate: true }); // Immediate to run on component mount if dialog is initially open
 
-// Watch individual props too, in case they change while dialog is already open (less likely for this modal)
-watch(() => props.isWifiChanged, (newVal) => applyWifi.value = newVal);
-watch(() => props.isTimezoneChanged, (newVal) => applyTimezone.value = newVal);
-watch(() => props.isApiKeyChanged, (newVal) => applyApiKey.value = newVal);
-watch(() => props.changedButtonKeys, (newKeys) => {
-  const newButtonSelection: Record<string, boolean> = {};
-  newKeys.forEach(key => {
-    // Preserve existing selection if key still exists, otherwise default to true
-    newButtonSelection[key] = buttonsSelection.value[key] === undefined ? true : buttonsSelection.value[key];
-  });
-  buttonsSelection.value = newButtonSelection;
+// Also re-initialize if the underlying change props change while dialog might be open
+watch(() => [
+  props.isWifiChanged,
+  props.isTimezoneChanged,
+  props.isApiKeyChanged,
+  props.changedButtonKeys
+], () => {
+  if (props.modelValue) { // Only if dialog is open
+    initializeSelections();
+  }
 }, { deep: true });
+
 
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 });
-
-const anyDeviceSettingChanged = computed(() => props.isWifiChanged || props.isTimezoneChanged || props.isApiKeyChanged);
-const anyButtonChanged = computed(() => props.changedButtonKeys.length > 0);
-const noChangesDetected = computed(() => !anyDeviceSettingChanged.value && !anyButtonChanged.value);
 
 const getButtonDisplayName = (key: string): string => {
   const numericId = parseInt(key, 10);
@@ -85,19 +92,32 @@ const getButtonDisplayName = (key: string): string => {
   return `Button ${key}`;
 };
 
-const handleConfirmSave = () => {
-  const selection: SaveSelection = {
-    applyWifiChanges: props.isWifiChanged ? applyWifi.value : false,
-    applyTimezoneChanges: props.isTimezoneChanged ? applyTimezone.value : false,
-    applyApiKeyChanges: props.isApiKeyChanged ? applyApiKey.value : false,
-    buttonsToSave: { ...buttonsSelection.value }, // Send a copy
-  };
-  // Ensure buttonsToSave only contains keys that were initially marked as changed
-  for (const key in selection.buttonsToSave) {
-    if (!props.changedButtonKeys.includes(key)) {
-      delete selection.buttonsToSave[key];
-    }
+const canSave = computed(() => {
+  if (selectWifi.value || selectTimezone.value || selectApiKey.value) return true;
+  if (selectMappingsMaster.value) {
+    // If master mappings is selected, check if any individual button is selected
+    return props.changedButtonKeys.some(key => individualButtonSelections.value[key]);
   }
+  return false;
+});
+
+const handleConfirmSave = () => {
+  const buttonsToSaveOutput: Record<string, boolean> = {};
+  if (selectMappingsMaster.value) {
+    props.changedButtonKeys.forEach(key => {
+      if (individualButtonSelections.value[key]) {
+        buttonsToSaveOutput[key] = true;
+      }
+    });
+  }
+
+  const selection: SaveSelection = {
+    applyWifi: selectWifi.value,
+    applyTimezone: selectTimezone.value,
+    applyApiKey: selectApiKey.value,
+    applyMappings: selectMappingsMaster.value && Object.keys(buttonsToSaveOutput).length > 0,
+    buttonsToSave: buttonsToSaveOutput,
+  };
   emit('confirm-save', selection);
   isOpen.value = false;
 };
@@ -110,41 +130,53 @@ const handleCancel = () => {
 
 <template>
   <Dialog v-model:open="isOpen">
-    <DialogContent class="sm:max-w-md">
+    <DialogContent class="sm:max-w-lg"> <!-- Slightly wider for more content -->
       <DialogHeader>
-        <DialogTitle>Confirm Changes</DialogTitle>
+        <DialogTitle>Confirm Changes to Save</DialogTitle>
         <DialogDescription>
-          Select the changes you want to save to the device.
+          Select which settings and MacroPad button configurations you want to apply to the device.
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="noChangesDetected" class="py-4">
-        <p class="text-muted-foreground">No changes detected to save.</p>
-      </div>
-      <div v-else class="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-        <template v-if="anyDeviceSettingChanged">
-          <h4 class="font-semibold text-sm mb-2">Device Settings:</h4>
-          <div v-if="props.isWifiChanged" class="flex items-center space-x-2">
-            <Checkbox id="wifiChanges" v-model:checked="applyWifi" />
-            <Label for="wifiChanges" class="font-normal">WiFi Configuration</Label>
-          </div>
-          <div v-if="props.isTimezoneChanged" class="flex items-center space-x-2">
-            <Checkbox id="tzChanges" v-model:checked="applyTimezone" />
-            <Label for="tzChanges" class="font-normal">Timezone Offset</Label>
-          </div>
-          <div v-if="props.isApiKeyChanged" class="flex items-center space-x-2">
-            <Checkbox id="apiKeyChanges" v-model:checked="applyApiKey" />
-            <Label for="apiKeyChanges" class="font-normal">API Key</Label>
-          </div>
-        </template>
+      <div class="py-4 space-y-3 max-h-[60vh] overflow-y-auto text-sm">
+        <h4 class="font-semibold mb-1">Device Settings:</h4>
+        <div class="flex items-center space-x-3 pl-2">
+          <Checkbox id="selectWifi" v-model:checked="selectWifi" />
+          <Label for="selectWifi" :class="{'text-muted-foreground': !props.isWifiChanged}">
+            WiFi Configuration <span v-if="props.isWifiChanged" class="text-xs text-blue-500">(changed)</span>
+          </Label>
+        </div>
+        <div class="flex items-center space-x-3 pl-2">
+          <Checkbox id="selectTimezone" v-model:checked="selectTimezone" />
+          <Label for="selectTimezone" :class="{'text-muted-foreground': !props.isTimezoneChanged}">
+            Timezone Offset <span v-if="props.isTimezoneChanged" class="text-xs text-blue-500">(changed)</span>
+          </Label>
+        </div>
+        <div class="flex items-center space-x-3 pl-2">
+          <Checkbox id="selectApiKey" v-model:checked="selectApiKey" />
+          <Label for="selectApiKey" :class="{'text-muted-foreground': !props.isApiKeyChanged}">
+            API Key <span v-if="props.isApiKeyChanged" class="text-xs text-blue-500">(changed)</span>
+          </Label>
+        </div>
 
-        <template v-if="anyButtonChanged">
-          <h4 class="font-semibold text-sm mt-4 mb-2">MacroPad Buttons:</h4>
-          <div v-for="key in props.changedButtonKeys" :key="key" class="flex items-center space-x-2 ml-2">
-            <Checkbox :id="`button-${key}`" v-model:checked="buttonsSelection[key]" />
-            <Label :for="`button-${key}`" class="font-normal">{{ getButtonDisplayName(key) }}</Label>
-          </div>
-        </template>
+        <h4 class="font-semibold pt-3 mb-1">MacroPad Button Configuration:</h4>
+        <div class="flex items-center space-x-3 pl-2">
+          <Checkbox id="selectMappingsMaster" v-model:checked="selectMappingsMaster" />
+          <Label for="selectMappingsMaster" :class="{'text-muted-foreground': props.changedButtonKeys.length === 0}">
+            Apply changes to selected buttons <span v-if="props.changedButtonKeys.length > 0" class="text-xs text-blue-500">({{ props.changedButtonKeys.length }} changed)</span>
+          </Label>
+        </div>
+        
+        <div v-if="selectMappingsMaster && props.changedButtonKeys.length > 0" class="space-y-2 pl-6 border-l-2 ml-3 border-muted">
+            <div v-for="key in props.changedButtonKeys" :key="key" class="flex items-center space-x-3 pt-1">
+              <Checkbox :id="`button-${key}`" v-model:checked="individualButtonSelections[key]" />
+              <Label :for="`button-${key}`" class="font-normal">{{ getButtonDisplayName(key) }}</Label>
+            </div>
+        </div>
+        <div v-else-if="props.changedButtonKeys.length === 0" class="pl-6 text-xs text-muted-foreground">
+            No button changes detected.
+        </div>
+
       </div>
 
       <DialogFooter>
@@ -152,9 +184,9 @@ const handleCancel = () => {
         <Button 
           type="submit" 
           @click="handleConfirmSave" 
-          :disabled="noChangesDetected"
+          :disabled="!canSave"
         >
-          Save Selected
+          Save to Device
         </Button>
       </DialogFooter>
     </DialogContent>

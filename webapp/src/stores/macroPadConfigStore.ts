@@ -130,11 +130,39 @@ export const useMacroPadConfigStore = defineStore('macroPadConfig', {
             console.log('MacroPad config reset to initial loaded state');
         },
 
-        markAsSaved() {
-            this.initialMappings = JSON.parse(JSON.stringify(this.mappings));
-            this.initialButtonNames = JSON.parse(JSON.stringify(this.button_names));
-            this.hasUnsavedChanges = false; // isDirty will be false after this
-            console.log('MacroPad config current state marked as saved (initial state updated)');
+        markAsSaved(savedButtons?: { applyAllButtonChanges?: boolean; buttonKeys?: string[] }) {
+            const currentMappingsCopy = JSON.parse(JSON.stringify(this.mappings));
+            const currentButtonNamesCopy = JSON.parse(JSON.stringify(this.button_names));
+
+            if (savedButtons && savedButtons.applyAllButtonChanges && savedButtons.buttonKeys) {
+                savedButtons.buttonKeys.forEach(buttonKey => {
+                    const numericId = parseInt(buttonKey, 10);
+                    if (!isNaN(numericId)) {
+                        if (currentButtonNamesCopy.hasOwnProperty(numericId)) {
+                            this.initialButtonNames[numericId] = currentButtonNamesCopy[numericId];
+                        } else {
+                            // If current name is empty/undefined, ensure initial is also cleared if it existed
+                            delete this.initialButtonNames[numericId];
+                        }
+                    }
+                    if (currentMappingsCopy.hasOwnProperty(buttonKey)) {
+                        this.initialMappings[buttonKey] = currentMappingsCopy[buttonKey];
+                    } else {
+                        // If current mapping is empty/undefined, ensure initial is also cleared
+                        delete this.initialMappings[buttonKey];
+                    }
+                });
+                console.log('MacroPad config selectively marked as saved for keys:', savedButtons.buttonKeys);
+            } else if (!savedButtons) { // Only if savedButtons is undefined, apply full save
+                this.initialMappings = currentMappingsCopy;
+                this.initialButtonNames = currentButtonNamesCopy;
+                console.log('MacroPad config current state fully marked as saved (initial state updated)');
+            } else {
+                // If savedButtons is provided but applyAllButtonChanges is false, or buttonKeys is missing,
+                // effectively no specific buttons were marked for saving from the MacroPad section.
+                console.log('MacroPad config: no specific button changes were marked as saved.');
+            }
+            // this.hasUnsavedChanges = false; // isDirty will update reactively
         },
     },
 }); 

@@ -82,10 +82,25 @@ export const useDeviceSettingsStore = defineStore('deviceSettings', {
             this.settings = JSON.parse(JSON.stringify(this.initialSettings || defaultDeviceSettings()));
             console.log('Device settings reset to initial loaded state');
         },
-        markAsSaved() {
-            this.initialSettings = JSON.parse(JSON.stringify(this.settings));
-            this.hasUnsavedChanges = false; // isDirty will be false after this
-            console.log('Device settings current state marked as saved (initial state updated)');
+        markAsSaved(savedParts?: { wifi?: boolean; timezone?: boolean; apiKey?: boolean }) {
+            const currentSettingsCopy = JSON.parse(JSON.stringify(this.settings));
+            if (savedParts) {
+                if (savedParts.wifi) {
+                    this.initialSettings.wifi = currentSettingsCopy.wifi;
+                }
+                if (savedParts.timezone) {
+                    this.initialSettings.timezone_offset = currentSettingsCopy.timezone_offset;
+                }
+                if (savedParts.apiKey) {
+                    this.initialSettings.api_key = currentSettingsCopy.api_key;
+                }
+                console.log('Device settings selectively marked as saved:', savedParts);
+            } else {
+                // Fallback to old behavior if no specific parts are provided
+                this.initialSettings = currentSettingsCopy;
+                console.log('Device settings current state fully marked as saved (initial state updated)');
+            }
+            // this.hasUnsavedChanges = false; // isDirty will update reactively
         },
 
         // saveDeviceSettings remains largely the same but its success path calls markAsSaved
@@ -107,11 +122,7 @@ export const useDeviceSettingsStore = defineStore('deviceSettings', {
             try {
                 const success = await deviceStore.saveConfig(fullConfig);
                 if (success) {
-                    this.markAsSaved(); // Update initialSettings to reflect the saved state
-                    // Note: deviceStore.saveConfig internally calls fetchConfig, which calls loadSettings.
-                    // loadSettings ALREADY updates initialSettings. So this call to markAsSaved might be redundant
-                    // if the flow through fetchConfig -> loadSettings is guaranteed.
-                    // However, if saveDeviceSettings could be called without that full loop, this is a safeguard.
+                    this.markAsSaved();
                     console.log('Device settings successfully saved (and marked as saved in deviceSettingsStore)');
                     return true;
                 } else {
