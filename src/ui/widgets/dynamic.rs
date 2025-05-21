@@ -115,16 +115,14 @@ fn fetch_and_process_image(
             });
             let image_info = decoder.info().unwrap();
             log::info!("Image info: {}x{}", image_info.width, image_info.height);
-            let pixels = decoder.decode().unwrap();
-            log::info!(" 5. Free heap before: {}", unsafe {
-                esp_idf_svc::sys::esp_get_minimum_free_heap_size()
-            });
-            let image = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
-                pixels.as_slice(),
+            let mut image = SharedPixelBuffer::<Rgb8Pixel>::new(
                 image_info.width as u32,
                 image_info.height as u32,
             );
-            log::info!("Pixels size: {}", pixels.len());
+            log::info!(" 5. Free heap before: {}", unsafe {
+                esp_idf_svc::sys::esp_get_minimum_free_heap_size()
+            });
+            let _ = decoder.decode_into(image.make_mut_bytes());
             log::info!(" 6. Free heap before: {}", unsafe {
                 esp_idf_svc::sys::esp_get_minimum_free_heap_size()
             });
