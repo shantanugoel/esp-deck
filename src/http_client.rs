@@ -22,7 +22,7 @@ impl HttpClient {
         })
     }
 
-    pub fn get(&mut self, url: &str, headers: Option<&Vec<(String, String)>>) -> Result<String> {
+    pub fn get(&mut self, url: &str, headers: Option<&Vec<(String, String)>>) -> Result<Vec<u8>> {
         let headers_processed = match headers {
             Some(h) => h
                 .iter()
@@ -46,13 +46,13 @@ impl HttpClient {
             }
         }
 
-        Ok(String::from_utf8_lossy(&response_bytes).into_owned())
+        Ok(response_bytes)
     }
 }
 
 pub struct HttpRequest {
     pub url: String,
-    pub response_tx: Sender<Result<String>>,
+    pub response_tx: Sender<Result<Vec<u8>>>,
 }
 
 pub struct HttpClientPool {
@@ -79,6 +79,19 @@ impl HttpClientPool {
     }
 
     pub fn get(&self, url: &str) -> Result<String> {
+        let (tx, rx) = channel();
+        let req = HttpRequest {
+            url: url.to_string(),
+            response_tx: tx,
+        };
+        self.request_tx.send(req).unwrap();
+        match rx.recv() {
+            Ok(result) => Ok(String::from_utf8_lossy(&result.unwrap()).into_owned()),
+            Err(e) => Err(anyhow::Error::from(e)),
+        }
+    }
+
+    pub fn get_bytes(&self, url: &str) -> Result<Vec<u8>> {
         let (tx, rx) = channel();
         let req = HttpRequest {
             url: url.to_string(),

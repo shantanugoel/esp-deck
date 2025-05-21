@@ -76,7 +76,7 @@ impl Window {
             http_pool.clone(),
         );
 
-        super::widgets::dynamic::start_dynamic_service(window.as_weak());
+        super::widgets::dynamic::start_dynamic_service(window.as_weak(), http_pool.clone());
 
         let weather_update_interval = Duration::from_secs(10 * 60);
         start_weather_service(
