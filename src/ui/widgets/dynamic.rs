@@ -23,7 +23,7 @@ struct WidgetItemData {
     kind: Kind,
 }
 
-static WIDGET_ITEMS: [WidgetItemData; 2] = [
+static WIDGET_ITEMS: [WidgetItemData; 3] = [
     WidgetItemData {
         title: "Hello",
         kind: Kind::Text("Hello"),
@@ -32,11 +32,15 @@ static WIDGET_ITEMS: [WidgetItemData; 2] = [
         title: "Hello2",
         kind: Kind::Image("https://shantanugoel.com/img/avatar.jpg"),
     },
+    WidgetItemData {
+        title: "Hello3",
+        kind: Kind::Image("https://shantanugoel.com/img/avatar.jpg"),
+    },
 ];
 
 pub fn start_dynamic_service(window: Weak<MainWindow>, http_pool: Arc<HttpClientPool>) {
     // Wait till wifi is connected
-    std::thread::sleep(std::time::Duration::from_millis(10000));
+    std::thread::sleep(std::time::Duration::from_millis(5000));
     log::info!("Free heap before: {}", unsafe {
         esp_idf_svc::sys::esp_get_minimum_free_heap_size()
     });
@@ -79,8 +83,14 @@ fn fetch_and_process_image(
     pool: &HttpClientPool,
     url: &str,
 ) -> Result<SharedPixelBuffer<Rgb8Pixel>> {
+    log::info!(" 1. Free heap before: {}", unsafe {
+        esp_idf_svc::sys::esp_get_minimum_free_heap_size()
+    });
     match pool.get_bytes(url) {
-        Ok(mut data) => {
+        Ok(data) => {
+            log::info!(" 2. Free heap before: {}", unsafe {
+                esp_idf_svc::sys::esp_get_minimum_free_heap_size()
+            });
             log::info!(
                 "First 10 bytes of fetched image in hex: {:?}\nLast 10 bytes of fetched image in hex: {:?}\n Total length: {}",
                 data.as_slice()[..10]
@@ -95,29 +105,29 @@ fn fetch_and_process_image(
                     .join(" "),
                 data.len()
             );
-            let mut image_info: esp_jpeg_image_output_t = esp_jpeg_image_output_t::default();
-            let mut image_cfg: esp_jpeg_image_cfg_t = esp_jpeg_image_cfg_t::default();
-            image_cfg.indata = data.as_mut_ptr();
-            image_cfg.indata_size = data.len() as u32;
-            image_cfg.out_format = esp_jpeg_image_format_t_JPEG_IMAGE_FORMAT_RGB888;
-            let image_info_result = unsafe {
-                esp_jpeg_get_image_info(&mut image_cfg, &mut image_info);
-            };
-            log::info!(
-                "Image info: {:?}, Result: {:?}",
-                image_info,
-                image_info_result
-            );
-            let mut image = SharedPixelBuffer::<Rgb8Pixel>::new(
+            let mut decoder = zune_jpeg::JpegDecoder::new(data.as_slice());
+            log::info!(" 3. Free heap before: {}", unsafe {
+                esp_idf_svc::sys::esp_get_minimum_free_heap_size()
+            });
+            decoder.decode_headers().unwrap();
+            log::info!(" 4. Free heap before: {}", unsafe {
+                esp_idf_svc::sys::esp_get_minimum_free_heap_size()
+            });
+            let image_info = decoder.info().unwrap();
+            log::info!("Image info: {}x{}", image_info.width, image_info.height);
+            let pixels = decoder.decode().unwrap();
+            log::info!(" 5. Free heap before: {}", unsafe {
+                esp_idf_svc::sys::esp_get_minimum_free_heap_size()
+            });
+            let image = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+                pixels.as_slice(),
                 image_info.width as u32,
                 image_info.height as u32,
             );
-            image_cfg.outbuf = image.make_mut_bytes().as_mut_ptr();
-            image_cfg.outbuf_size = image_info.output_len as u32;
-            let mut image_output_info: esp_jpeg_image_output_t = esp_jpeg_image_output_t::default();
-            unsafe {
-                esp_jpeg_decode(&mut image_cfg, &mut image_output_info);
-            }
+            log::info!("Pixels size: {}", pixels.len());
+            log::info!(" 6. Free heap before: {}", unsafe {
+                esp_idf_svc::sys::esp_get_minimum_free_heap_size()
+            });
             log::info!(
                 "First 10 bytes of image in hex: {:?}",
                 image.as_bytes()[..10]
