@@ -1469,6 +1469,7 @@ dependencies = [
  "embuild",
  "esp-idf-svc",
  "gt911",
+ "image",
  "keycode",
  "log",
  "serde",

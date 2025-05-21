@@ -23,7 +23,7 @@ struct WidgetItemData {
     kind: Kind,
 }
 
-static WIDGET_ITEMS: [WidgetItemData; 3] = [
+static WIDGET_ITEMS: [WidgetItemData; 4] = [
     WidgetItemData {
         title: "Hello",
         kind: Kind::Text("Hello"),
@@ -34,7 +34,11 @@ static WIDGET_ITEMS: [WidgetItemData; 3] = [
     },
     WidgetItemData {
         title: "Hello3",
-        kind: Kind::Image("https://shantanugoel.com/img/avatar.jpg"),
+        kind: Kind::Image("https://www.gstatic.com/webp/gallery/1.webp"),
+    },
+    WidgetItemData {
+        title: "Hello4",
+        kind: Kind::Image("https://www.gstatic.com/webp/gallery/2.png"),
     },
 ];
 
@@ -80,6 +84,34 @@ pub fn start_dynamic_service(window: Weak<MainWindow>, http_pool: Arc<HttpClient
 }
 
 fn fetch_and_process_image(
+    pool: &HttpClientPool,
+    url: &str,
+) -> Result<SharedPixelBuffer<Rgb8Pixel>> {
+    // match ImageReader::new(Cursor::new(pool.get_bytes(url)?))
+    //     .with_guessed_format()
+    //     .map_err(|e| anyhow::anyhow!("Failed to guess image format: {}", e))?
+    //     .decode()
+    match image::load_from_memory(pool.get_bytes(url)?.as_slice()) {
+        Ok(image) => {
+            // If image is larger than 100x100, resize it to 100x100
+            let image = if image.width() > 100 || image.height() > 100 {
+                image.resize(100, 100, image::imageops::FilterType::Nearest)
+            } else {
+                image
+            };
+            log::info!("Image size: {}x{}", image.width(), image.height());
+            let shared_image = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+                image.to_rgb8().into_raw().as_slice(),
+                image.width(),
+                image.height(),
+            );
+            Ok(shared_image)
+        }
+        Err(e) => Err(anyhow::anyhow!("Failed to decode image: {}", e)),
+    }
+}
+
+fn fetch_and_process_image2(
     pool: &HttpClientPool,
     url: &str,
 ) -> Result<SharedPixelBuffer<Rgb8Pixel>> {

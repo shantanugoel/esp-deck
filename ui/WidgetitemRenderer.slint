@@ -31,6 +31,11 @@ export component WidgetItemRenderer inherits Rectangle {
         if root.kind == WidgetKind.image:
             Image {
             source: value_image;
+            width: 100px;
+            height: 100px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            image-fit: (value_image.width > 100 || value_image.height > 100) ? contain : preserve;
         }
     }
 }
