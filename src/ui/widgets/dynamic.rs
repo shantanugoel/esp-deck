@@ -43,19 +43,20 @@ pub fn start_widget_service(
             }
             model.push(widget_item);
             let timer = Timer::default();
-            let timer_mode = match widget.update_interval_seconds {
-                0 => TimerMode::SingleShot,
-                _ => TimerMode::Repeated,
+            let (timer_mode, update_interval) = match widget.update_interval_seconds {
+                0 => (TimerMode::SingleShot, 5),
+                _ => (TimerMode::Repeated, widget.update_interval_seconds),
             };
             let window_clone = window.clone();
             let http_pool_clone = http_pool.clone();
             timer.start(
                 timer_mode,
-                Duration::from_secs(widget.update_interval_seconds),
+                Duration::from_secs(update_interval),
                 move || {
                     display_widget(&window_clone, &widget, &http_pool_clone);
                 },
             );
+            Box::leak(Box::new(timer));
         }
         window
             .upgrade()
@@ -71,7 +72,22 @@ fn display_widget(
     widget: &WidgetItemConfig,
     http_pool: &HttpClientPool,
 ) {
+    log::info!("Displaying widget: {}", widget.title);
     let window = window.upgrade().unwrap();
+    let model = window.get_dashboard_items();
+    let mut widget_item = model.row_data(0).unwrap();
+    match widget.kind.clone() {
+        WidgetKindConfig::Text(value) => {
+            widget_item.value.value_string = SharedString::from(value);
+        }
+        WidgetKindConfig::Image(value) => {
+            let image = fetch_and_process_image(&http_pool, &value);
+            if let Ok(image) = image {
+                widget_item.value.value_image = Image::from_rgb8(image);
+            }
+        }
+    }
+    model.set_row_data(0, widget_item);
 }
 
 // pub fn start_dynamic_service2(window: Weak<MainWindow>, http_pool: Arc<HttpClientPool>) {

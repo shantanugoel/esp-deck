@@ -115,7 +115,7 @@ impl Configurator {
             WidgetItemConfig {
                 title: "Widget 1".to_string(),
                 kind: WidgetKindConfig::Text("bcd".to_string()),
-                update_interval_seconds: 3600,
+                update_interval_seconds: 5,
             },
         );
         default_widgets.insert(
@@ -123,7 +123,7 @@ impl Configurator {
             WidgetItemConfig {
                 title: "Widget 2".to_string(),
                 kind: WidgetKindConfig::Text("def".to_string()),
-                update_interval_seconds: 3600,
+                update_interval_seconds: 10,
             },
         );
         let default_config = DeviceConfig {
