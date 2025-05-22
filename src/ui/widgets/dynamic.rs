@@ -23,7 +23,7 @@ struct WidgetItemData {
     kind: Kind,
 }
 
-static WIDGET_ITEMS: [WidgetItemData; 4] = [
+static WIDGET_ITEMS: [WidgetItemData; 5] = [
     WidgetItemData {
         title: "Hello",
         kind: Kind::Text("Hello"),
@@ -39,6 +39,12 @@ static WIDGET_ITEMS: [WidgetItemData; 4] = [
     WidgetItemData {
         title: "Hello4",
         kind: Kind::Image("https://www.gstatic.com/webp/gallery/2.png"),
+    },
+    WidgetItemData {
+        title: "Small Image",
+        kind: Kind::Image(
+            "https://upload.wikimedia.org/wikipedia/commons/f/f1/Ruby_logo_64x64.png",
+        ),
     },
 ];
 
