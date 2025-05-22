@@ -93,7 +93,7 @@ fn fetch_and_process_text(pool: &HttpClientPool, url: &str) -> Result<SharedStri
     let text = pool.get(url)?;
 
     //TODO: Process text
-    Ok(SharedString::from(text))
+    Ok(SharedString::from(text[0..10].to_string()))
 }
 
 fn fetch_and_process_image(
