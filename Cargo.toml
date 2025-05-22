@@ -48,6 +48,3 @@ remote_component = { name = "espressif/tinyusb", version = "^0.18.0~2" }
 remote_component = { name = "espressif/esp_tinyusb", version = "^1.7.4" }
 [[package.metadata.esp-idf-sys.extra_components]]
 remote_component = { name = "joltwallet/littlefs", version = "^1.19.2" }
-[[package.metadata.esp-idf-sys.extra_components]]
-bindings_header = "esp_jpeg_bindings.h"
-remote_component = { name = "espressif/esp_jpeg", version = "^1.3.0" }

@@ -114,7 +114,10 @@ impl Configurator {
             0,
             WidgetItemConfig {
                 title: "Widget 1".to_string(),
-                kind: WidgetKindConfig::Text("bcd".to_string()),
+                kind: WidgetKindConfig::Text(
+                    "https://status.shantanugoel.com/api/v1/endpoints/internet_act-status/statuses"
+                        .to_string(),
+                ),
                 update_interval_seconds: 5,
             },
         );
@@ -122,8 +125,10 @@ impl Configurator {
             1,
             WidgetItemConfig {
                 title: "Widget 2".to_string(),
-                kind: WidgetKindConfig::Text("def".to_string()),
-                update_interval_seconds: 10,
+                kind: WidgetKindConfig::Image(
+                    "https://www.gstatic.com/webp/gallery/2.jpg".to_string(),
+                ),
+                update_interval_seconds: 60,
             },
         );
         let default_config = DeviceConfig {

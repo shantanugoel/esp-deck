@@ -86,7 +86,10 @@ impl HttpClientPool {
         };
         self.request_tx.send(req).unwrap();
         match rx.recv() {
-            Ok(result) => Ok(String::from_utf8_lossy(&result.unwrap()).into_owned()),
+            Ok(result) => match result {
+                Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
+                Err(e) => Err(anyhow::Error::from(e)),
+            },
             Err(e) => Err(anyhow::Error::from(e)),
         }
     }
@@ -98,7 +101,13 @@ impl HttpClientPool {
             response_tx: tx,
         };
         self.request_tx.send(req).unwrap();
-        rx.recv().unwrap()
+        match rx.recv() {
+            Ok(result) => match result {
+                Ok(bytes) => Ok(bytes),
+                Err(e) => Err(anyhow::Error::from(e)),
+            },
+            Err(e) => Err(anyhow::Error::from(e)),
+        }
     }
 
     // Optionally, add async or callback-based API here

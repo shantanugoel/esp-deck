@@ -70,7 +70,12 @@ fn display_widget(
     let mut widget_item = model.row_data(0).unwrap();
     match widget.kind.clone() {
         WidgetKindConfig::Text(value) => {
-            widget_item.value.value_string = SharedString::from(value);
+            let text = fetch_and_process_text(&http_pool, &value);
+            if let Ok(text) = text {
+                widget_item.value.value_string = text;
+            } else {
+                log::error!("Failed to fetch text: {}", text.err().unwrap());
+            }
         }
         WidgetKindConfig::Image(value) => {
             let image = fetch_and_process_image(&http_pool, &value);
@@ -82,6 +87,13 @@ fn display_widget(
         }
     }
     model.set_row_data(0, widget_item);
+}
+
+fn fetch_and_process_text(pool: &HttpClientPool, url: &str) -> Result<SharedString> {
+    let text = pool.get(url)?;
+
+    //TODO: Process text
+    Ok(SharedString::from(text))
 }
 
 fn fetch_and_process_image(
