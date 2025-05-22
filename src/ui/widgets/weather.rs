@@ -81,8 +81,8 @@ pub fn start_weather_service(
 
         slint::invoke_from_event_loop(move || {
             if let Some(window) = window_clone.upgrade() {
-                // window.set_weather_icon(icon);
-                // window.set_weather_temp(temp);
+                window.set_weather_icon(icon);
+                window.set_weather_temp(temp);
             } else {
                 log::warn!("Weather: Slint window was dropped before status could be updated.");
             }

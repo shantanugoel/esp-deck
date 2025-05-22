@@ -13,11 +13,11 @@ use std::{
 
 use crate::{
     bsp::slint_platform,
+    config::WidgetItemConfig,
     events::{AppEvent, TimeStatus, UsbStatus, WifiStatus},
     http_client::HttpClientPool,
 };
 
-use super::widgets::gatus::start_gatus_service;
 use super::widgets::weather::start_weather_service;
 
 slint::include_modules!();
@@ -31,6 +31,7 @@ impl Window {
         tz_offset: f32,
         button_names: Option<HashMap<usize, String>>,
         http_pool: Arc<HttpClientPool>,
+        widgets: Option<HashMap<usize, WidgetItemConfig>>,
     ) -> Result<()> {
         slint_platform::init(touch_i2c);
         let window = MainWindow::new()
@@ -64,19 +65,7 @@ impl Window {
             let _ = button_actor_tx.send(AppEvent::ButtonPressed(button_id));
         });
 
-        let gatus_url_arc = Arc::new(
-            "https://status.shantanugoel.com/api/v1/endpoints/internet_act-status/statuses"
-                .to_string(),
-        );
-        let gatus_update_interval = Duration::from_secs(30);
-        start_gatus_service(
-            window.as_weak(),
-            gatus_url_arc,
-            gatus_update_interval,
-            http_pool.clone(),
-        );
-
-        super::widgets::dynamic::start_dynamic_service(window.as_weak(), http_pool.clone());
+        super::widgets::dynamic::start_widget_service(window.as_weak(), http_pool.clone(), widgets);
 
         let weather_update_interval = Duration::from_secs(10 * 60);
         start_weather_service(

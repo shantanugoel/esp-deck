@@ -24,12 +24,26 @@ pub struct DeviceSettings {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum WidgetKindConfig {
+    Text(String),
+    Image(String),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WidgetItemConfig {
+    pub title: String,
+    pub kind: WidgetKindConfig,
+    pub update_interval_seconds: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DeviceConfig {
     pub settings: DeviceSettings,
     pub mappings: MappingConfiguration,
     // Custom deserializer because JS sends strings for the keys
     #[serde(default, deserialize_with = "deserialize_usize_key_map")]
     pub button_names: Option<HashMap<usize, String>>,
+    pub widgets: Option<HashMap<usize, WidgetItemConfig>>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +61,7 @@ pub struct ConfigUpdatedFor {
     pub mappings: bool,
     pub button_names: bool,
     pub api_key: bool,
+    pub widgets: bool,
 }
 
 // Helper function to create a default configuration object
@@ -93,10 +108,29 @@ impl Configurator {
         {
             button_names.insert(i, name.to_string());
         }
+        // TODO: Remove this once we have a real default widget
+        let mut default_widgets = HashMap::new();
+        default_widgets.insert(
+            0,
+            WidgetItemConfig {
+                title: "Widget 1".to_string(),
+                kind: WidgetKindConfig::Text("bcd".to_string()),
+                update_interval_seconds: 3600,
+            },
+        );
+        default_widgets.insert(
+            1,
+            WidgetItemConfig {
+                title: "Widget 2".to_string(),
+                kind: WidgetKindConfig::Text("def".to_string()),
+                update_interval_seconds: 3600,
+            },
+        );
         let default_config = DeviceConfig {
             settings: DeviceSettings::default(),
             mappings: crate::mapper::Mapper::load_default_config(),
             button_names: Some(button_names),
+            widgets: Some(default_widgets),
         };
         log::info!("Creating default configuration file at {}", config_path);
 
@@ -215,6 +249,13 @@ impl Configurator {
             }
             config_updated_for.button_names = true;
         }
+        if let Some(new_widgets) = &new_config.widgets {
+            let old_widgets = old_config.widgets.get_or_insert_with(HashMap::new);
+            for (key, value) in new_widgets {
+                old_widgets.insert(key.clone(), value.clone());
+            }
+            config_updated_for.widgets = true;
+        }
     }
 
     pub fn reset_config(&self) -> Result<()> {
@@ -271,6 +312,11 @@ impl Configurator {
     pub fn get_api_key(&self) -> Option<String> {
         let config = self.config_data.lock().ok()?;
         config.settings.api_key.clone()
+    }
+
+    pub fn get_widgets(&self) -> Option<HashMap<usize, WidgetItemConfig>> {
+        let config = self.config_data.lock().ok()?;
+        config.widgets.clone()
     }
 }
 

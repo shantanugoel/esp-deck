@@ -56,7 +56,7 @@ pub fn start_gatus_service(
 
         slint::invoke_from_event_loop(move || {
             if let Some(window) = window_clone.upgrade() {
-                // window.set_gatus(SharedString::from(display_string));
+                window.set_gatus(SharedString::from(display_string));
             } else {
                 log::warn!("Gatus: Slint window was dropped before status could be updated.");
             }

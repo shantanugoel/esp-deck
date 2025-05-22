@@ -220,10 +220,10 @@ fn main() -> anyhow::Result<()> {
         log::error!("Failed to set thread spawn configuration: {}", e);
     }
 
-    // Get the TZ offset here because we move the config into the ProtocolManager past this point
+    // Get the TZ offset, widgets config, button names here because we move the config into
+    // the ProtocolManager past this point
     let tz_offset = config.get_timezone_offset().unwrap_or(TZ_OFFSET);
-
-    // Get the button names here because we move the config into the ProtocolManager past this point
+    let widgets = config.get_widgets();
     let button_names = config.get_button_names();
 
     // Note: api_key for http server is already fetched and cloned above (http_server_api_key)
@@ -247,6 +247,7 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
+    // TODO: Get a signal from wifi to http pool to start serving requests
     let http_pool = Arc::new(HttpClientPool::new());
     let _ = Window::init(
         touch_i2c,
@@ -255,6 +256,7 @@ fn main() -> anyhow::Result<()> {
         tz_offset,
         button_names,
         http_pool,
+        widgets,
     );
 
     for thread in threads {
