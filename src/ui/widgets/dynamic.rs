@@ -7,8 +7,8 @@ use crate::{
 };
 use anyhow::Result;
 use slint::{
-    Image, Model, ModelRc, Rgb8Pixel, SharedPixelBuffer, SharedString, Timer, TimerMode, VecModel,
-    Weak,
+    Image, Model, ModelExt, ModelRc, Rgb8Pixel, SharedPixelBuffer, SharedString, Timer, TimerMode,
+    VecModel, Weak,
 };
 
 pub fn start_widget_service(
@@ -18,9 +18,10 @@ pub fn start_widget_service(
 ) {
     if let Some(widgets) = widgets {
         let model = Rc::new(VecModel::<WidgetItem>::from(Vec::new()));
-        for (_, widget) in widgets {
+        for (id, widget) in widgets {
             let mut widget_item = WidgetItem::default();
             widget_item.title = SharedString::from(widget.title.clone());
+            widget_item.id = id as i32;
             match widget.kind {
                 WidgetKindConfig::Text(_) => {
                     widget_item.value.kind = WidgetKind::Text;
@@ -41,7 +42,7 @@ pub fn start_widget_service(
                 timer_mode,
                 Duration::from_secs(update_interval),
                 move || {
-                    display_widget(&window_clone, &widget, &http_pool_clone);
+                    display_widget(&window_clone, id as i32, &widget, &http_pool_clone);
                 },
             );
             Box::leak(Box::new(timer));
@@ -57,12 +58,15 @@ pub fn start_widget_service(
 
 fn display_widget(
     window: &Weak<MainWindow>,
+    id: i32,
     widget: &WidgetItemConfig,
     http_pool: &HttpClientPool,
 ) {
     log::info!("Displaying widget: {}", widget.title);
     let window = window.upgrade().unwrap();
-    let model = window.get_dashboard_items();
+    let model = window
+        .get_dashboard_items()
+        .filter(move |item| item.id == id);
     let mut widget_item = model.row_data(0).unwrap();
     match widget.kind.clone() {
         WidgetKindConfig::Text(value) => {

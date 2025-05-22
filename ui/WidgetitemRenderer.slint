@@ -4,6 +4,7 @@ export enum WidgetKind {
 }
 
 export component WidgetItemRenderer inherits Rectangle {
+    in property <int> id;
     in property <color> bgcolor;
     in property <string> value_string;
     in property <image> value_image;
