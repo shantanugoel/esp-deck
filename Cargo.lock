@@ -1477,7 +1477,6 @@ dependencies = [
  "slint",
  "slint-build",
  "thiserror 2.0.12",
- "zune-jpeg",
 ]
 
 [[package]]

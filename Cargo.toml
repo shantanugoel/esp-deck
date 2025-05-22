@@ -34,7 +34,6 @@ keycode = "1"
 serde = "1"
 serde_json = "1"
 thiserror = "2"
-zune-jpeg = {version = " 0.4", default-features = false, features = []}
 image = {version = "0.25", default-features = false, features = ["jpeg", "png", "webp"]}
 
 [build-dependencies]
