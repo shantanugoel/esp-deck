@@ -100,10 +100,7 @@ fn fetch_and_process_text(
 
     let processed_text = if let Some(path) = path {
         let json = serde_json::from_str::<serde_json::Value>(&text)?;
-        log::info!("JSON: {}", json);
-        log::info!("Path: {}", path);
         if let Some(value) = json.pointer(path) {
-            log::info!("Value: {}", value);
             value.to_string()
         } else {
             log::info!("No value found at path: {}", path);
