@@ -36,7 +36,7 @@ pub struct WidgetItemConfig {
     pub update_interval_seconds: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)] // Note: PartialEq removed as Option<WidgetItemConfig> makes it harder if not needed for direct comparison of DeviceConfig
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DeviceConfig {
     pub settings: DeviceSettings,
     pub mappings: MappingConfiguration,
@@ -324,8 +324,7 @@ impl Configurator {
                     // Value is None from incoming, signifies deletion. We remove the key.
                     // Or, if we want to represent deletion with Some(None) in target_map temporarily before save,
                     // we could do target_map.insert(*key, None); but removing is cleaner if the final saved state doesn't have nulls.
-                    // Let's stick to inserting None to explicitly mark it, and filter on save.
-                    target_map.insert(*key, None);
+                    target_map.remove(key);
                 }
             }
             // If after operations the map contains only None values or is empty, we might set old_config.widgets to None.
