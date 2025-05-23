@@ -11,7 +11,7 @@ use esp_deck::{
     ui::window::Window,
     usb_hid_client::UsbHidClient,
 };
-// use esp_idf_svc::hal::gpio::{PinDriver, Pull};
+use esp_idf_svc::hal::gpio::{PinDriver, Pull};
 use esp_idf_svc::sys::{self as idf_sys, esp_vfs_littlefs_conf_t};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
@@ -248,15 +248,32 @@ fn main() -> anyhow::Result<()> {
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
 
-    // let mut button_pin = PinDriver::input(peripherals.pins.gpio6)?;
-    // let _ = button_pin.set_pull(Pull::Up);
-    // thread::spawn(move || loop {
-    //     log::info!("Button state: {}", button_pin.is_high());
-    //     thread::sleep(std::time::Duration::from_millis(1000));
-    //     if !button_pin.is_high() {
-    //         let _ = ui_updates_tx.send(AppEvent::HttpServerUpdate("Button pressed".to_string()));
-    //     }
-    // });
+    // Should move this to an ISR maybe?
+    let mut button_pin = PinDriver::input(peripherals.pins.gpio6)?;
+    let _ = button_pin.set_pull(Pull::Up);
+    let mut toggle_busy = false;
+    thread::spawn(move || loop {
+        log::info!("Button state: {}", button_pin.is_high());
+        thread::sleep(std::time::Duration::from_millis(200));
+        if !button_pin.is_high() {
+            let user_status_update = if toggle_busy {
+                toggle_busy = false;
+                http_handlers::UserStatus {
+                    text: "".to_string(),
+                    bgcolor: Some([0, 0, 0]),
+                }
+            } else {
+                toggle_busy = true;
+                http_handlers::UserStatus {
+                    text: "BUSY!\nHERE BE DRAGONS!".to_string(),
+                    bgcolor: Some([255, 0, 0]),
+                }
+            };
+            let _ = ui_updates_tx.send(AppEvent::UserStatusUpdate(user_status_update));
+            // Hackiest debounce ever, lol
+            std::thread::sleep(std::time::Duration::from_millis(2000));
+        }
+    });
 
     // TODO: Get a signal from wifi to http pool to start serving requests
     let http_pool = Arc::new(HttpClientPool::new());
