@@ -40,6 +40,23 @@ pub fn start_widget_service(
             };
             let window_clone = window.clone();
             let http_pool_clone = http_pool.clone();
+
+            // If the update interval is too long, let's do a first display soon
+            if update_interval > 30 {
+                let window_clone_2 = window_clone.clone();
+                let widget_clone = widget.clone();
+                let http_pool_clone_2 = http_pool_clone.clone();
+                let timer_first_tick = Timer::default();
+                timer_first_tick.start(TimerMode::SingleShot, Duration::from_secs(10), move || {
+                    display_widget(
+                        &window_clone_2,
+                        id as i32,
+                        &widget_clone,
+                        &http_pool_clone_2,
+                    );
+                });
+            }
+
             timer.start(
                 timer_mode,
                 Duration::from_secs(update_interval),
@@ -110,8 +127,8 @@ fn fetch_and_process_text(
         text
     };
 
-    let final_text = if processed_text.len() > 10 {
-        processed_text[0..10].to_string()
+    let final_text = if processed_text.len() > 100 {
+        processed_text[0..100].to_string()
     } else {
         processed_text
     };
