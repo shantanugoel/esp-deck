@@ -25,7 +25,7 @@ pub fn start_widget_service(
                 ..Default::default()
             };
             match widget.kind {
-                WidgetKindConfig::Text(_) => {
+                WidgetKindConfig::Text(_, _) => {
                     widget_item.value.kind = WidgetKind::Text;
                 }
                 WidgetKindConfig::Image(_) => {
@@ -71,8 +71,8 @@ fn display_widget(
         .filter(move |item| item.id == id);
     let mut widget_item = model.row_data(0).unwrap();
     match widget.kind.clone() {
-        WidgetKindConfig::Text(value) => {
-            let text = fetch_and_process_text(http_pool, &value);
+        WidgetKindConfig::Text(url, path) => {
+            let text = fetch_and_process_text(http_pool, &url, &path);
             if let Ok(text) = text {
                 widget_item.value.value_string = text;
             } else {
@@ -91,11 +91,35 @@ fn display_widget(
     model.set_row_data(0, widget_item);
 }
 
-fn fetch_and_process_text(pool: &HttpClientPool, url: &str) -> Result<SharedString> {
+fn fetch_and_process_text(
+    pool: &HttpClientPool,
+    url: &str,
+    path: &Option<String>,
+) -> Result<SharedString> {
     let text = pool.get(url)?;
 
-    //TODO: Process text
-    Ok(SharedString::from(text[0..10].to_string()))
+    let processed_text = if let Some(path) = path {
+        let json = serde_json::from_str::<serde_json::Value>(&text)?;
+        log::info!("JSON: {}", json);
+        log::info!("Path: {}", path);
+        if let Some(value) = json.pointer(path) {
+            log::info!("Value: {}", value);
+            value.to_string()
+        } else {
+            log::info!("No value found at path: {}", path);
+            text
+        }
+    } else {
+        text
+    };
+
+    let final_text = if processed_text.len() > 10 {
+        processed_text[0..10].to_string()
+    } else {
+        processed_text
+    };
+
+    Ok(SharedString::from(final_text))
 }
 
 fn fetch_and_process_image(

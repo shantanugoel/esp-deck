@@ -25,7 +25,7 @@ pub struct DeviceSettings {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum WidgetKindConfig {
-    Text(String),
+    Text(String, Option<String>),
     Image(String),
 }
 
@@ -117,6 +117,7 @@ impl Configurator {
                 kind: WidgetKindConfig::Text(
                     "https://status.shantanugoel.com/api/v1/endpoints/internet_act-status/statuses"
                         .to_string(),
+                    Some("/results/0/duration".to_string()),
                 ),
                 update_interval_seconds: 5,
             },
