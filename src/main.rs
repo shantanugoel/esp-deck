@@ -11,6 +11,7 @@ use esp_deck::{
     ui::window::Window,
     usb_hid_client::UsbHidClient,
 };
+// use esp_idf_svc::hal::gpio::{PinDriver, Pull};
 use esp_idf_svc::sys::{self as idf_sys, esp_vfs_littlefs_conf_t};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
@@ -246,6 +247,16 @@ fn main() -> anyhow::Result<()> {
         peripherals.pins.gpio9,
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
+
+    // let mut button_pin = PinDriver::input(peripherals.pins.gpio6)?;
+    // let _ = button_pin.set_pull(Pull::Up);
+    // thread::spawn(move || loop {
+    //     log::info!("Button state: {}", button_pin.is_high());
+    //     thread::sleep(std::time::Duration::from_millis(1000));
+    //     if !button_pin.is_high() {
+    //         let _ = ui_updates_tx.send(AppEvent::HttpServerUpdate("Button pressed".to_string()));
+    //     }
+    // });
 
     // TODO: Get a signal from wifi to http pool to start serving requests
     let http_pool = Arc::new(HttpClientPool::new());
