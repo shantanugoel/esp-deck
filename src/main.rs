@@ -11,8 +11,8 @@ use esp_deck::{
     ui::window::Window,
     usb_hid_client::UsbHidClient,
 };
-use esp_idf_svc::hal::gpio::{PinDriver, Pull};
-use esp_idf_svc::sys::{self as idf_sys, esp_vfs_littlefs_conf_t};
+use esp_idf_svc::hal::gpio::{Pin, PinDriver, Pull};
+use esp_idf_svc::sys::{self as idf_sys, esp_vfs_littlefs_conf_t, gpio_set_level};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     hal::{
@@ -241,12 +241,24 @@ fn main() -> anyhow::Result<()> {
         protocol_manager.run();
     })?);
 
-    let touch_i2c = esp_idf_svc::hal::i2c::I2cDriver::new(
+    let mut touch_i2c = esp_idf_svc::hal::i2c::I2cDriver::new(
         peripherals.i2c0,
         peripherals.pins.gpio8,
         peripherals.pins.gpio9,
         &esp_idf_svc::hal::i2c::config::Config::new().baudrate(400_000.Hz()),
     )?;
+
+    // Reset touch screen before using it
+    // DO NOT REMOVE THIS.
+    let _ = touch_i2c.write(0x24, &[0x1], 1000);
+    let _ = touch_i2c.write(0x38, &[0x2C], 1000);
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    unsafe {
+        gpio_set_level(peripherals.pins.gpio4.pin(), 0);
+    }
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let _ = touch_i2c.write(0x38, &[0x2E], 1000);
+    std::thread::sleep(std::time::Duration::from_millis(200));
 
     // Should move this to an ISR maybe?
     let mut button_pin = PinDriver::input(peripherals.pins.gpio6)?;
