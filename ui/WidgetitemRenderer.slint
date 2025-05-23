@@ -20,6 +20,7 @@ export component WidgetItemRenderer inherits Rectangle {
             horizontal-alignment: center;
             stroke: burlywood;
             padding-top: 10px;
+            wrap: word-wrap;
         }
 
         if root.kind == WidgetKind.text:    
@@ -28,6 +29,7 @@ export component WidgetItemRenderer inherits Rectangle {
             vertical-alignment: center;
             horizontal-alignment: center;
             vertical-stretch: 1;
+            wrap: word-wrap;
         }
         if root.kind == WidgetKind.image:
         VerticalLayout {
