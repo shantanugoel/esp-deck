@@ -6,6 +6,7 @@ import {Palette, StyleMetrics} from "std-widgets.slint";
 import { Dashboard, WidgetItem } from "Dashboard.slint";
 import { NowView } from "NowView.slint";
 
+
 export component MainWindow inherits Window {
     // --- Theme Colors ---
     property <color> color-background: Palette.background;
@@ -32,6 +33,12 @@ export component MainWindow inherits Window {
 
     // Properties for Dashboard
     in-out property <[WidgetItem]> dashboard_items;
+    in property <string> server_widget_1_title: "Device Status";
+    in property <string> server_widget_1_value: "Waiting for data...";
+    in property <string> server_widget_2_title: "Server Widget";
+    in property <string> server_widget_2_value: "Waiting for data...";
+    in property <string> server_widget_3_title: "Server Widget";
+    in property <string> server_widget_3_value: "Waiting for data...";
 
     // Properties for NowView weather and status
     in-out property <string> weather_icon: "❓";
@@ -41,13 +48,13 @@ export component MainWindow inherits Window {
     in-out property <color> user_status_bgcolor: #000000;
 
     // Dummy invisible text to force-include all weather emojis
-    Text {
+    test := Text {
         visible: false;
         text: "☀️ 🌙 ⛅ 🌫️ 🌦️ 🌧️ ❄️ ⛈️ ❓";
         font-size: 20px;
     }
 
-    VerticalLayout {
+    layout := VerticalLayout {
         padding: 15px;
         spacing: 10px;
         if !root.show-list-view: TabWidget {
@@ -79,6 +86,12 @@ export component MainWindow inherits Window {
                 Dashboard {
                     color-button: root.color-button;
                     items: root.dashboard_items;
+                    server_widget_1_title: root.server_widget_1_title;
+                    server_widget_1_value: root.server_widget_1_value;
+                    server_widget_2_title: root.server_widget_2_title;
+                    server_widget_2_value: root.server_widget_2_value;
+                    server_widget_3_title: root.server_widget_3_title;
+                    server_widget_3_value: root.server_widget_3_value;
                 }
             }
 

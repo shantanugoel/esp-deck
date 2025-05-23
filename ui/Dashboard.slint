@@ -1,5 +1,5 @@
 import { WidgetKind, WidgetItemRenderer } from "WidgetItemRenderer.slint";
-import { ScrollView, HorizontalBox } from "std-widgets.slint";
+import { ScrollView, HorizontalBox, VerticalBox } from "std-widgets.slint";
 export struct WidgetItemValue {
     kind: WidgetKind,
     value-string: string,
@@ -15,21 +15,102 @@ export struct WidgetItem {
 export component Dashboard inherits Rectangle {
     in property <color> color-button;
     in property <[WidgetItem]> items;
-    ScrollView {
-        horizontal-scrollbar-policy: always-on;
-        vertical-scrollbar-policy: always-off;
+    in property <string> server_widget_1_title;
+    in property <string> server_widget_1_value;
+    in property <string> server_widget_2_title;
+    in property <string> server_widget_2_value;
+    in property <string> server_widget_3_title;
+    in property <string> server_widget_3_value;
+    VerticalLayout {
+        spacing: 10px;
         padding: 10px;
-        height: 170px;
-        Flickable {
-            HorizontalLayout {
-                spacing: 10px;
-                alignment: center;
-                for item in items: WidgetItemRenderer {
-                    title: item.title;
-                    value_string: item.value.value_string;
-                    value_image: item.value.value_image;
-                    kind: item.value.kind;
-                    bgcolor: color-button;
+        vertical-stretch: 1;
+        ScrollView {
+            horizontal-scrollbar-policy: always-on;
+            vertical-scrollbar-policy: always-off;
+            padding: 10px;
+            height: 170px;
+            Flickable {
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: center;
+                    for item in items: WidgetItemRenderer {
+                        title: item.title;
+                        value_string: item.value.value_string;
+                        value_image: item.value.value_image;
+                        kind: item.value.kind;
+                        bgcolor: color-button;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 10px;
+            vertical-stretch: 1;
+            horizontal-stretch: 1;
+            Rectangle {
+                background: color-button;
+                VerticalLayout {
+                    Text {
+                        text: server_widget_1_title;
+                        font-size: 16px;
+                        vertical-alignment: top;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: server_widget_1_value;
+                        font-size: 16px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                        vertical-stretch: 1;
+                    }
+                }
+            }
+
+            Rectangle {
+                background: color-button;
+                VerticalLayout {
+                    Text {
+                        text: server_widget_2_title;
+                        font-size: 16px;
+                        vertical-alignment: top;
+                        horizontal-alignment: center;
+                        height: 20px;
+                    }
+
+                    Text {
+                        text: server_widget_2_value;
+                        font-size: 16px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                        vertical-stretch: 1;
+                    }
+                }
+            }
+
+            Rectangle {
+                background: color-button;
+                VerticalLayout {
+                    Text {
+                        text: server_widget_3_title;
+                        font-size: 16px;
+                        vertical-alignment: top;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                    }
+
+                    Text {
+                        text: server_widget_3_value;
+                        font-size: 16px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                        vertical-stretch: 1;
+                    }
                 }
             }
         }
