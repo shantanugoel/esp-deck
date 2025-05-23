@@ -22,6 +22,7 @@ export type SaveSelection = {
   // buttonsToSave will only be populated if applyMappings is true
   // and will contain { [buttonKey]: true } for selected changed buttons
   buttonsToSave: Record<string, boolean>; 
+  applyWidgets: boolean; // Added for widgets
 };
 
 const props = defineProps({
@@ -29,6 +30,7 @@ const props = defineProps({
   isWifiChanged: { type: Boolean, default: false },
   isTimezoneChanged: { type: Boolean, default: false },
   isApiKeyChanged: { type: Boolean, default: false },
+  isWidgetsChanged: { type: Boolean, default: false }, // Added for widgets
   changedButtonKeys: { type: Array as PropType<string[]>, default: () => [] },
 });
 
@@ -40,6 +42,7 @@ const macroPadStore = useMacroPadConfigStore();
 const selectWifi = ref(false);
 const selectTimezone = ref(false);
 const selectApiKey = ref(false);
+const selectWidgets = ref(false); // Added for widgets
 const selectMappingsMaster = ref(false); // Master checkbox for all mappings
 const individualButtonSelections = ref<Record<string, boolean>>({});
 
@@ -48,6 +51,7 @@ const initializeSelections = () => {
   selectWifi.value = props.isWifiChanged;
   selectTimezone.value = props.isTimezoneChanged;
   selectApiKey.value = props.isApiKeyChanged;
+  selectWidgets.value = props.isWidgetsChanged; // Added for widgets
   
   // If any button has changed, default the master mappings switch to true
   selectMappingsMaster.value = props.changedButtonKeys.length > 0;
@@ -71,6 +75,7 @@ watch(() => [
   props.isWifiChanged,
   props.isTimezoneChanged,
   props.isApiKeyChanged,
+  props.isWidgetsChanged, // Added for widgets
   props.changedButtonKeys
 ], () => {
   if (props.modelValue) { // Only if dialog is open
@@ -93,7 +98,7 @@ const getButtonDisplayName = (key: string): string => {
 };
 
 const canSave = computed(() => {
-  if (selectWifi.value || selectTimezone.value || selectApiKey.value) return true;
+  if (selectWifi.value || selectTimezone.value || selectApiKey.value || selectWidgets.value) return true; // Added widgets
   if (selectMappingsMaster.value) {
     // If master mappings is selected, check if any individual button is selected
     return props.changedButtonKeys.some(key => individualButtonSelections.value[key]);
@@ -115,6 +120,7 @@ const handleConfirmSave = () => {
     applyWifi: selectWifi.value,
     applyTimezone: selectTimezone.value,
     applyApiKey: selectApiKey.value,
+    applyWidgets: selectWidgets.value, // Added widgets
     applyMappings: selectMappingsMaster.value && Object.keys(buttonsToSaveOutput).length > 0,
     buttonsToSave: buttonsToSaveOutput,
   };
@@ -156,6 +162,12 @@ const handleCancel = () => {
           <Checkbox id="selectApiKey" v-model:checked="selectApiKey" />
           <Label for="selectApiKey" :class="{'text-muted-foreground': !props.isApiKeyChanged}">
             API Key <span v-if="props.isApiKeyChanged" class="text-xs text-blue-500">(changed)</span>
+          </Label>
+        </div>
+        <div class="flex items-center space-x-3 pl-2">
+          <Checkbox id="selectWidgets" v-model:checked="selectWidgets" />
+          <Label for="selectWidgets" :class="{'text-muted-foreground': !props.isWidgetsChanged}">
+            Widgets Configuration <span v-if="props.isWidgetsChanged" class="text-xs text-blue-500">(changed)</span>
           </Label>
         </div>
 

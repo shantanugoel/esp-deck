@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
 // import { ref, computed } from 'vue'
 import { deviceService } from '@/services/deviceService'
-import type { FullDeviceConfig, DeviceConnectionInfo, ConfigAction, MappingConfiguration, ConfigActionKeyPress, ConfigActionKeyRelease, ConfigActionMousePress, ConfigActionMouseRelease, ConfigActionMouseMove, ConfigActionMouseWheel, ConfigActionConsumerPress, ConfigActionConsumerRelease, ConfigActionDelay, ConfigActionSendString, ConfigActionSequence } from '@/types/protocol'
+import type { FullDeviceConfig, DeviceConnectionInfo, ConfigAction, MappingConfiguration, ConfigActionKeyPress, ConfigActionKeyRelease, ConfigActionMousePress, ConfigActionMouseRelease, ConfigActionMouseMove, ConfigActionMouseWheel, ConfigActionConsumerPress, ConfigActionConsumerRelease, ConfigActionDelay, ConfigActionSendString, ConfigActionSequence, DeviceSettings } from '@/types/protocol'
 import { useMacroPadConfigStore } from './macroPadConfigStore'
 import { useDeviceSettingsStore } from './deviceSettingsStore'
+import { useWidgetSettings } from '@/composables/useWidgetSettings'
+import type { WidgetsConfigPayload } from '@/types/deviceConfig'
 import { stringToKeyCodes } from '@/keycodes'; // Import for SendString conversion
 
 // Keeping store-specific debug log type, but deviceApi also has its own logs
@@ -191,6 +193,10 @@ export const useDeviceStore = defineStore('device', {
                 this._lastFetchedConfig = JSON.parse(JSON.stringify(response.data)); // Store a deep copy
                 const macroPadStore = useMacroPadConfigStore();
                 const deviceSettingsStore = useDeviceSettingsStore();
+                const widgetSettings = useWidgetSettings();
+
+                // Initialize widgets first
+                widgetSettings.initializeWidgets(response.data);
 
                 // Prepare mappings with converted actions
                 const processedMappings: MappingConfiguration = {};
@@ -274,7 +280,7 @@ export const useDeviceStore = defineStore('device', {
             }
         },
 
-        async saveConfig(configPayload: FullDeviceConfig): Promise<boolean> {
+        async saveConfig(configPayload: Partial<FullDeviceConfig>): Promise<boolean> {
             if (!this.isConnected) {
                 this._addStoreLog('Cannot save config: Not connected.', 'error');
                 return false;
@@ -284,48 +290,75 @@ export const useDeviceStore = defineStore('device', {
             this.isLoading = true;
             this.error = null;
 
-            const payloadForDevice = JSON.parse(JSON.stringify(configPayload));
+            // Create a new object for payloadForDevice to avoid mutating configPayload directly if it's used later
+            const payloadForDevice: Partial<FullDeviceConfig> = {};
 
-            // 1. Convert action structures within mappings (from UI format to device format)
-            if (payloadForDevice.mappings) {
-                for (const buttonIdKey in payloadForDevice.mappings) { // buttonIdKey is "0", "1", etc. (0-based from UI/store)
-                    if (Object.prototype.hasOwnProperty.call(payloadForDevice.mappings, buttonIdKey)) {
-                        const uiActions = payloadForDevice.mappings[buttonIdKey];
+            // Explicitly copy settings if they exist in the partial payload
+            if (configPayload.settings) {
+                payloadForDevice.settings = JSON.parse(JSON.stringify(configPayload.settings)) as DeviceSettings;
+            }
+
+            // Process and copy mappings if they exist
+            if (configPayload.mappings) {
+                const processedMappings: MappingConfiguration = {};
+                for (const buttonIdKey in configPayload.mappings) {
+                    if (Object.prototype.hasOwnProperty.call(configPayload.mappings, buttonIdKey)) {
+                        const uiActions = configPayload.mappings[buttonIdKey];
                         if (Array.isArray(uiActions)) {
-                            payloadForDevice.mappings[buttonIdKey] = uiActions.map(this._convertUiActionToDeviceAction.bind(this));
+                            processedMappings[buttonIdKey] = uiActions.map(this._convertUiActionToDeviceAction.bind(this));
                         }
                     }
                 }
-            }
-
-            // 2. Transform the MAPPING KEYS from 0-based (UI/store) to 1-based (device)
-            if (payloadForDevice.mappings) {
+                // Transform MAPPING KEYS from 0-based (UI/store) to 1-based (device)
                 const deviceKeyedMappings: MappingConfiguration = {};
-                for (const zeroBasedKey in payloadForDevice.mappings) { // zeroBasedKey is "0", "1", etc.
-                    if (Object.prototype.hasOwnProperty.call(payloadForDevice.mappings, zeroBasedKey)) {
+                for (const zeroBasedKey in processedMappings) {
+                    if (Object.prototype.hasOwnProperty.call(processedMappings, zeroBasedKey)) {
                         const numericKey = parseInt(zeroBasedKey, 10);
                         if (!isNaN(numericKey)) {
-                            const oneBasedKey = String(numericKey + 1); // Convert "0" to "1", "1" to "2", etc.
-                            deviceKeyedMappings[oneBasedKey] = payloadForDevice.mappings[zeroBasedKey];
-                            this._addStoreLog(`Mapping key "${zeroBasedKey}" from UI converted to "${oneBasedKey}" for device.`, 'info');
+                            const oneBasedKey = String(numericKey + 1);
+                            deviceKeyedMappings[oneBasedKey] = processedMappings[zeroBasedKey];
+                            // this._addStoreLog(`Mapping key "${zeroBasedKey}" from UI converted to "${oneBasedKey}" for device.`, 'info'); // Optional: reduce log verbosity
                         } else {
-                            // This case should ideally not happen for standard button keys.
-                            // If it does, pass it through but log it, as it might indicate an issue.
-                            deviceKeyedMappings[zeroBasedKey] = payloadForDevice.mappings[zeroBasedKey];
-                            this._addStoreLog(`Non-numeric mapping key "${zeroBasedKey}" encountered during save. Sent as is to device.`, 'info');
+                            deviceKeyedMappings[zeroBasedKey] = processedMappings[zeroBasedKey];
+                            // this._addStoreLog(`Non-numeric mapping key "${zeroBasedKey}" encountered during save. Sent as is to device.`, 'info');
                         }
                     }
                 }
-                payloadForDevice.mappings = deviceKeyedMappings; // Replace with 1-based key mappings
+                payloadForDevice.mappings = deviceKeyedMappings;
             }
 
-            // Note: button_names are Record<number, string> (0-indexed) in UI/store,
-            // and HashMap<usize, String> (0-indexed) on device. No key conversion needed for button_names.
+            // Copy button_names if they exist
+            if (configPayload.button_names) {
+                payloadForDevice.button_names = JSON.parse(JSON.stringify(configPayload.button_names));
+            }
 
-            const response = await deviceService.saveConfig(payloadForDevice);
+            // Copy widgets if they exist
+            if (configPayload.widgets) {
+                payloadForDevice.widgets = JSON.parse(JSON.stringify(configPayload.widgets)) as WidgetsConfigPayload;
+            }
+
+            const response = await deviceService.saveConfig(payloadForDevice as FullDeviceConfig); // Cast to FullDeviceConfig for the service
             if (response.success) {
                 this._addStoreLog('Configuration saved successfully.', 'info');
+                // After successful save, fetch the canonical config from the device
+                // This ensures all stores (including widgets via initializeWidgets in fetchConfig)
+                // are updated with the absolute latest state from the device.
                 await this.fetchConfig();
+
+                // If we called fetchConfig(), it reinitializes widgets and other stores.
+                // So, explicit calls to markAsSaved for individual stores might be redundant if fetchConfig() is comprehensive.
+                // However, if DefaultLayout relies on specific markAsSaved for its own logic (e.g., clearing dirty flags immediately
+                // without waiting for fetchConfig to complete), then we might need a different approach or ensure DefaultLayout
+                // also re-evaluates dirty states after fetchConfig.
+
+                // For now, assuming fetchConfig() handles resetting the state of all dependent stores based on new device data.
+                // If widgetSettings.markWidgetsAsSaved was to be called here, it would be:
+                // if (configPayload.widgets) {
+                //   const widgetSettings = useWidgetSettings();
+                //   widgetSettings.markWidgetsAsSaved(configPayload.widgets as WidgetsConfigPayload);
+                // }
+                // This is now handled by fetchConfig -> initializeWidgets which clears pending changes in useWidgetSettings
+
                 this.isLoading = false;
                 return true;
             } else {

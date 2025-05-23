@@ -85,6 +85,7 @@
       :is-wifi-changed="pendingIsWifiChanged"
       :is-timezone-changed="pendingIsTimezoneChanged"
       :is-api-key-changed="pendingIsApiKeyChanged"
+      :is-widgets-changed="pendingIsWidgetsChanged"
       :changed-button-keys="pendingChangedButtonKeys"
       @confirm-save="executeSaveWithSelection"
     />
@@ -103,12 +104,15 @@ import { useDeviceStore } from '@/stores/deviceStore';
 import { useMacroPadConfigStore } from '@/stores/macroPadConfigStore';
 import { useDeviceSettingsStore } from '@/stores/deviceSettingsStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useWidgetSettings } from '@/composables/useWidgetSettings';
 import type { FullDeviceConfig, MappingConfiguration, DeviceSettings, ConfigAction } from '@/types/protocol';
+import type { WidgetsConfigPayload } from '@/types/deviceConfig';
 
 const deviceStore = useDeviceStore();
 const macroPadStore = useMacroPadConfigStore();
 const deviceSettingsStore = useDeviceSettingsStore();
 const uiStore = useUiStore();
+const widgetSettings = useWidgetSettings();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
@@ -116,6 +120,7 @@ const isConfirmChangesDialogVisible = ref(false);
 const pendingIsWifiChanged = ref(false);
 const pendingIsTimezoneChanged = ref(false);
 const pendingIsApiKeyChanged = ref(false);
+const pendingIsWidgetsChanged = ref(false);
 const pendingChangedButtonKeys = ref<string[]>([]);
 const MAX_BUTTONS = 16;
 
@@ -128,7 +133,7 @@ const handleConnectToggle = () => {
 };
 
 const isSaveRelevant = computed(() => {
-  return deviceSettingsStore.isDirty || macroPadStore.isDirty;
+  return deviceSettingsStore.isDirty || macroPadStore.isDirty || widgetSettings.hasPendingChanges.value;
 });
 
 const handleSaveSettings = async () => {
@@ -137,6 +142,7 @@ const handleSaveSettings = async () => {
   pendingIsWifiChanged.value = deviceSettingsStore.isWifiChanged;
   pendingIsTimezoneChanged.value = deviceSettingsStore.isTimezoneChanged;
   pendingIsApiKeyChanged.value = deviceSettingsStore.isApiKeyChanged;
+  pendingIsWidgetsChanged.value = widgetSettings.hasPendingChanges.value;
   pendingChangedButtonKeys.value = macroPadStore.getChangedButtonKeys;
 
   isConfirmChangesDialogVisible.value = true;
@@ -178,13 +184,20 @@ const executeSaveWithSelection = async (selection: SaveSelection) => {
     }
   }
 
-  const payload: { settings: DeviceSettings; mappings: MappingConfiguration; button_names?: Record<number, string> } = {
+  const payload: { settings: DeviceSettings; mappings: MappingConfiguration; button_names?: Record<number, string>; widgets?: WidgetsConfigPayload } = {
     settings: finalDeviceSettings as DeviceSettings,
     mappings: finalMappingsToSend,
   };
 
   if (finalButtonNamesToSend !== undefined) {
     payload.button_names = finalButtonNamesToSend;
+  }
+
+  if (selection.applyWidgets && widgetSettings.hasPendingChanges.value) {
+    const pendingWidgets = widgetSettings.getPendingWidgetConfigForSave();
+    if (pendingWidgets) {
+      payload.widgets = pendingWidgets as WidgetsConfigPayload;
+    }
   }
 
   console.log("Final payload for save:", JSON.parse(JSON.stringify(payload)));
@@ -204,6 +217,10 @@ const executeSaveWithSelection = async (selection: SaveSelection) => {
       applyAllButtonChanges: selection.applyMappings,
       buttonKeys: savedButtonKeys,
     });
+
+    if (selection.applyWidgets && payload.widgets) {
+      widgetSettings.markWidgetsAsSaved(payload.widgets as WidgetsConfigPayload);
+    }
 
     console.log('Settings saved via dialog, stores selectively marked as saved.');
   } else {

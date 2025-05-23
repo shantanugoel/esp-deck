@@ -87,6 +87,7 @@ export type FullDeviceConfig = {
     settings: DeviceSettings;
     mappings: MappingConfiguration;
     button_names?: Record<number, string> | null; // Corresponds to Option<HashMap<usize, String>>
+    widgets?: Record<string, any | null> | null; // Widget configuration
 };
 
 // Based on Rust's protocol.rs

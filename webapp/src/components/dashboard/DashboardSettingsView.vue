@@ -2,19 +2,6 @@
   <div class="space-y-6 p-4 md:p-6">
     <div class="flex justify-between items-center">
       <h2 class="text-2xl font-semibold">Dashboard Widget Settings</h2>
-      <div class="flex space-x-2">
-        <Button 
-          variant="outline" 
-          @click="discardWidgetChangesHandler"
-          :disabled="!hasPendingChanges || isSaving"
-        >
-          Discard Changes
-        </Button>
-        <Button @click="saveWidgetChangesHandler" :disabled="!hasPendingChanges || isSaving">
-          <Loader2 class="mr-2 h-4 w-4 animate-spin" v-if="isSaving" />
-          Save to Device
-        </Button>
-      </div>
     </div>
 
     <Card>
@@ -22,7 +9,7 @@
         <CardTitle>Manage Widgets</CardTitle>
         <CardDescription>
           Add, edit, or remove widgets that appear on your device's dashboard.
-          Remember to save your changes to the device.
+          Changes will be staged and can be saved via the main "Save Settings" button in the header.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -32,12 +19,12 @@
           </Button>
         </div>
 
-        <div v-if="isLoading" class="flex items-center justify-center py-6">
+        <div v-if="widgetSettings.widgetListForDisplay.value.length === 0 && !widgetSettings.hasPendingChanges.value && !initialLoadAttempted" class="flex items-center justify-center py-6">
           <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
-          <p class="ml-2">Loading widget settings...</p>
+          <p class="ml-2">Loading widget settings from device store...</p>
         </div>
 
-        <template v-else-if="widgetListForDisplay.length > 0">
+        <template v-else-if="widgetSettings.widgetListForDisplay.value.length > 0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -50,7 +37,7 @@
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow v-for="widget in widgetListForDisplay" :key="widget.id">
+              <TableRow v-for="widget in widgetSettings.widgetListForDisplay.value" :key="widget.id">
                 <TableCell>{{ widget.id }}</TableCell>
                 <TableCell class="font-medium">{{ widget.title }}</TableCell>
                 <TableCell>{{ 'Text' in widget.kind ? 'Text' : 'Image' }}</TableCell>
@@ -117,7 +104,8 @@
             <div class="flex items-center space-x-2 mb-2">
               <Checkbox 
                 id="widget-is-json" 
-                v-model="widgetForm.isJson" 
+                :checked="widgetForm.isJson" 
+                @update:checked="widgetForm.isJson = $event"
               />
               <Label for="widget-is-json">Response is JSON</Label>
             </div>
@@ -151,9 +139,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive, computed } from 'vue';
+import { ref, watch, reactive, computed, onMounted } from 'vue';
 import { useWidgetSettings } from '@/composables/useWidgetSettings';
-import type { WidgetFormState, WidgetItemConfigFE } from '@/types/deviceConfig';
+import type { WidgetFormState } from '@/types/deviceConfig';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -170,30 +158,20 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, PlusCircle, Pencil, Trash2 } from 'lucide-vue-next';
-// Ensure useToast is set up or placeholder is used in composable
-// import { useToast } from '@/components/ui/toast/use-toast';
 
-const {
-  isLoading,
-  isSaving,
-  widgetListForDisplay,
-  hasPendingChanges,
-  loadDeviceConfig,
-  addWidget,
-  updateWidget,
-  deleteWidget,
-  saveWidgetChanges,
-  discardWidgetChanges,
-  convertWidgetItemToForm,
-  getNextWidgetId,
-  displayWidgets, // Used to get widget for editing
-} = useWidgetSettings();
-
-// const { toast } = useToast(); // If using toast directly here
-const toast = (options: any) => { // Placeholder toast if not using global
+const toast = (options: any) => { 
     console.log('Toast:', options.title, options.description);
     if (options.variant === 'destructive') console.error('Error Toast:', options.title, options.description);
   };
+
+const widgetSettings = useWidgetSettings();
+const initialLoadAttempted = ref(false);
+
+onMounted(() => {
+  setTimeout(() => {
+    initialLoadAttempted.value = true;
+  }, 200);
+});
 
 const isDialogVisible = ref(false);
 const editingWidgetId = ref<number | null>(null);
@@ -209,16 +187,11 @@ const initialFormState: WidgetFormState = {
 };
 const widgetForm = reactive<WidgetFormState>({ ...initialFormState });
 
-// Computed property to interface with v-model for jsonPointer
 const formJsonPointer = computed({
   get: () => widgetForm.jsonPointer === null ? undefined : widgetForm.jsonPointer,
   set: (val) => {
     widgetForm.jsonPointer = val === undefined || val === '' ? null : val;
   }
-});
-
-onMounted(() => {
-  loadDeviceConfig();
 });
 
 const resetForm = () => {
@@ -227,32 +200,27 @@ const resetForm = () => {
 };
 
 const onWidgetTypeChange = (newType: string) => {
-  // Validate and cast the input from RadioGroup
   if (newType === 'Text' || newType === 'Image') {
-    widgetForm.type = newType as 'Text' | 'Image'; // Cast to the specific union type
+    widgetForm.type = newType as 'Text' | 'Image';
     if (widgetForm.type === 'Image') {
       widgetForm.isJson = false;
       widgetForm.jsonPointer = null;
     }
   } else {
-    // Handle unexpected value if necessary, though RadioGroup should limit to defined values
     console.warn('Unexpected widget type from RadioGroup:', newType);
-    // Optionally reset to a default or handle error
-    widgetForm.type = 'Text'; // Default fallback
+    widgetForm.type = 'Text';
   }
 };
 
 const openAddWidgetDialog = () => {
   resetForm();
-  widgetForm.id = null; // Explicitly for clarity, though resetForm does it
   isDialogVisible.value = true;
 };
 
 const openEditWidgetDialog = (widgetId: number) => {
-  // Find from displayWidgets as it reflects pending changes too
-  const widgetToEdit = displayWidgets.value[widgetId];
+  const widgetToEdit = widgetSettings.displayWidgets.value[widgetId];
   if (widgetToEdit) {
-    const formValues = convertWidgetItemToForm(widgetId, widgetToEdit);
+    const formValues = widgetSettings.convertWidgetItemToForm(widgetId, widgetToEdit);
     Object.assign(widgetForm, formValues);
     editingWidgetId.value = widgetId;
     isDialogVisible.value = true;
@@ -268,39 +236,26 @@ const closeDialog = () => {
 
 const handleFormSubmit = () => {
   if (editingWidgetId.value !== null) {
-    // Update existing widget
-    const success = updateWidget(editingWidgetId.value, { ...widgetForm });
+    const success = widgetSettings.updateWidget(editingWidgetId.value, { ...widgetForm });
     if (success) closeDialog();
   } else {
-    // Add new widget
-    const success = addWidget({ ...widgetForm });
+    const success = widgetSettings.addWidget({ ...widgetForm });
     if (success) closeDialog();
   }
-  // Changes are staged; user still needs to click "Save to Device"
 };
 
 const deleteWidgetHandler = (id: number) => {
-  // Optional: Add a confirmation dialog here
-  deleteWidget(id);
-  // Widget is now marked for deletion, user needs to save.
+  widgetSettings.deleteWidget(id);
 };
 
-const saveWidgetChangesHandler = async () => {
-  await saveWidgetChanges();
-  // State should be reloaded within saveWidgetChanges, pending changes cleared.
-};
-
-const discardWidgetChangesHandler = () => {
-  discardWidgetChanges();
-};
-
-// Watch for dialog close to reset form if it wasn't submitted
 watch(isDialogVisible, (newValue) => {
   if (!newValue) {
-    // Ensure form is reset if dialog is closed via overlay click or Esc key
-    // but only if it wasn't a successful submit (which calls closeDialog -> resetForm)
-    // This check might be tricky; for simplicity, resetForm is often called in closeDialog directly.
-    // If a submit didn't happen, resetForm() hasn't been called yet via handleFormSubmit -> closeDialog.
+  }
+});
+
+watch(() => widgetForm.isJson, (isJson) => {
+  if (!isJson) {
+    widgetForm.jsonPointer = null;
   }
 });
 
