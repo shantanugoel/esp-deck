@@ -36,14 +36,19 @@ pub struct WidgetItemConfig {
     pub update_interval_seconds: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)] // Note: PartialEq removed as Option<WidgetItemConfig> makes it harder if not needed for direct comparison of DeviceConfig
 pub struct DeviceConfig {
     pub settings: DeviceSettings,
     pub mappings: MappingConfiguration,
-    // Custom deserializer because JS sends strings for the keys
     #[serde(default, deserialize_with = "deserialize_usize_key_map")]
     pub button_names: Option<HashMap<usize, String>>,
-    pub widgets: Option<HashMap<usize, WidgetItemConfig>>,
+    // This field will hold Option<WidgetItemConfig> during deserialization and in-memory representation if needed.
+    // For serialization to disk (config.json), we will ensure only Some(WidgetItemConfig) are written.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_usize_optional_widget_item_map"
+    )]
+    pub widgets: Option<HashMap<usize, Option<WidgetItemConfig>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -108,9 +113,8 @@ impl Configurator {
         {
             button_names.insert(i, name.to_string());
         }
-        // TODO: Remove this once we have a real default widget
-        let mut default_widgets = HashMap::new();
-        default_widgets.insert(
+        let mut default_widgets_map = HashMap::new();
+        default_widgets_map.insert(
             0,
             WidgetItemConfig {
                 title: "Widget 1".to_string(),
@@ -122,7 +126,7 @@ impl Configurator {
                 update_interval_seconds: 5,
             },
         );
-        default_widgets.insert(
+        default_widgets_map.insert(
             1,
             WidgetItemConfig {
                 title: "Widget 2".to_string(),
@@ -132,11 +136,18 @@ impl Configurator {
                 update_interval_seconds: 60,
             },
         );
+        // Convert to HashMap<usize, Option<WidgetItemConfig>> for DeviceConfig.widgets
+        let default_widgets_with_options: HashMap<usize, Option<WidgetItemConfig>> =
+            default_widgets_map
+                .into_iter()
+                .map(|(k, v)| (k, Some(v)))
+                .collect();
+
         let default_config = DeviceConfig {
             settings: DeviceSettings::default(),
             mappings: crate::mapper::Mapper::load_default_config(),
             button_names: Some(button_names),
-            widgets: Some(default_widgets),
+            widgets: Some(default_widgets_with_options),
         };
         log::info!("Creating default configuration file at {}", config_path);
 
@@ -170,23 +181,65 @@ impl Configurator {
 
     pub fn save(
         &self,
-        config: &DeviceConfig,
+        config_to_save_from_request: &DeviceConfig, // This has widgets: Option<HashMap<usize, Option<WidgetItemConfig>>>
         config_updated_for: &mut ConfigUpdatedFor,
     ) -> Result<()> {
         log::info!("Updating configuration");
 
-        // Save the new config
-        let mut old_config = match self.config_data.lock() {
-            Ok(guard) => guard,
-            Err(e) => {
-                log::error!("Failed to lock config_data: {}", e);
-                return Err(anyhow::anyhow!("Failed to lock config_data: {}", e));
-            }
-        };
-        Self::merge_configs(&mut old_config, config, config_updated_for);
-        let json_data = serde_json::to_vec_pretty(&old_config.clone())?;
+        let mut current_config_guard = self.config_data.lock().map_err(|e| {
+            log::error!("Failed to lock config_data: {}", e);
+            anyhow::anyhow!("Failed to lock config_data: {}", e)
+        })?;
 
-        // Backup the existing config file
+        // Clone current config to a mutable version that will be modified by merge_configs
+        let mut merged_config_state = current_config_guard.clone();
+
+        // Perform the merge. merged_config_state.widgets will be Option<HashMap<usize, Option<WidgetItemConfig>>>
+        Self::merge_configs(
+            &mut merged_config_state,
+            config_to_save_from_request,
+            config_updated_for,
+        );
+
+        // Prepare a version for serialization: filter out None widget items.
+        // The struct to be serialized should have widgets: Option<HashMap<usize, WidgetItemConfig>>
+        #[derive(Serialize)]
+        struct DeviceConfigToSerialize<'a> {
+            settings: &'a DeviceSettings,
+            mappings: &'a MappingConfiguration,
+            button_names: &'a Option<HashMap<usize, String>>,
+            widgets: Option<HashMap<usize, WidgetItemConfig>>,
+        }
+
+        let widgets_to_serialize: Option<HashMap<usize, WidgetItemConfig>> = merged_config_state
+            .widgets
+            .as_ref()
+            .map(|widgets_map_with_options| {
+                widgets_map_with_options
+                    .iter()
+                    .filter_map(|(k, opt_v)| opt_v.as_ref().map(|v| (*k, v.clone())))
+                    .collect::<HashMap<usize, WidgetItemConfig>>()
+            })
+            // Ensure an empty map is Some(HashMap::new()) rather than None if there were entries that all became None.
+            // However, if the original map was None, or became empty after filtering, it should stay None or Some(empty).
+            // The .collect() above will produce an empty HashMap if all items are None.
+            // We need to handle if this collected map is empty, should it be None or Some(empty_map)?
+            // If it's empty, let's make it None for cleaner JSON, unless an empty map `widgets: {}` is preferred over `widgets: null`.
+            // The current logic in merge_configs (if target_map.values().all(Option::is_none)) already sets merged_config_state.widgets to None.
+            // So, if merged_config_state.widgets is Some(empty_map_of_options), this map will result in Some(empty_map_of_items).
+            // If merged_config_state.widgets is None, this will be None.
+            .and_then(|map| if map.is_empty() { None } else { Some(map) });
+
+        let config_for_serialization = DeviceConfigToSerialize {
+            settings: &merged_config_state.settings,
+            mappings: &merged_config_state.mappings,
+            button_names: &merged_config_state.button_names,
+            widgets: widgets_to_serialize,
+        };
+
+        let json_data = serde_json::to_vec_pretty(&config_for_serialization)?;
+
+        // Backup existing config
         let config_path = std::path::Path::new(&self.config_path);
         if config_path.exists() {
             log::info!("Backing up existing config file");
@@ -199,10 +252,13 @@ impl Configurator {
             log::warn!("Config file not found, skipping backup");
         }
 
+        // Write the new config
         match std::fs::File::create(&self.config_path) {
             Ok(mut file) => {
                 file.write_all(&json_data)?;
                 log::info!("Configuration updated successfully.");
+                // Update the in-memory state AFTER successful save
+                *current_config_guard = merged_config_state;
                 Ok(())
             }
             Err(e) => {
@@ -213,8 +269,8 @@ impl Configurator {
     }
 
     fn merge_configs(
-        old_config: &mut DeviceConfig,
-        new_config: &DeviceConfig,
+        old_config: &mut DeviceConfig, // old_config.widgets is Option<HashMap<usize, Option<WidgetItemConfig>>>
+        new_config: &DeviceConfig, // new_config.widgets is Option<HashMap<usize, Option<WidgetItemConfig>>>
         config_updated_for: &mut ConfigUpdatedFor,
     ) {
         if let Some(new_wifi) = &new_config.settings.wifi {
@@ -237,12 +293,11 @@ impl Configurator {
             if old_config.mappings.contains_key(key) {
                 old_config.mappings.insert(key.clone(), new_actions.clone());
             } else {
-                log::warn!("Key {} not found in old config, skipping", key);
+                log::warn!("Key {} not found in old config for mappings, skipping", key);
             }
             config_updated_for.mappings = true;
         }
 
-        // Merge button_names as a map, only update provided keys
         if let Some(new_names) = &new_config.button_names {
             let old_names = old_config.button_names.get_or_insert_with(HashMap::new);
             for (&idx, name) in new_names {
@@ -255,10 +310,28 @@ impl Configurator {
             }
             config_updated_for.button_names = true;
         }
-        if let Some(new_widgets) = &new_config.widgets {
-            let old_widgets = old_config.widgets.get_or_insert_with(HashMap::new);
-            for (key, value) in new_widgets {
-                old_widgets.insert(*key, value.clone());
+
+        // Handle widget updates: add, update, or delete (if value is None)
+        if let Some(incoming_widgets_map) = &new_config.widgets {
+            // incoming_widgets_map is &HashMap<usize, Option<WidgetItemConfig>>
+            let target_map = old_config.widgets.get_or_insert_with(HashMap::new); // target_map is &mut HashMap<usize, Option<WidgetItemConfig>>
+
+            for (key, optional_widget_item_config) in incoming_widgets_map {
+                if let Some(widget_item_config) = optional_widget_item_config {
+                    // Add or update: insert Some(widget_item_config)
+                    target_map.insert(*key, Some(widget_item_config.clone()));
+                } else {
+                    // Value is None from incoming, signifies deletion. We remove the key.
+                    // Or, if we want to represent deletion with Some(None) in target_map temporarily before save,
+                    // we could do target_map.insert(*key, None); but removing is cleaner if the final saved state doesn't have nulls.
+                    // Let's stick to inserting None to explicitly mark it, and filter on save.
+                    target_map.insert(*key, None);
+                }
+            }
+            // If after operations the map contains only None values or is empty, we might set old_config.widgets to None.
+            // For now, let it be Some(map_with_potential_nones). Filtering happens at serialization for save.
+            if target_map.is_empty() || target_map.values().all(Option::is_none) {
+                old_config.widgets = None; // Or Some(empty_map) if we prefer that over None for the outer Option
             }
             config_updated_for.widgets = true;
         }
@@ -285,13 +358,10 @@ impl Configurator {
     }
 
     pub fn get_config(&self) -> Result<DeviceConfig> {
-        let config = match self.config_data.lock() {
-            Ok(guard) => guard,
-            Err(e) => {
-                log::error!("Failed to lock config_data: {}", e);
-                return Err(anyhow::anyhow!("Failed to lock config_data: {}", e));
-            }
-        };
+        let config = self.config_data.lock().map_err(|e| {
+            log::error!("Failed to lock config_data: {}", e);
+            anyhow::anyhow!("Failed to lock config_data: {}", e)
+        })?;
         Ok(config.clone())
     }
 
@@ -321,8 +391,21 @@ impl Configurator {
     }
 
     pub fn get_widgets(&self) -> Option<HashMap<usize, WidgetItemConfig>> {
-        let config = self.config_data.lock().ok()?;
-        config.widgets.clone()
+        let config_guard = self.config_data.lock().ok()?;
+        config_guard
+            .widgets
+            .as_ref()
+            .and_then(|widgets_map_with_options| {
+                let cleaned_map: HashMap<usize, WidgetItemConfig> = widgets_map_with_options
+                    .iter()
+                    .filter_map(|(k, opt_v)| opt_v.as_ref().map(|v| (*k, v.clone())))
+                    .collect();
+                if cleaned_map.is_empty() {
+                    None
+                } else {
+                    Some(cleaned_map)
+                }
+            })
     }
 }
 
@@ -346,5 +429,36 @@ where
             })
             .collect();
         converted.map(Some)
+    }
+}
+
+// Custom deserializer for HashMap<usize, Option<WidgetItemConfig>>
+fn deserialize_usize_optional_widget_item_map<'de, D>(
+    deserializer: D,
+) -> Result<Option<HashMap<usize, Option<WidgetItemConfig>>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    // Deserialize into HashMap<String, Option<WidgetItemConfig>> first
+    let map_str_keys: Option<HashMap<String, Option<WidgetItemConfig>>> =
+        Option::deserialize(deserializer)?;
+
+    match map_str_keys {
+        Some(m) => {
+            if m.is_empty() {
+                Ok(None) // Keep it as None if the map is empty after deserialization
+            } else {
+                let converted_map: Result<HashMap<usize, Option<WidgetItemConfig>>, _> = m
+                    .into_iter()
+                    .map(|(k, v)| {
+                        k.parse::<usize>()
+                            .map_err(|_| de::Error::custom(format!("invalid usize key: {}", k)))
+                            .map(|num_key| (num_key, v))
+                    })
+                    .collect();
+                converted_map.map(Some)
+            }
+        }
+        None => Ok(None), // If the whole 'widgets' field was null or not present
     }
 }

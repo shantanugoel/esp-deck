@@ -4,6 +4,7 @@
     "": {
       "name": "webapp",
       "dependencies": {
+        "@tanstack/vue-table": "^8.21.3",
         "@vueuse/core": "^13.2.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -188,7 +189,11 @@
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.1.6", "", { "dependencies": { "@tailwindcss/node": "4.1.6", "@tailwindcss/oxide": "4.1.6", "tailwindcss": "4.1.6" }, "peerDependencies": { "vite": "^5.2.0 || ^6" } }, "sha512-zjtqjDeY1w3g2beYQtrMAf51n5G7o+UwmyOjtsDMP7t6XyoRMOidcoKP32ps7AkNOHIXEOK0bhIC05dj8oJp4w=="],
 
+    "@tanstack/table-core": ["@tanstack/table-core@8.21.3", "", {}, "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg=="],
+
     "@tanstack/virtual-core": ["@tanstack/virtual-core@3.13.8", "", {}, "sha512-BT6w89Hqy7YKaWewYzmecXQzcJh6HTBbKYJIIkMaNU49DZ06LoTV3z32DWWEdUsgW6n1xTmwTLs4GtWrZC261w=="],
+
+    "@tanstack/vue-table": ["@tanstack/vue-table@8.21.3", "", { "dependencies": { "@tanstack/table-core": "8.21.3" }, "peerDependencies": { "vue": ">=3.2" } }, "sha512-rusRyd77c5tDPloPskctMyPLFEQUeBzxdQ+2Eow4F7gDPlPOB1UnnhzfpdvqZ8ZyX2rRNGmqNnQWm87OI2OQPw=="],
 
     "@tanstack/vue-virtual": ["@tanstack/vue-virtual@3.13.8", "", { "dependencies": { "@tanstack/virtual-core": "3.13.8" }, "peerDependencies": { "vue": "^2.7.0 || ^3.0.0" } }, "sha512-CqyjKVc88YlE8JPth8a5Gi4CUoYrwJ2PZxtFbhoekx8Z2qqymxX2jzkbUMKFsX4EVNET90D5bLsG3epyozbzcg=="],
 

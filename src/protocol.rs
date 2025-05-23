@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 //Major version: 1, Minor version: 0
 const PROTOCOL_VERSION: u32 = 0x00010000;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ProtocolHeader {
     pub version: u32,
     #[serde(rename = "correlationId", skip_serializing_if = "Option::is_none")]
@@ -17,7 +17,7 @@ pub struct ProtocolHeader {
 
 // Commands
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Command {
     GetConfig(GetConfigCommand),
@@ -26,43 +26,43 @@ pub enum Command {
     Reboot(RebootCommand),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetConfigCommand {
     pub header: ProtocolHeader,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetConfigCommand {
     pub header: ProtocolHeader,
     pub config: DeviceConfig,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ResetConfigCommand {
     pub header: ProtocolHeader,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RebootCommand {
     pub header: ProtocolHeader,
 }
 
 // Responses
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Response {
     Config(GetConfigResponse),
     Error(ErrorResponse),
     Ack(AckResponse),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetConfigResponse {
     pub header: ProtocolHeader,
     pub config: DeviceConfig,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ErrorResponse {
     pub header: ProtocolHeader,
     pub message: String,
@@ -70,7 +70,7 @@ pub struct ErrorResponse {
     pub error_code: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AckResponse {
     pub header: ProtocolHeader,
     pub message: String,
