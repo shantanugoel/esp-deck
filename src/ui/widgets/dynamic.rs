@@ -100,22 +100,46 @@ fn fetch_and_process_image(
     pool: &HttpClientPool,
     url: &str,
 ) -> Result<SharedPixelBuffer<Rgb8Pixel>> {
-    match image::load_from_memory(pool.get_bytes(url)?.as_slice()) {
-        Ok(image) => {
-            // If image is larger than 100x100, resize it to 100x100
-            let image = if image.width() > 100 || image.height() > 100 {
-                image.resize(100, 100, image::imageops::FilterType::Nearest)
-            } else {
-                image
-            };
-            log::info!("Image size: {}x{}", image.width(), image.height());
-            let shared_image = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
-                image.to_rgb8().into_raw().as_slice(),
-                image.width(),
-                image.height(),
-            );
-            Ok(shared_image)
+    let image_data_result = pool.get_bytes(url);
+
+    match image_data_result {
+        Ok(bytes) => {
+            log::info!("Image data size: {} bytes", bytes.len());
+            match image::load_from_memory(bytes.as_slice()) {
+                Ok(image) => {
+                    log::info!("Free heap after load_from_memory (Ok): {}", unsafe {
+                        esp_idf_svc::sys::esp_get_free_heap_size()
+                    });
+                    log::info!(
+                        "Original image dimensions: {}x{}",
+                        image.width(),
+                        image.height()
+                    );
+                    let image = if image.width() > 100 || image.height() > 100 {
+                        log::info!("Resizing image to 100x100");
+                        image.resize(100, 100, image::imageops::FilterType::Nearest)
+                    } else {
+                        image
+                    };
+                    log::info!("Free heap after resize: {}", unsafe {
+                        esp_idf_svc::sys::esp_get_free_heap_size()
+                    });
+                    let shared_image = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+                        image.to_rgb8().into_raw().as_slice(),
+                        image.width(),
+                        image.height(),
+                    );
+                    Ok(shared_image)
+                }
+                Err(e) => {
+                    log::error!("Failed to decode image (load_from_memory error): {}", e);
+                    Err(anyhow::anyhow!("Failed to decode image: {}", e))
+                }
+            }
         }
-        Err(e) => Err(anyhow::anyhow!("Failed to decode image: {}", e)),
+        Err(e) => {
+            log::error!("Failed to get_bytes: {}", e);
+            Err(e)
+        }
     }
 }
