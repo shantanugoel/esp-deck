@@ -104,8 +104,7 @@
             <div class="flex items-center space-x-2 mb-2">
               <Checkbox 
                 id="widget-is-json" 
-                :checked="widgetForm.isJson" 
-                @update:checked="widgetForm.isJson = $event"
+                v-model="widgetForm.isJson" 
               />
               <Label for="widget-is-json">Response is JSON</Label>
             </div>
