@@ -257,7 +257,7 @@ impl Configurator {
         if let Some(new_widgets) = &new_config.widgets {
             let old_widgets = old_config.widgets.get_or_insert_with(HashMap::new);
             for (key, value) in new_widgets {
-                old_widgets.insert(key.clone(), value.clone());
+                old_widgets.insert(*key, value.clone());
             }
             config_updated_for.widgets = true;
         }

@@ -81,7 +81,7 @@ impl HttpClientPool {
     pub fn get(&self, url: &str) -> Result<String> {
         match self.get_bytes(url) {
             Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
-            Err(e) => Err(anyhow::Error::from(e)),
+            Err(e) => Err(e),
         }
     }
 
@@ -95,7 +95,7 @@ impl HttpClientPool {
         match rx.recv() {
             Ok(result) => match result {
                 Ok(bytes) => Ok(bytes),
-                Err(e) => Err(anyhow::Error::from(e)),
+                Err(e) => Err(e),
             },
             Err(e) => Err(anyhow::Error::from(e)),
         }

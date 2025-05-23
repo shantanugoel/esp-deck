@@ -19,9 +19,11 @@ pub fn start_widget_service(
     if let Some(widgets) = widgets {
         let model = Rc::new(VecModel::<WidgetItem>::from(Vec::new()));
         for (id, widget) in widgets {
-            let mut widget_item = WidgetItem::default();
-            widget_item.title = SharedString::from(widget.title.clone());
-            widget_item.id = id as i32;
+            let mut widget_item = WidgetItem {
+                title: SharedString::from(widget.title.clone()),
+                id: id as i32,
+                ..Default::default()
+            };
             match widget.kind {
                 WidgetKindConfig::Text(_) => {
                     widget_item.value.kind = WidgetKind::Text;
@@ -70,7 +72,7 @@ fn display_widget(
     let mut widget_item = model.row_data(0).unwrap();
     match widget.kind.clone() {
         WidgetKindConfig::Text(value) => {
-            let text = fetch_and_process_text(&http_pool, &value);
+            let text = fetch_and_process_text(http_pool, &value);
             if let Ok(text) = text {
                 widget_item.value.value_string = text;
             } else {
@@ -78,7 +80,7 @@ fn display_widget(
             }
         }
         WidgetKindConfig::Image(value) => {
-            let image = fetch_and_process_image(&http_pool, &value);
+            let image = fetch_and_process_image(http_pool, &value);
             if let Ok(image) = image {
                 widget_item.value.value_image = Image::from_rgb8(image);
             } else {
