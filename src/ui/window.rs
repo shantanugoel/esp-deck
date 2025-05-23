@@ -183,13 +183,13 @@ fn handle_events(
         }
 
         // Now that we are here, let's also log the free heap and minimum free heap
-        let free_heap = unsafe { esp_idf_svc::sys::esp_get_free_heap_size() };
-        let min_free_heap = unsafe { esp_idf_svc::sys::esp_get_minimum_free_heap_size() };
-        log::info!(
-            "Free heap: {}kB, Min free heap: {}kB",
-            free_heap / 1024,
-            min_free_heap / 1024
-        );
+        // let free_heap = unsafe { esp_idf_svc::sys::esp_get_free_heap_size() };
+        // let min_free_heap = unsafe { esp_idf_svc::sys::esp_get_minimum_free_heap_size() };
+        // log::info!(
+        //     "Free heap: {}kB, Min free heap: {}kB",
+        //     free_heap / 1024,
+        //     min_free_heap / 1024
+        // );
         // window.set_free_heap(SharedString::from(format!("{}kB", free_heap / 1024)));
         // window.set_min_free_heap(SharedString::from(format!("{}kB", min_free_heap / 1024)));
     }
