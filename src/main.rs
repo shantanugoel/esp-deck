@@ -253,7 +253,6 @@ fn main() -> anyhow::Result<()> {
     let _ = button_pin.set_pull(Pull::Up);
     let mut toggle_busy = false;
     thread::spawn(move || loop {
-        log::info!("Button state: {}", button_pin.is_high());
         thread::sleep(std::time::Duration::from_millis(200));
         if !button_pin.is_high() {
             let user_status_update = if toggle_busy {
