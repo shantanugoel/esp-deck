@@ -79,17 +79,8 @@ impl HttpClientPool {
     }
 
     pub fn get(&self, url: &str) -> Result<String> {
-        let (tx, rx) = channel();
-        let req = HttpRequest {
-            url: url.to_string(),
-            response_tx: tx,
-        };
-        self.request_tx.send(req).unwrap();
-        match rx.recv() {
-            Ok(result) => match result {
-                Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
-                Err(e) => Err(anyhow::Error::from(e)),
-            },
+        match self.get_bytes(url) {
+            Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
             Err(e) => Err(anyhow::Error::from(e)),
         }
     }
