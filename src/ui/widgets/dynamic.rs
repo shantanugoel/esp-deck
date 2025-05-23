@@ -128,8 +128,8 @@ fn fetch_and_process_text(
         text
     };
 
-    let final_text = if processed_text.len() > 100 {
-        processed_text[0..100].to_string()
+    let final_text = if processed_text.len() > 250 {
+        processed_text[0..250].to_string()
     } else {
         processed_text
     };
