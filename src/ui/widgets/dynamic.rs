@@ -47,7 +47,7 @@ pub fn start_widget_service(
                 let widget_clone = widget.clone();
                 let http_pool_clone_2 = http_pool_clone.clone();
                 let timer_first_tick = Timer::default();
-                timer_first_tick.start(TimerMode::SingleShot, Duration::from_secs(10), move || {
+                timer_first_tick.start(TimerMode::SingleShot, Duration::from_secs(15), move || {
                     display_widget(
                         &window_clone_2,
                         id as i32,
@@ -55,6 +55,7 @@ pub fn start_widget_service(
                         &http_pool_clone_2,
                     );
                 });
+                Box::leak(Box::new(timer_first_tick));
             }
 
             timer.start(
