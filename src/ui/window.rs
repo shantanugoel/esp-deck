@@ -168,6 +168,24 @@ fn handle_events(
                     // Return None since we don't want to add this to the UI logs
                     Some(SharedString::from(&status))
                 }
+                AppEvent::ServerWidgetUpdate(data) => match data.id {
+                    1 => {
+                        window.set_server_widget_2_title(SharedString::from(&data.title));
+                        window.set_server_widget_2_value(SharedString::from(&data.value));
+                        Some(SharedString::from("Updated Server Widget 1"))
+                    }
+                    2 => {
+                        window.set_server_widget_3_title(SharedString::from(&data.title));
+                        window.set_server_widget_3_value(SharedString::from(&data.value));
+                        Some(SharedString::from("Updated Server Widget 2"))
+                    }
+                    _ => {
+                        log::error!("Unknown server widget id: {}", data.id);
+                        Some(SharedString::from(
+                            "Received request for unknown server widget id",
+                        ))
+                    }
+                },
                 _ => {
                     log::info!("Unknown event: {:?}", event);
                     None

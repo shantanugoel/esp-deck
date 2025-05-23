@@ -1,4 +1,4 @@
-use crate::events::AppEvent;
+use crate::events::{AppEvent, ServerWidgetData};
 use anyhow::Result;
 use embedded_svc::http::Headers;
 use esp_idf_svc::{
@@ -15,7 +15,8 @@ pub fn register_all_http_handlers(
     ui_tx: Sender<AppEvent>,
     api_key: Option<String>,
 ) -> anyhow::Result<()> {
-    register_user_status_handler(server, ui_tx, api_key)?;
+    register_user_status_handler(server, ui_tx.clone(), api_key.clone())?;
+    register_server_widget_handler(server, ui_tx.clone(), api_key.clone())?;
     Ok(())
 }
 
@@ -135,6 +136,45 @@ fn register_user_status_handler(
                 .into_status_response(400)?
                 .write_all(b"Missing 'text' field")
         }
+    })?;
+    Ok(())
+}
+
+fn register_server_widget_handler(
+    server: &mut EspHttpServer,
+    ui_tx: Sender<AppEvent>,
+    configured_api_key: Option<String>,
+) -> Result<()> {
+    server.fn_handler("/server-widget", Method::Post, move |mut request| {
+        // Use the new authentication function
+        if !authenticate_request(&configured_api_key, &get_request_api_key(&request)) {
+            return request
+                .into_status_response(403)?
+                .write_all(b"Invalid API Key");
+        }
+
+        let content_len = request.content_len().map(|v| v as usize);
+        let body = match read_body(&mut request, MAX_BODY_SIZE, content_len) {
+            Ok(b) => b,
+            Err(e) => {
+                return request
+                    .into_status_response(413)?
+                    .write_all(format!("Request body error: {e}").as_bytes());
+            }
+        };
+
+        let server_widget_data = match serde_json::from_slice::<ServerWidgetData>(&body) {
+            Ok(val) => val,
+            Err(_) => ServerWidgetData {
+                id: 0,
+                title: "".to_string(),
+                value: "".to_string(),
+            },
+        };
+        ui_tx
+            .send(AppEvent::ServerWidgetUpdate(server_widget_data))
+            .ok();
+        request.into_ok_response()?.write_all(b"OK")
     })?;
     Ok(())
 }

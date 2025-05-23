@@ -3,6 +3,7 @@ use crate::{
     http_handlers::UserStatus,
     mapper::MappingConfiguration,
 };
+use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
@@ -39,6 +40,13 @@ pub enum UsbStatus {
     Error(String),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerWidgetData {
+    pub id: i32,
+    pub title: String,
+    pub value: String,
+}
+
 #[derive(Debug, Clone)]
 pub enum AppEvent {
     WifiUpdate(WifiStatus),
@@ -49,6 +57,7 @@ pub enum AppEvent {
     MappingUpdated(MappingConfiguration),
     UserStatusUpdate(UserStatus),
     HttpServerUpdate(String),
+    ServerWidgetUpdate(ServerWidgetData),
 }
 
 // Represents a single primitive HID action or delay
